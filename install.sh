@@ -141,5 +141,8 @@ if [ -n "${SALT_NO_START:-}" ] || [ ! -t 1 ]; then
   exit 0
 fi
 
-printf '  %sStarting it now. Ctrl-C stops it; run salt again any time.%s\n\n' "$d" "$r"
+# No "starting it now" line: the server's own "listening on" line arrives a
+# breath later and says it better. What a person actually needs here is the way
+# back out, and how to get it running again tomorrow.
+printf '  %sCtrl-C stops it. Run%s salt %sto start it again.%s\n\n' "$d" "$r" "$d" "$r"
 exec "$bindir/salt"
