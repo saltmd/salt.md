@@ -3,14 +3,15 @@ import type {
   ApiToken,
   Backlink,
   BlueprintEntry,
-  OAuthGrant,
   CollectionConfig,
   Me,
+  OAuthGrant,
   Page,
   PageMeta,
   PublicFormConfig,
   SaltFile,
   SearchResult,
+  UpdateInfo,
   User,
   Webhook,
   Workspace,
@@ -133,6 +134,9 @@ export const api = {
     }>('/api/settings'),
   mailTest: () => req<{ ok: boolean; to: string }>('/api/admin/mail-test', { method: 'POST', body: '{}' }),
   mailDisconnect: () => req<{ ok: boolean }>('/api/admin/mail-oauth/disconnect', { method: 'POST', body: '{}' }),
+  /** Admin-only, and 403 for everybody else — the banner treats that refusal as
+   *  "nothing to show" rather than as an error. */
+  update: () => req<UpdateInfo>('/api/update'),
   adminInfo: () =>
     req<{
       version: string;

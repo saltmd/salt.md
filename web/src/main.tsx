@@ -14,6 +14,7 @@ import App from './App';
 import { installRingHover } from './ring';
 import { initLocale, useLocale } from './i18n';
 import ErrorBoundary from './components/ErrorBoundary';
+import UpdateBanner from './components/UpdateBanner';
 
 installRingHover();
 
@@ -30,6 +31,10 @@ function Root() {
   return (
     <ErrorBoundary key={locale}>
       <App />
+      {/* Outside App on purpose: app-wide chrome that fetches its own data, so
+          it needs nothing from App's state — and App.tsx is what a wiki
+          screenshot is stamped against, which this way stays untouched. */}
+      <UpdateBanner />
     </ErrorBoundary>
   );
 }

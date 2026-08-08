@@ -98,6 +98,9 @@ func (s *Server) runCleanup() {
 	s.loginRate.evict()
 	s.tokenRate.evict()
 	s.sweepOAuth()
+	// Once a day at most, and it returns immediately on the other 47 ticks.
+	// Inline rather than in its own goroutine so it cannot outlive shutdown.
+	s.checkForUpdate()
 	if days := s.trashRetentionDays(); days > 0 {
 		cutoff := time.Now().UTC().AddDate(0, 0, -days).Format(time.RFC3339Nano)
 		s.db.Exec(`DELETE FROM pages WHERE trashed_at IS NOT NULL AND trashed_at < ?`, cutoff)

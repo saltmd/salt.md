@@ -319,3 +319,15 @@ export interface OAuthGrant {
   lastUsedAt: string | null;
   lastUsedIp: string;
 }
+
+/** What GET /api/update answers. Admins only — a member's browser gets a 403
+ *  and the banner renders nothing. `available` is already the comparison's
+ *  verdict, so the client never has to know how versions are ordered. */
+export type UpdateInfo = {
+  available: boolean;
+  current: string;
+  latest?: string;
+  url?: string;
+  checkedAt?: string;
+  enabled: boolean;
+};

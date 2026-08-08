@@ -3071,7 +3071,8 @@ button {
   .sidebar, .sidebar-backdrop, .topbar, .tab-bar, .backlinks, .toaster,
   .menu-btn, .upload-bar, .menu, .page-cover-actions, .cover-btn,
   .page-tag-input, .page-tag-x, .add-icon, .icon-picker, .collection-toolbar,
-  .head-controls, .db-add-row, .structure-panel, .comments-panel, .trail-wrap {
+  .head-controls, .db-add-row, .structure-panel, .comments-panel, .trail-wrap,
+  .update-banner {
     display: none !important;
   }
 
@@ -9241,4 +9242,85 @@ body:has(.confirm-dialog) .dialog:not(.confirm-dialog) {
 .live-down svg {
   color: var(--danger);
   flex: none;
+}
+
+/* "A newer release exists", for admins.
+ *
+ * Bottom RIGHT, beside .live-down rather than opposite it. The left corner is
+ * the account row's — a banner there sits on top of the user menu and takes the
+ * way to settings and sign-out with it, which is what the first version of this
+ * did.
+ *
+ * The two can be on screen at once, so this one steps up out of the way when
+ * the connection warning is showing. :has() on the body because they are not
+ * siblings: one is inside App, this one is beside it.
+ *
+ * It is not styled as a warning. Nothing is broken; somebody just has an older
+ * build than the one that exists, and a red pill for that would cry wolf. */
+.update-banner {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 60;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px 6px 11px;
+  font-size: 12px;
+  color: var(--fg);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  box-shadow: var(--shadow);
+}
+.update-banner svg {
+  flex: none;
+  color: var(--accent);
+}
+.update-banner__text {
+  white-space: nowrap;
+}
+.update-banner__link {
+  color: var(--accent);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.update-banner__link:hover {
+  text-decoration: underline;
+}
+.update-banner__x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.update-banner__x:hover {
+  color: var(--fg);
+  background: var(--bg);
+}
+.update-banner__x svg {
+  color: inherit;
+}
+
+body:has(.live-down) .update-banner {
+  bottom: 62px;
+}
+
+/* On a phone it spans the width instead of hugging a corner: at 12px from the
+ * right it would sit under the thumb that reaches for everything else. */
+@media (max-width: 720px) {
+  .update-banner {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    justify-content: center;
+  }
+  .update-banner__text {
+    white-space: normal;
+  }
 }

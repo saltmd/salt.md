@@ -202,6 +202,7 @@ Every variable carries the `SALT_` prefix. The prefix is not optional: a bare
 | `SALT_TLS_KEY` | empty | matching key file |
 | `SALT_RESTORE_FORCE` | empty | any value lets `salt restore` overwrite an existing database |
 | `SALT_IMPORT_ALLOW_PRIVATE` | empty | must be exactly `1`; lets the URL importer reach private addresses |
+| `SALT_UPDATE_CHECK` | empty | set to `0` to stop the daily check for a newer release |
 
 Notes worth having before you hit them:
 

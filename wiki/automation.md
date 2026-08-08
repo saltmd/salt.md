@@ -1,6 +1,7 @@
 # Automation
 
-salt.md connects to things outside itself in several ways: it **calls** an
+salt.md connects to things outside itself in several ways: it **checks** once a
+day whether a newer release exists, it **calls** an
 address of yours when a page changes, your calendar app **subscribes** to a feed
 of your dates, content **comes in** from Markdown files, Notion exports, JSON
 sources and public forms, content **goes out** as Markdown, HTML, a native
@@ -11,6 +12,26 @@ What salt.md does not have is a rule engine or a scheduler. Nothing inside it
 says "when Status becomes Done, send an email". The pieces below are the wires;
 the logic lives at the other end — in a script, in Zapier, Make or n8n, or in an
 agent working over MCP (see [Agents](agents.md)).
+
+## The update check — the one call salt.md makes on its own
+
+Everything else on this page happens because somebody set it up. This one does
+not: once a day, an instance asks github.com which release is the newest, so an
+administrator can be told that the version they are running has been superseded.
+
+It sends nothing. The request is a plain `HEAD` for the public release page,
+carrying no instance name, no version, no counts and no identifier of any kind;
+the answer is a redirect whose address contains the tag. Nobody at the other end
+learns anything except that some address asked, which is true of any download.
+
+Only administrators are shown the result, in a small banner at the bottom of the
+screen with a link to the release notes. Dismissing it hides that version, not
+the next one. Members never see it, and the endpoint behind it refuses anybody
+who is not an administrator.
+
+**To turn it off**, set `SALT_UPDATE_CHECK=0` on the server. An instance with no
+internet needs nothing: the call fails, the failure is remembered instead of
+logged, and no banner appears.
 
 ## Webhooks — salt.md calls you
 
