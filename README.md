@@ -45,7 +45,12 @@ wget -qO- https://raw.githubusercontent.com/saltmd/salt.md/main/install.sh | sh
 That one command downloads the binary for your platform, installs it and starts
 it, then prints the address to open. On a server it prints that machine's
 address rather than `localhost`, which is the thing most install scripts get
-wrong. Open it and create the first account. Later, `salt` starts it again. There is nothing
+wrong.
+
+**On a Linux server it installs a systemd service** rather than leaving a process
+in your terminal: it starts on boot, restarts after a crash, and your shell is
+free. Running the same command later upgrades it. Everywhere else it runs in the
+foreground, which is right for trying it out on a laptop. There is nothing
 else to install. No database server, no cache, no object store, no separate
 realtime service.
 

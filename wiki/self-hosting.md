@@ -23,6 +23,17 @@ That installs it and starts it, and prints the address to open. `SALT_NO_START=1
 installs without starting, and a non-interactive run never starts it, so this is
 safe in a provisioning script.
 
+**On a Linux server it installs a service.** Run as root on a machine with
+systemd, the one-liner does not leave a process in your terminal: it creates the
+system account `salt`, writes `/etc/systemd/system/salt.service`, keeps the data
+in `/var/lib/salt` and enables the unit. The instance then starts on boot, comes
+back by itself after a crash, and your shell is free. Running it again later
+replaces the binary and restarts the service, so the same command is also the
+upgrade. `SALT_NO_SERVICE=1` opts out.
+
+Anywhere else — a Mac, a machine without systemd, or without root — it runs in
+the foreground, which is what you want when you are only trying it out.
+
 On a machine with `wget` and no `curl`, which is common on minimal server
 images, fetch the script with that instead. Only this line changes; the script
 downloads with whichever of the two it finds, and stops with a clear message if

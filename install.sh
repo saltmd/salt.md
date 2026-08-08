@@ -111,6 +111,76 @@ case "$lan" in
   *)        url="http://$lan:$port";      also="http://localhost:$port" ;;
 esac
 
+# --- run it ------------------------------------------------------------------
+# One command should end with a running instance, not with homework.
+#
+# On a Linux server that means a service, not a foreground process. A process
+# holds the terminal, dies with the SSH session, and is gone after a reboot;
+# nobody ships software that way. So when this is root on a machine running
+# systemd, it installs a unit and starts it: the terminal comes back, a crash
+# restarts it, and a reboot brings it up again.
+#
+# Everywhere else it runs here in the foreground, which is the right thing on a
+# laptop somebody is trying it out on.
+service_possible() {
+  [ "$os" = linux ] || return 1
+  [ "$(id -u)" = 0 ] || return 1
+  command -v systemctl >/dev/null 2>&1 || return 1
+  # systemctl can be installed in a container where systemd runs nothing. This
+  # directory is what tells a real init apart from a leftover binary.
+  [ -d /run/systemd/system ] || return 1
+}
+
+install_service() {
+  id salt >/dev/null 2>&1 || useradd --system --home-dir "$svcdata" --shell /usr/sbin/nologin salt 2>/dev/null || true
+  install -d -o salt -g salt "$svcdata"
+
+  cat > /etc/systemd/system/salt.service <<UNIT
+[Unit]
+Description=salt.md
+Documentation=https://salt.md/wiki/
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=salt
+Group=salt
+ExecStart=$bindir/salt
+Environment=SALT_ADDR=:$port
+Environment=SALT_DATA=$svcdata
+WorkingDirectory=$svcdata
+Restart=on-failure
+RestartSec=2
+KillSignal=SIGTERM
+TimeoutStopSec=20
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
+  systemctl daemon-reload
+  systemctl enable salt >/dev/null 2>&1 || true
+  systemctl restart salt
+}
+
+svcdata=/var/lib/salt
+
+# Decide BEFORE anything is printed, so the summary can name the directory that
+# will actually be used. Printing $PWD/data and then installing a service that
+# reads /var/lib/salt is how somebody goes looking for a database that was never
+# there.
+if [ -z "${SALT_NO_SERVICE:-}" ] && service_possible; then
+  as_service=yes
+  datadir=$svcdata
+else
+  as_service=no
+  datadir=$PWD/data
+fi
+
 # Colour only for a terminal. Piped into a file or a log, the escapes would be
 # the only thing anybody sees.
 if [ -t 1 ]; then
@@ -129,14 +199,46 @@ printf '\n  %s%sthe workspace people and agents share%s\n\n' "$d" "$installed" "
 printf '  Open in browser   %s%s%s\n' "$b" "$url" "$r"
 [ -n "$also" ] && printf '                    %s%s on the machine itself%s\n' "$d" "$also" "$r"
 printf '  Star it           %shttps://github.com/%s%s\n' "$d" "$REPO" "$r"
-printf '  Data              %s%s/data%s\n' "$d" "$PWD" "$r"
+printf '  Data              %s%s%s\n' "$d" "$datadir" "$r"
 printf '\n'
 
-# --- start it ---------------------------------------------------------------
-# One command should end with a running instance, not with homework. Only when
-# somebody is watching, though: piped into a Dockerfile or a provisioning
-# script this would block forever, so a non-tty install prints the command and
-# gets out of the way.
+
+if [ "$as_service" = yes ]; then
+  had_unit=no
+  [ -f /etc/systemd/system/salt.service ] && had_unit=yes
+  install_service
+
+  # Report it running because it IS, not because systemctl exited 0.
+  i=0
+  while [ "$i" -lt 30 ] && ! systemctl is-active --quiet salt; do
+    i=$((i + 1))
+    sleep 1
+  done
+
+  if systemctl is-active --quiet salt; then
+    if [ "$had_unit" = yes ]; then
+      printf '  %sUpdated. It was already running as a service, and was restarted.%s\n' "$d" "$r"
+    else
+      printf '  %sInstalled as a service: it starts on boot and restarts after a crash.%s\n' "$d" "$r"
+    fi
+    printf '  %ssystemctl status salt   ·   journalctl -u salt -f%s\n' "$d" "$r"
+    # A foreground run earlier wrote its database into whatever directory it was
+    # started from. The service reads a different one, so an empty workspace here
+    # is a file in the other place and not a lost one.
+    if [ -f ./data/salt.db ] && [ ! -f "$svcdata/salt.db" ]; then
+      printf '\n  %sNote: ./data/salt.db is from an earlier foreground run. The service uses%s\n' "$d" "$r"
+      printf '  %s%s, so it starts empty. Nothing was deleted.%s\n' "$d" "$svcdata" "$r"
+    fi
+    printf '\n'
+  else
+    printf '  %sThe service did not come up. journalctl -u salt says why.%s\n\n' "$d" "$r"
+  fi
+  exit 0
+fi
+
+# Not a systemd server. Piped into a Dockerfile or a provisioning script a
+# foreground process would block forever, so a non-tty install prints the
+# command and gets out of the way.
 if [ -n "${SALT_NO_START:-}" ] || [ ! -t 1 ]; then
   case ":$PATH:" in
     *":$bindir:"*) printf '  Run it:   salt\n' ;;
@@ -146,7 +248,6 @@ if [ -n "${SALT_NO_START:-}" ] || [ ! -t 1 ]; then
 fi
 
 # No "starting it now" line: the server's own "listening on" line arrives a
-# breath later and says it better. What a person actually needs here is the way
-# back out, and how to get it running again tomorrow.
+# breath later and says it better. What a person needs here is the way back out.
 printf '  %sCtrl-C stops it. Run%s salt %sto start it again.%s\n\n' "$d" "$r" "$d" "$r"
 exec "$bindir/salt"
