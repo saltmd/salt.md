@@ -12,8 +12,10 @@ answers in a browser; see [Getting started](getting-started.md). Install that
 first. This app then points at it. The two are different downloads with
 different version numbers and neither contains the other.
 
-**Today it exists for macOS only**, signed and notarised by Apple, so it opens
-with no warning. A Linux build is configured and has not been made yet.
+**The macOS build is signed and notarised by Apple**, so it opens with no
+warning, and there is one for Apple silicon and one for Intel. A Linux build is
+published too, as an AppImage and a `.deb`; it carries no signature, which is
+normal there.
 
 **There is no Windows build, on purpose.** An installer nobody has signed meets
 SmartScreen — a full-screen panel saying Windows protected your PC, publisher
@@ -357,7 +359,7 @@ proven otherwise.
 | Platform | Configured to build | Ever built | Signed |
 | --- | --- | --- | --- |
 | macOS | `.dmg`, for Apple silicon and Intel | yes | yes, and notarised |
-| Linux | AppImage and `.deb` | no | no, and none is expected there |
+| Linux | AppImage and `.deb` | yes | no, and none is expected there |
 | Windows | an NSIS installer, 64-bit | no | no — see above |
 
 `.github/workflows/desktop.yml` builds macOS and Linux on a tag of the form
