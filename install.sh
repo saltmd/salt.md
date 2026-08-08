@@ -95,9 +95,16 @@ lan=$(hostname -I 2>/dev/null | awk '{ print $1 }' || true)
 [ -n "$lan" ] || lan=$(ip route get 1.1.1.1 2>/dev/null | awk '{ for (i = 1; i < NF; i++) if ($i == "src") { print $(i + 1); exit } }' || true)
 [ -n "$lan" ] || lan=$(ipconfig getifaddr en0 2>/dev/null || true)
 
+# The port is not always 8420: SALT_ADDR moves it, and printing the default
+# regardless sends people to a port nothing is listening on. Take whatever
+# follows the last colon, fall back to the default when SALT_ADDR is unset or
+# is a bare address.
+port=${SALT_ADDR##*:}
+case "$port" in ''|*[!0-9]*) port=8420 ;; esac
+
 case "$lan" in
-  ''|127.*) url="http://localhost:8420"; also='' ;;
-  *)        url="http://$lan:8420";      also="http://localhost:8420" ;;
+  ''|127.*) url="http://localhost:$port"; also='' ;;
+  *)        url="http://$lan:$port";      also="http://localhost:$port" ;;
 esac
 
 # Colour only for a terminal. Piped into a file or a log, the escapes would be
