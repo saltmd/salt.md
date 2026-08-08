@@ -1,0 +1,135 @@
+[
+  {
+    "id": "5a17b200000000000000000000000001",
+    "parentId": null,
+    "type": "collection",
+    "title": "Companies",
+    "icon": "🏢",
+    "cover": "",
+    "description": "Everyone you talk to — leads, customers and the ones that got away.",
+    "tags": [],
+    "props": {},
+    "content": [],
+    "position": 1,
+    "visibility": "workspace",
+    "isTemplate": false,
+    "createdAt": "",
+    "updatedAt": "",
+    "schema": [
+      {
+        "id": "status",
+        "name": "Status",
+        "type": "select",
+        "options": [
+          { "id": "lead", "name": "Lead", "color": "#787774" },
+          { "id": "talking", "name": "In talks", "color": "#337ea9" },
+          { "id": "customer", "name": "Customer", "color": "#448361" },
+          { "id": "past", "name": "Former customer", "color": "#9f6b53" },
+          { "id": "lost", "name": "Lost", "color": "#d44c47" }
+        ]
+      },
+      { "id": "industry", "name": "Industry", "type": "text" },
+      {
+        "id": "size",
+        "name": "Size",
+        "type": "select",
+        "options": [
+          { "id": "s1", "name": "1–10", "color": "#787774" },
+          { "id": "s2", "name": "11–50", "color": "#337ea9" },
+          { "id": "s3", "name": "51–200", "color": "#cb912f" },
+          { "id": "s4", "name": "200+", "color": "#9065b0" }
+        ]
+      },
+      { "id": "owner", "name": "Owner", "type": "person" },
+      { "id": "website", "name": "Website", "type": "url" },
+      { "id": "nexttouch", "name": "Next touch", "type": "date" },
+      {
+        "id": "deals",
+        "name": "Deals",
+        "type": "backrelation",
+        "backrelationCollection": "5a17b200000000000000000000000002",
+        "backrelationProp": "company"
+      },
+      {
+        "id": "opendeals",
+        "name": "Open deals",
+        "type": "rollup",
+        "rollupRelation": "deals",
+        "rollupTarget": "stage",
+        "rollupAgg": "count",
+        "rollupWhereProp": "stage",
+        "rollupWhereOp": "is_not",
+        "rollupWhereValue": "won"
+      },
+      {
+        "id": "pipeline",
+        "name": "Pipeline",
+        "type": "rollup",
+        "rollupRelation": "deals",
+        "rollupTarget": "value",
+        "rollupAgg": "sum"
+      }
+    ],
+    "views": [
+      { "id": "table", "name": "Table", "type": "table" },
+      { "id": "board", "name": "Board", "type": "board", "groupBy": "status" },
+      { "id": "touches", "name": "Next touches", "type": "calendar", "dateProp": "nexttouch" }
+    ]
+  },
+  {
+    "id": "5a17b200000000000000000000000002",
+    "parentId": null,
+    "type": "collection",
+    "title": "Deals",
+    "icon": "💶",
+    "cover": "",
+    "description": "One row per opportunity. Drag the board, do not edit a status field.",
+    "tags": [],
+    "props": {},
+    "content": [],
+    "position": 2,
+    "visibility": "workspace",
+    "isTemplate": false,
+    "createdAt": "",
+    "updatedAt": "",
+    "schema": [
+      {
+        "id": "stage",
+        "name": "Stage",
+        "type": "select",
+        "options": [
+          { "id": "qualifying", "name": "Qualifying", "color": "#787774" },
+          { "id": "proposal", "name": "Proposal out", "color": "#337ea9" },
+          { "id": "negotiation", "name": "Negotiation", "color": "#cb912f" },
+          { "id": "won", "name": "Won", "color": "#448361" },
+          { "id": "lost", "name": "Lost", "color": "#d44c47" }
+        ]
+      },
+      {
+        "id": "company",
+        "name": "Company",
+        "type": "relation",
+        "relationCollection": "5a17b200000000000000000000000001"
+      },
+      { "id": "value", "name": "Value", "type": "number" },
+      { "id": "close", "name": "Expected close", "type": "date" },
+      { "id": "owner", "name": "Owner", "type": "person" },
+      {
+        "id": "source",
+        "name": "Came from",
+        "type": "select",
+        "options": [
+          { "id": "referral", "name": "Referral", "color": "#448361" },
+          { "id": "inbound", "name": "Inbound", "color": "#337ea9" },
+          { "id": "outbound", "name": "Outbound", "color": "#cb912f" },
+          { "id": "event", "name": "Event", "color": "#9065b0" }
+        ]
+      }
+    ],
+    "views": [
+      { "id": "board", "name": "Board", "type": "board", "groupBy": "stage" },
+      { "id": "table", "name": "Table", "type": "table" },
+      { "id": "closing", "name": "Closing", "type": "calendar", "dateProp": "close" }
+    ]
+  }
+]

@@ -1,0 +1,27 @@
+services:
+  salt:
+    build: .
+    # Or use the prebuilt image instead of build:
+    # image: ghcr.io/saltmd/salt.md:latest
+    ports:
+      - "8420:8420"
+    volumes:
+      - salt-data:/data
+    # A container cannot see how much of the host it is meant to get, so
+    # without a limit salt.md assumes a small machine and indexes fewer large
+    # PDFs than it could. Raise this to what you actually want to give it —
+    # it only affects how much text reaches the search index, never whether an
+    # upload succeeds. In nested setups (Docker inside LXC) neither the cgroup
+    # nor /proc/meminfo tells the truth; use SALT_MEMORY_MB there.
+    mem_limit: 4g
+    environment:
+      SALT_ADDR: ":8420"
+      SALT_DATA: "/data"
+      # SALT_MEMORY_MB: "4096"
+      # For HTTPS, mount certs and point these at them:
+      # SALT_TLS_CERT: "/certs/fullchain.pem"
+      # SALT_TLS_KEY: "/certs/privkey.pem"
+    restart: unless-stopped
+
+volumes:
+  salt-data:

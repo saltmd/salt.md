@@ -1,0 +1,10 @@
+[salt]
+enabled  = true
+backend  = systemd
+filter   = salt
+# The server already allows 30 password attempts a minute. Anything that keeps
+# it up for ten minutes is not somebody who forgot their password.
+maxretry = 20
+findtime = 10m
+bantime  = 1h
+action   = %(banaction)s[port="http,https"]

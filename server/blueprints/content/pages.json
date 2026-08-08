@@ -1,0 +1,116 @@
+[
+  {
+    "id": "5a17b300000000000000000000000001",
+    "parentId": null,
+    "type": "collection",
+    "title": "Channels",
+    "icon": "📡",
+    "cover": "",
+    "description": "Where things go out, how often, and who owns each one.",
+    "tags": [],
+    "props": {},
+    "content": [],
+    "position": 1,
+    "visibility": "workspace",
+    "isTemplate": false,
+    "createdAt": "",
+    "updatedAt": "",
+    "schema": [
+      {
+        "id": "kind",
+        "name": "Kind",
+        "type": "select",
+        "options": [
+          { "id": "blog", "name": "Blog", "color": "#337ea9" },
+          { "id": "newsletter", "name": "Newsletter", "color": "#cb912f" },
+          { "id": "social", "name": "Social", "color": "#9065b0" },
+          { "id": "video", "name": "Video", "color": "#d44c47" },
+          { "id": "podcast", "name": "Podcast", "color": "#448361" }
+        ]
+      },
+      { "id": "cadence", "name": "Cadence", "type": "text" },
+      { "id": "owner", "name": "Owner", "type": "person" },
+      { "id": "link", "name": "Link", "type": "url" },
+      {
+        "id": "pieces",
+        "name": "Pieces",
+        "type": "backrelation",
+        "backrelationCollection": "5a17b300000000000000000000000002",
+        "backrelationProp": "channel"
+      },
+      {
+        "id": "planned",
+        "name": "Not out yet",
+        "type": "rollup",
+        "rollupRelation": "pieces",
+        "rollupTarget": "status",
+        "rollupAgg": "count",
+        "rollupWhereProp": "status",
+        "rollupWhereOp": "is_not",
+        "rollupWhereValue": "published"
+      },
+      {
+        "id": "shipped",
+        "name": "Published",
+        "type": "rollup",
+        "rollupRelation": "pieces",
+        "rollupTarget": "status",
+        "rollupAgg": "percent",
+        "rollupWhereProp": "status",
+        "rollupWhereOp": "is",
+        "rollupWhereValue": "published"
+      }
+    ],
+    "views": [
+      { "id": "table", "name": "Table", "type": "table" },
+      { "id": "board", "name": "Board", "type": "board", "groupBy": "kind" }
+    ]
+  },
+  {
+    "id": "5a17b300000000000000000000000002",
+    "parentId": null,
+    "type": "collection",
+    "title": "Pieces",
+    "icon": "✍️",
+    "cover": "",
+    "description": "One row per thing you publish. The draft lives in the page.",
+    "tags": [],
+    "props": {},
+    "content": [],
+    "position": 2,
+    "visibility": "workspace",
+    "isTemplate": false,
+    "createdAt": "",
+    "updatedAt": "",
+    "schema": [
+      {
+        "id": "status",
+        "name": "Status",
+        "type": "select",
+        "options": [
+          { "id": "idea", "name": "Idea", "color": "#787774" },
+          { "id": "drafting", "name": "Drafting", "color": "#cb912f" },
+          { "id": "review", "name": "In review", "color": "#337ea9" },
+          { "id": "scheduled", "name": "Scheduled", "color": "#9065b0" },
+          { "id": "published", "name": "Published", "color": "#448361" },
+          { "id": "dropped", "name": "Dropped", "color": "#9f6b53" }
+        ]
+      },
+      {
+        "id": "channel",
+        "name": "Channel",
+        "type": "relation",
+        "relationCollection": "5a17b300000000000000000000000001"
+      },
+      { "id": "publish", "name": "Goes out", "type": "date" },
+      { "id": "owner", "name": "Owner", "type": "person" },
+      { "id": "topic", "name": "Topic", "type": "text" },
+      { "id": "url", "name": "Published at", "type": "url" }
+    ],
+    "views": [
+      { "id": "calendar", "name": "Calendar", "type": "calendar", "dateProp": "publish" },
+      { "id": "board", "name": "Board", "type": "board", "groupBy": "status" },
+      { "id": "table", "name": "Table", "type": "table" }
+    ]
+  }
+]

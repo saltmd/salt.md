@@ -1,0 +1,84 @@
+{
+  "name": "salt-desktop",
+  "productName": "salt.md",
+  "version": "0.1.0",
+  "homepage": "https://salt.md",
+  "author": {
+    "name": "salt.md",
+    "email": "dev@salt.md"
+  },
+  "description": "salt.md in its own window",
+  "license": "AGPL-3.0-only",
+  "main": "src/main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "dist:mac": "electron-builder --mac",
+    "dist:win": "electron-builder --win",
+    "dist:linux": "electron-builder --linux",
+    "check": "node scripts/check-serverurl.mjs"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "md.salt.desktop",
+    "productName": "salt.md",
+    "files": [
+      "src/**/*",
+      "build/icon*.png",
+      "!**/*.map"
+    ],
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist"
+    },
+    "dmg": {
+      "sign": true
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Office"
+    },
+    "protocols": [
+      {
+        "name": "salt.md",
+        "schemes": [
+          "salt"
+        ]
+      }
+    ]
+  }
+}

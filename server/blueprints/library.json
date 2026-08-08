@@ -1,0 +1,29 @@
+[
+  {
+    "id": "software",
+    "title": "Software team",
+    "tagline": "What we run, and what still has to be done to it.",
+    "icon": "🛠️",
+    "accent": "#337ea9",
+    "tags": ["Engineering", "Team"],
+    "price": ""
+  },
+  {
+    "id": "sales",
+    "title": "Sales pipeline",
+    "tagline": "Companies on one side, deals on the other, and a board you can drag.",
+    "icon": "🤝",
+    "accent": "#448361",
+    "tags": ["Sales", "Team"],
+    "price": ""
+  },
+  {
+    "id": "content",
+    "title": "Content calendar",
+    "tagline": "Every channel, every piece, and the date it goes out.",
+    "icon": "🗓️",
+    "accent": "#9065b0",
+    "tags": ["Marketing", "Solo"],
+    "price": ""
+  }
+]

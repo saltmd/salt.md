@@ -1,0 +1,23 @@
+[Unit]
+Description=salt.md — lightweight open-source workspace
+After=network.target
+
+[Service]
+User=salt
+Group=salt
+WorkingDirectory=/opt/salt
+ExecStart=/opt/salt/salt
+Environment=SALT_ADDR=:80
+Environment=SALT_DATA=/opt/salt/data
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+NoNewPrivileges=false
+Restart=on-failure
+RestartSec=2
+# The binary drains in-flight requests and checkpoints SQLite on SIGTERM
+# (systemd's default stop signal); bound the wait so a stuck request can't hang
+# a restart forever.
+KillSignal=SIGTERM
+TimeoutStopSec=20
+
+[Install]
+WantedBy=multi-user.target

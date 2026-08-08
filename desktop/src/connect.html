@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:;">
+<title>salt.md</title>
+<style>
+  /* Follows the system theme, because this page is the first thing anybody
+     sees and a white flash into a dark workspace is a poor greeting. */
+  :root {
+    --bg: #ffffff; --fg: #37352f; --muted: #787774;
+    --border: #e9e7e4; --accent: #2f7d4f; --card: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #191919; --fg: #d4d4d4; --muted: #8f8f8f;
+      --border: #2f2f2f; --accent: #4fa872; --card: #242424;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--bg); color: var(--fg);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    /* Leaves room for the traffic lights, which sit inside the window. */
+    padding-top: 28px;
+    -webkit-user-select: none; user-select: none;
+    /* The whole background drags the window — there is no title bar to grab. */
+    -webkit-app-region: drag;
+  }
+  .card { width: 380px; max-width: calc(100vw - 48px); text-align: center; -webkit-app-region: no-drag; }
+  /* The real mark, not the salt-shaker emoji: the emoji is somebody else's
+     drawing and looks different on every platform, and this is the first screen
+     anybody sees. */
+  .mark { width: 54px; height: 54px; margin: 0 auto 16px; display: block; color: var(--fg); }
+  h1 { font-size: 22px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  p.sub { margin: 0 0 22px; color: var(--muted); font-size: 13.5px; }
+  input {
+    width: 100%; padding: 11px 13px; font: inherit; font-size: 14px;
+    color: var(--fg); background: var(--card);
+    border: 1px solid var(--border); border-radius: 8px; outline: none;
+    -webkit-user-select: text; user-select: text;
+  }
+  input:focus { border-color: var(--accent); }
+  button {
+    width: 100%; margin-top: 10px; padding: 11px 13px;
+    font: inherit; font-size: 14px; font-weight: 600;
+    color: #fff; background: var(--accent);
+    border: 0; border-radius: 8px; cursor: pointer;
+  }
+  button:disabled { opacity: 0.55; cursor: default; }
+  .msg { margin-top: 14px; font-size: 13px; min-height: 34px; color: var(--muted); }
+  .msg.bad { color: #c4554d; }
+  .hint { margin-top: 20px; font-size: 12px; color: var(--muted); line-height: 1.6; }
+  .back {
+    display: inline-block; margin-top: 16px;
+    color: var(--muted); font-size: 13px; text-decoration: none;
+    -webkit-app-region: no-drag;
+  }
+  .back:hover { color: var(--fg); }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <svg class="mark" viewBox="96 100 204 204" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M201.1 113.4c-6.7-.2-13 .2-17.2 1-3.7.8-10.1 3-14.2 4.9-4.3 2-9.8 5.6-12.6 8.2s-6.3 7.3-7.8 10.4c-2.4 4.8-2.8 6.8-2.8 14.6 0 5.9-.5 9.9-1.4 11.5-.8 1.4-1.4 5-1.4 8 0 3.7.7 6.9 2.2 9.8l2.2 4.2-3 3.8c-1.6 2-3.4 5.3-4 7.2s-4.1 20.1-7.6 40.5c-3.6 20.3-6.4 38.1-6.3 39.5.2 1.7 1 2.6 2.4 2.8 1.1.2 2.5-.3 3.1-1s4-18.6 7.7-39.8 7.2-39.7 7.7-41.2c.6-1.4 2-3.5 3.2-4.6l2.2-2.1 5.2 3.3c2.9 1.8 8.2 4.3 11.7 5.4 3.6 1.2 9.8 2.7 13.8 3.3 4.2.7 12 .9 18.3.6 6.6-.3 13.9-1.4 18.3-2.6 4.1-1.2 10-3.5 13.2-5.1s6.1-3.4 6.5-4 1.2-.7 2.4-.1c.9.5 2.5 2.5 3.4 4.3 1 1.8 4.4 18.6 7.6 37.3 3.3 18.7 6.2 36.2 6.6 39 .4 2.7 1.2 5.6 1.7 6.2.6.7 1.8 1.3 2.8 1.3s2.2-.6 2.8-1.3c.7-.8-.8-11.9-5.3-37.7-3.5-20.1-6.9-38.8-7.5-41.6-.7-3.3-2.3-6.6-4.5-9.2l-3.5-4 2.5-4.4c1.8-3.1 2.5-5.8 2.5-9.6 0-2.9-.6-6.8-1.4-8.6-.9-2.1-1.4-6.6-1.3-11.8.1-6.6-.3-9.3-2.1-13.3-1.3-2.8-4.2-6.9-6.5-9.3s-6.2-5.6-8.7-7.2-8.1-4.1-12.4-5.5c-6-2-10.5-2.8-18.5-3.1m-3.6 6.8c2.2-.1 7.5.5 11.8 1.3 4.3.7 10.6 2.7 14.1 4.3s8.2 4.7 10.5 6.8c2.4 2.1 5.2 5.6 6.4 7.8q2.1 4.05 2.1 9.6c0 3.7-.7 6.9-2.2 9.7-1.2 2.2-3.8 5.5-5.9 7.2-2.1 1.8-6.2 4.3-9.1 5.7-3 1.4-8.4 3.2-12 4-3.7.7-10.5 1.4-15.2 1.4s-11.6-.7-15.3-1.5c-3.8-.8-9.2-2.5-12.1-3.8-2.8-1.3-6.9-3.9-9-5.7-2-1.8-4.6-4.9-5.6-7-1-2-2.1-5.3-2.5-7.3-.4-2.2-.2-5.6.5-8.3.8-2.7 3-6.5 5.6-9.3 2.3-2.6 6.9-6.1 10.1-7.8s7.6-3.6 9.7-4.3 6.2-1.6 9-2 6.9-.8 9.1-.8M151.4 167c.1 0 2.3 2 4.8 4.4s7.5 5.8 11 7.5c3.4 1.7 9.5 3.8 13.3 4.6 3.9.8 11.8 1.5 17.6 1.5 7.2 0 13-.6 18.1-1.9 4.2-1.1 10.3-3.3 13.6-5 3.4-1.7 7.9-4.8 10.1-6.9 2.3-2.1 4.3-3.7 4.6-3.4s.5 2.3.5 4.5-.9 5.4-2 7.2-3.5 4.4-5.3 5.8c-1.7 1.3-5.4 3.5-8.2 4.9-2.7 1.4-8.1 3.3-11.8 4.2-3.8 1-10.8 2-15.5 2.3-5.8.3-11.8 0-18.2-1.1-5.9-1-12.2-2.9-16.5-5-3.8-1.8-8.5-4.6-10.4-6.2-1.9-1.5-4.3-4.8-5.3-7.2-1.3-2.8-1.7-5.3-1.3-7.2.4-1.7.8-3 .9-3"/><path d="M190.5 132.2c-1.1-.1-2.6.3-3.3 1-.6.6-1.2 1.8-1.2 2.5s-1.1 1.3-2.4 1.3-3.1.3-4 .6-1.6 1.6-1.6 2.9.7 2.6 1.6 2.9 2.5.6 3.6.6c1.6 0 1.9.5 1.4 2.2-.3 1.3-.6 2.6-.6 3s-1.7.8-3.7 1c-3.3.3-3.8.6-3.8 2.8 0 2.1.5 2.6 3.3 2.8 2.6.3 3.2.7 2.8 2-.3.9-.2 2.3.3 3 .4.8 1.9 1.2 3.2 1 1.5-.2 2.5-1.2 2.9-2.8.4-1.8 1.4-2.6 3.2-2.8 1.4-.2 2.9-1 3.2-1.8s.3-2.1 0-2.9c-.4-.8-1.5-1.5-2.6-1.5-1.6 0-1.9-.6-1.6-3.2.2-2.5.9-3.4 2.8-3.8 1.6-.4 2.6-1.4 2.8-2.8.2-1.5-.3-2.3-2.1-2.7-1.6-.4-2.3-1.3-2.3-2.8.1-1.5-.6-2.3-1.9-2.5m19 0c-1.2-.2-2.4 0-2.8.4s-.7 1.6-.7 2.6c0 1.2-.7 1.8-2.4 1.8-1.3 0-2.9.7-3.7 1.6-.9 1.1-1 2-.2 3.2.5 1 1.9 1.8 3 2 1.5.2 1.9.9 1.5 3.2-.3 2.3-.9 3-2.7 3-1.2 0-2.8.7-3.5 1.5s-1 2.2-.6 3c.3.8 1.4 1.5 2.5 1.5 1.4 0 2.1.8 2.3 2.7.2 2 .9 2.9 2.6 3.1 1.8.3 2.5-.3 3.3-2.7.9-2.6 1.6-3.1 4.4-3.1 2.1 0 3.5-.6 3.9-1.6.4-.9.1-2.3-.5-3-.6-.8-2.2-1.4-3.5-1.4-1.4 0-2.4-.6-2.4-1.4s.3-2.1.6-3 1.6-1.6 2.8-1.6 3.1-.6 4.2-1.4c1.5-1.2 1.7-1.8.8-3.3-.6-1-2.3-1.9-3.7-2.1-1.8-.2-2.7-1-2.9-2.5-.2-1.3-1.1-2.3-2.3-2.5m-38 86.8c-.7 0-1.7.6-2.3 1.2-.5.7-1.9 9.2-3.1 18.8-1.1 9.6-2.9 24.7-4 33.5-1.4 11.2-1.6 16.4-.9 17.2.6.7 1.9 1.3 2.9 1.3s2.1-.5 2.5-1.1c.3-.6 1.5-8.1 2.5-16.7 1-8.7 2.8-23.7 4-33.5 1.7-14.1 1.8-18.1.9-19.2-.7-.8-1.8-1.5-2.5-1.5m-14.4 6.1c-1.3-.7-2.3-.7-3.5.2s-2.5 7.1-5.1 23.7c-1.9 12.4-3.9 25.2-4.5 28.4-.7 4.2-.6 6.3.1 7.3.6.7 1.7 1.3 2.4 1.3s1.8-.7 2.5-1.5c.6-.7 3.2-14.1 5.6-29.7 2.4-15.5 4.4-28.4 4.4-28.5s-.8-.7-1.9-1.2"/></svg>
+    <h1>Connect to your salt.md</h1>
+    <p class="sub">This app is a window onto a server you run.<br>Your data stays there.</p>
+
+    <input id="url" type="text" placeholder="salt.example.com" autocomplete="off" spellcheck="false" autofocus>
+    <button id="go">Connect</button>
+    <div class="msg" id="msg"></div>
+
+    <!-- Only when there is somewhere to go back TO. Opening the settings and
+         finding no way out is the complaint this whole screen just answered;
+         repeating it one level down would be worse. -->
+    <a id="back" class="back" href="#" hidden>Back to my workspace</a>
+
+    <p class="hint">
+      No server yet? salt.md is one binary you run yourself —<br>
+      see <code>salt.md</code> for how to start one.
+    </p>
+  </div>
+
+<script>
+  const $url = document.getElementById('url');
+  const $go = document.getElementById('go');
+  const $msg = document.getElementById('msg');
+
+  const say = (text, bad = false) => {
+    $msg.textContent = text;
+    $msg.className = 'msg' + (bad ? ' bad' : '');
+  };
+
+  // Arriving here from a failed load rather than from the menu: say what
+  // happened instead of showing an empty form that looks like a fresh start.
+  const params = new URLSearchParams(location.search);
+  if (params.get('error')) {
+    const target = params.get('url') || '';
+    say('Could not reach ' + (target ? new URL(target).origin : 'the server') + '. Is it running?', true);
+  }
+
+  // Prefill whatever is configured, so changing the server is an edit and not
+  // retyping an address from memory — and offer the way back out.
+  const $back = document.getElementById('back');
+  window.salt.getServer().then((s) => {
+    if (!s) return;
+    $url.value = s;
+    $back.hidden = false;
+  });
+  $back.addEventListener('click', (e) => {
+    e.preventDefault();
+    void window.salt.cancel();
+  });
+
+  const connect = async () => {
+    const value = $url.value.trim();
+    if (!value) return;
+    $go.disabled = true;
+    say('Looking for a salt.md there…');
+    const res = await window.salt.setServer(value);
+    if (res.ok) {
+      say('Found it. Opening…');
+      return; // the main process navigates the window
+    }
+    $go.disabled = false;
+    if (res.error === 'not-a-url') say('That does not look like an address.', true);
+    else if (res.error === 'not-salt') say('Something answered there, but it is not a salt.md.', true);
+    else say('Nothing answered there. Check the address, and that the server is running.', true);
+  };
+
+  $go.addEventListener('click', connect);
+  $url.addEventListener('keydown', (e) => { if (e.key === 'Enter') connect(); });
+</script>
+</body>
+</html>

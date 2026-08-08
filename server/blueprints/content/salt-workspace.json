@@ -1,0 +1,13 @@
+{
+  "format": 1,
+  "saltVersion": "blueprint",
+  "exportedAt": "",
+  "workspace": {
+    "name": "Content calendar",
+    "icon": "🗓️",
+    "image": "",
+    "rules": "# How we work here\n\n**Channels** are the places things go out. **Pieces** are the things. The piece is written on its own page — the row is only its state and its date.\n\n## A piece has a date before it has a draft\n\nAn undated idea is an idea, and it belongs in *Idea* with no date. The moment it gets a date it is a commitment, and the calendar is where commitments are visible to everybody.\n\n## One piece, one page, one channel\n\nThe same text on two channels is two pieces. They get edited differently, they go out on different days, and merging them means neither has an honest date.\n\n## Published is a fact, not a plan\n\nSet it when it is out, with the real date. A calendar full of intentions cannot be read backwards, and reading it backwards is how you learn what your actual cadence is.\n\n## The draft lives in the page body\n\nNot in an attachment and not in another tool. What is on the page is searchable here, and next quarter somebody will search for the sentence, not the file name.\n\n## Never put a login for a channel on a page\n\nA pointer to where it lives is fine. The page is searchable, exportable and shareable, and one of those will eventually happen to it.\n"
+  },
+  "pages": 2,
+  "files": 0
+}

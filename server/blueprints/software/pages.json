@@ -1,0 +1,173 @@
+[
+  {
+    "id": "5a17b100000000000000000000000001",
+    "parentId": null,
+    "type": "collection",
+    "title": "Systems",
+    "icon": "🧩",
+    "cover": "",
+    "description": "What exists — every app, service and script, and how healthy it is.",
+    "tags": [],
+    "props": {},
+    "content": [],
+    "position": 1,
+    "visibility": "workspace",
+    "isTemplate": false,
+    "createdAt": "",
+    "updatedAt": "",
+    "schema": [
+      {
+        "id": "status",
+        "name": "Status",
+        "type": "select",
+        "options": [
+          { "id": "idea", "name": "Idea", "color": "#787774" },
+          { "id": "building", "name": "In development", "color": "#337ea9" },
+          { "id": "live", "name": "Live", "color": "#448361" },
+          { "id": "maintenance", "name": "Maintenance only", "color": "#cb912f" },
+          { "id": "retired", "name": "Retired", "color": "#9f6b53" }
+        ]
+      },
+      {
+        "id": "kind",
+        "name": "Kind",
+        "type": "select",
+        "options": [
+          { "id": "app", "name": "App", "color": "#9065b0" },
+          { "id": "website", "name": "Website", "color": "#337ea9" },
+          { "id": "integration", "name": "Integration", "color": "#448361" },
+          { "id": "script", "name": "Script or tool", "color": "#cb912f" },
+          { "id": "infrastructure", "name": "Infrastructure", "color": "#787774" }
+        ]
+      },
+      {
+        "id": "criticality",
+        "name": "If it goes down",
+        "type": "select",
+        "options": [
+          { "id": "critical", "name": "Critical — right away", "color": "#d44c47" },
+          { "id": "important", "name": "Important — same day", "color": "#cb912f" },
+          { "id": "minor", "name": "Not critical", "color": "#787774" }
+        ]
+      },
+      { "id": "owner", "name": "Owner", "type": "person" },
+      { "id": "version", "name": "Version", "type": "text" },
+      { "id": "runson", "name": "Runs on", "type": "text" },
+      { "id": "repo", "name": "Repository", "type": "url" },
+      { "id": "check", "name": "Next check", "type": "date" },
+      {
+        "id": "tasks",
+        "name": "Tasks",
+        "type": "backrelation",
+        "backrelationCollection": "5a17b100000000000000000000000002",
+        "backrelationProp": "system"
+      },
+      {
+        "id": "open",
+        "name": "Open",
+        "type": "rollup",
+        "rollupRelation": "tasks",
+        "rollupTarget": "status",
+        "rollupAgg": "count",
+        "rollupWhereProp": "status",
+        "rollupWhereOp": "is_not",
+        "rollupWhereValue": "done"
+      },
+      {
+        "id": "progress",
+        "name": "Progress",
+        "type": "rollup",
+        "rollupRelation": "tasks",
+        "rollupTarget": "status",
+        "rollupAgg": "percent",
+        "rollupWhereProp": "status",
+        "rollupWhereOp": "is",
+        "rollupWhereValue": "done"
+      }
+    ],
+    "views": [
+      { "id": "table", "name": "Table", "type": "table" },
+      { "id": "board", "name": "Board", "type": "board", "groupBy": "status" },
+      { "id": "checks", "name": "Checks", "type": "calendar", "dateProp": "check" }
+    ]
+  },
+  {
+    "id": "5a17b100000000000000000000000002",
+    "parentId": null,
+    "type": "collection",
+    "title": "Tasks",
+    "icon": "✅",
+    "cover": "",
+    "description": "What has to be done, and to which system.",
+    "tags": [],
+    "props": {},
+    "content": [],
+    "position": 2,
+    "visibility": "workspace",
+    "isTemplate": false,
+    "createdAt": "",
+    "updatedAt": "",
+    "schema": [
+      {
+        "id": "status",
+        "name": "Status",
+        "type": "select",
+        "options": [
+          { "id": "inbox", "name": "Inbox", "color": "#787774" },
+          { "id": "next", "name": "Next up", "color": "#cb912f" },
+          { "id": "doing", "name": "In progress", "color": "#337ea9" },
+          { "id": "waiting", "name": "Waiting on someone", "color": "#c14c8a" },
+          { "id": "done", "name": "Done", "color": "#448361" },
+          { "id": "dropped", "name": "Dropped", "color": "#9f6b53" }
+        ]
+      },
+      {
+        "id": "system",
+        "name": "System",
+        "type": "relation",
+        "relationCollection": "5a17b100000000000000000000000001"
+      },
+      {
+        "id": "kind",
+        "name": "Kind",
+        "type": "select",
+        "options": [
+          { "id": "feature", "name": "Feature", "color": "#448361" },
+          { "id": "bug", "name": "Bug", "color": "#d44c47" },
+          { "id": "security", "name": "Update or security", "color": "#cb912f" },
+          { "id": "maintenance", "name": "Maintenance", "color": "#787774" },
+          { "id": "research", "name": "Research", "color": "#9065b0" }
+        ]
+      },
+      {
+        "id": "priority",
+        "name": "Priority",
+        "type": "select",
+        "options": [
+          { "id": "urgent", "name": "Urgent", "color": "#d44c47" },
+          { "id": "normal", "name": "Normal", "color": "#337ea9" },
+          { "id": "someday", "name": "Someday", "color": "#787774" }
+        ]
+      },
+      {
+        "id": "effort",
+        "name": "Effort",
+        "type": "select",
+        "options": [
+          { "id": "s", "name": "S — under a day", "color": "#448361" },
+          { "id": "m", "name": "M — a few days", "color": "#cb912f" },
+          { "id": "l", "name": "L — weeks", "color": "#d44c47" }
+        ]
+      },
+      { "id": "owner", "name": "Owner", "type": "person" },
+      { "id": "milestone", "name": "Milestone", "type": "text" },
+      { "id": "due", "name": "Due", "type": "date" }
+    ],
+    "views": [
+      { "id": "board", "name": "Board", "type": "board", "groupBy": "status" },
+      { "id": "table", "name": "Table", "type": "table" },
+      { "id": "bysystem", "name": "By system", "type": "board", "groupBy": "system" },
+      { "id": "dates", "name": "Dates", "type": "calendar", "dateProp": "due" }
+    ]
+  }
+]

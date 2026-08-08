@@ -1,0 +1,13 @@
+{
+  "format": 1,
+  "saltVersion": "blueprint",
+  "exportedAt": "",
+  "workspace": {
+    "name": "Sales pipeline",
+    "icon": "🤝",
+    "image": "",
+    "rules": "# How we work here\n\n**Companies** are the people and places. **Deals** are the money. They are separate because a company outlives every deal you will ever have with it, and losing one should not lose the relationship.\n\n## Every deal hangs off a company\n\nOtherwise the company page cannot show what is open with them, and the next person to call has to reconstruct it from memory.\n\n## The stage is what is true today, not what you hope\n\nA deal sitting in *Negotiation* for two months is not in negotiation. Moving it back is information, not failure — a forecast built on optimism is worse than no forecast.\n\n## Write down what was said, on the company page\n\nDates, names, objections, the sentence they used. Not a summary of your own feelings about the call. In six months the sentence is worth something and the feeling is not.\n\n## A lost deal keeps its reason\n\nSet the stage to *Lost* and write one line about why. Three of those next to each other tell you more about the product than any survey.\n\n## Never put a password, contract price sheet or key on a page\n\nA pointer to where it lives is fine. The page is searchable, exportable and shareable, and one of those will eventually happen to it.\n"
+  },
+  "pages": 2,
+  "files": 0
+}

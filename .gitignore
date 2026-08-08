@@ -1,0 +1,19 @@
+node_modules/
+web/dist/*
+!web/dist/.gitkeep
+data/
+/salt
+*.log
+.DS_Store
+
+# The agent playbook. Local only, and it has to stay that way: it names the
+# servers this is deployed to, how to reach them and how to restore the
+# database. It was public for weeks, which is the reason this repository was
+# started again from scratch.
+CLAUDE.md
+
+# Stray certificates. A .pem in the working directory is one failed `cd` away
+# from being committed — which happened.
+*.pem
+*.p12
+*.p8

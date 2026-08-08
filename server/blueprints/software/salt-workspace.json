@@ -1,0 +1,13 @@
+{
+  "format": 1,
+  "saltVersion": "blueprint",
+  "exportedAt": "",
+  "workspace": {
+    "name": "Software team",
+    "icon": "🛠️",
+    "image": "",
+    "rules": "# How we work here\n\nTwo databases, two questions. **Systems** answers *what is there*. **Tasks** answers *what has to be done*. Everything else is a page.\n\n## Every task hangs off a system\n\nA task with no system is invisible: the system does not see its own work and the progress column does not count it. If a task fits no system yet, the system is the thing that is missing — add it first.\n\n## The title names the symptom, not the fix\n\n\"A 24 MB upload took the instance down\" — not \"add an upload limit\". The symptom stays true after the fix and is what somebody searches for a year later. The fix belongs in the page.\n\n## Decisions go in the page, including the ones you dropped\n\nWrite down what you decided and why, and write down what you decided *against*. Nobody ever asks why something was not built — which is exactly why it gets proposed a second time.\n\n## Set the status before you start, not after\n\n*In progress* is a statement about now. Set afterwards it is a diary entry, and while it is missing everyone else assumes the task is free.\n\n## Technical documentation stays in the repository\n\nWhat belongs here is what you want to know *without* the code in front of you: status, where it runs, which decisions were taken, what is still open. Nothing kept in two places.\n\n## Big things are bundled by milestone\n\nSeveral tasks sharing one milestone text — not a folder, not a chain of sub-pages. A folder hides the work from the board it belongs on.\n\n## Never put a password, token or key on a page\n\nA pointer to where it lives is fine. The page is searchable, exportable and shareable, and one of those will eventually happen to it.\n"
+  },
+  "pages": 2,
+  "files": 0
+}

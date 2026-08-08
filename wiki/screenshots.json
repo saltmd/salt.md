@@ -1,0 +1,869 @@
+{
+  "viewport": {
+    "width": 1280,
+    "height": 800
+  },
+  "note": "Every shot records the source files it shows. check-wiki.mjs fails when one of them changed after takenAt — retake with: node scripts/shoot-wiki.mjs <id>",
+  "shots": [
+    {
+      "id": "setup-welcome",
+      "page": "getting-started.md",
+      "caption": "The first screen of a brand new instance: it creates the first account, which is also the owner.",
+      "shows": [
+        "web/src/components/Setup.tsx"
+      ],
+      "steps": [
+        {
+          "goto": "/"
+        },
+        {
+          "waitFor": ".login-card"
+        },
+        {
+          "wait": 900
+        }
+      ],
+      "takenAt": {
+        "web/src/components/Setup.tsx": "9de35b8f5040"
+      },
+      "instance": "fresh",
+      "element": ".login-card"
+    },
+    {
+      "id": "sign-in",
+      "page": "getting-started.md",
+      "caption": "Signing in. Buttons for Microsoft or Google appear here when single sign-on is configured.",
+      "shows": [
+        "web/src/components/Login.tsx"
+      ],
+      "steps": [
+        {
+          "goto": "/"
+        },
+        {
+          "waitFor": ".login-card"
+        },
+        {
+          "wait": 900
+        }
+      ],
+      "takenAt": {
+        "web/src/components/Login.tsx": "bae6bf56b013"
+      },
+      "instance": "anon",
+      "element": ".login-card"
+    },
+    {
+      "id": "workspace-overview",
+      "page": "interface.md",
+      "caption": "The whole application: workspace switcher and tree on the left, the document and its actions on the right.",
+      "shows": [
+        "web/src/components/Sidebar.tsx",
+        "web/src/components/Editor.tsx",
+        "web/src/App.tsx"
+      ],
+      "steps": [
+        {
+          "goto": "/"
+        },
+        {
+          "waitFor": ".sidebar"
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "takenAt": {
+        "web/src/components/Sidebar.tsx": "0ead24f7f4cf",
+        "web/src/components/Editor.tsx": "d91452e0e147",
+        "web/src/App.tsx": "37414e889d16"
+      }
+    },
+    {
+      "id": "sidebar-tree",
+      "page": "interface.md",
+      "caption": "The sidebar: documents and collections in separate sections, each with a count.",
+      "shows": [
+        "web/src/components/Sidebar.tsx",
+        "web/src/treeMode.ts"
+      ],
+      "steps": [
+        {
+          "goto": "/"
+        },
+        {
+          "waitFor": ".sidebar"
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "takenAt": {
+        "web/src/components/Sidebar.tsx": "0ead24f7f4cf",
+        "web/src/treeMode.ts": "413de5b84cd9"
+      },
+      "element": ".sidebar"
+    },
+    {
+      "id": "page-menu",
+      "page": "pages.md",
+      "caption": "Everything a page can do, behind the ... button. The same entries appear on a right-click.",
+      "shows": [
+        "web/src/components/Editor.tsx"
+      ],
+      "steps": [
+        {
+          "goto": "/"
+        },
+        {
+          "waitFor": ".topbar"
+        },
+        {
+          "wait": 600
+        },
+        {
+          "click": ".topbar [title=\"More\"]"
+        },
+        {
+          "waitFor": ".menu"
+        },
+        {
+          "wait": 400
+        }
+      ],
+      "takenAt": {
+        "web/src/components/Editor.tsx": "d91452e0e147"
+      }
+    },
+    {
+      "id": "structure-panel",
+      "page": "pages.md",
+      "caption": "The structure panel: where the page sits, what sits under it, its files and what links to it.",
+      "shows": [
+        "web/src/components/StructurePanel.tsx"
+      ],
+      "steps": [
+        {
+          "goto": "/"
+        },
+        {
+          "waitFor": ".sidebar"
+        },
+        {
+          "click": "[title=\"Show structure\"]"
+        },
+        {
+          "waitFor": ".structure-panel"
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "takenAt": {
+        "web/src/components/StructurePanel.tsx": "25eb900e98d2"
+      }
+    },
+    {
+      "id": "comments-panel",
+      "page": "comments-and-notes.md",
+      "caption": "Comments stand beside the text, not under it, and can be closed when you only want to read.",
+      "shows": [
+        "web/src/components/CommentsPanel.tsx"
+      ],
+      "steps": [
+        {
+          "goto": "/"
+        },
+        {
+          "waitFor": ".sidebar"
+        },
+        {
+          "click": "[title=\"Show comments\"]"
+        },
+        {
+          "waitFor": ".comments-panel"
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "takenAt": {
+        "web/src/components/CommentsPanel.tsx": "c947b1d14c8e"
+      }
+    },
+    {
+      "id": "note-trail",
+      "page": "comments-and-notes.md",
+      "caption": "The raw trail at the foot of a page: dated notes that cannot be edited, only added to.",
+      "shows": [
+        "web/src/components/NoteTrail.tsx",
+        "server/notelog.go"
+      ],
+      "steps": [
+        {
+          "goto": "/"
+        },
+        {
+          "waitFor": ".trail-wrap"
+        },
+        {
+          "wait": 500
+        }
+      ],
+      "takenAt": {
+        "web/src/components/NoteTrail.tsx": "d4df84f029dd",
+        "server/notelog.go": "3f695c839dbd"
+      },
+      "element": ".trail-wrap"
+    },
+    {
+      "id": "search",
+      "page": "search.md",
+      "caption": "Search opens with Ctrl/Cmd + K and matches page text, file contents and titles.",
+      "shows": [
+        "web/src/components/SearchModal.tsx",
+        "server/searchindex.go"
+      ],
+      "steps": [
+        {
+          "goto": "/"
+        },
+        {
+          "waitFor": ".sidebar"
+        },
+        {
+          "press": "Meta+k"
+        },
+        {
+          "wait": 400
+        },
+        {
+          "fill": [
+            ".search-modal input",
+            "index"
+          ]
+        },
+        {
+          "wait": 900
+        }
+      ],
+      "takenAt": {
+        "web/src/components/SearchModal.tsx": "1d4b76382c41",
+        "server/searchindex.go": "d169bf46ae39"
+      }
+    },
+    {
+      "id": "collection-table",
+      "page": "views.md",
+      "caption": "A table view. Every row is a page in its own right.",
+      "shows": [
+        "web/src/components/CollectionView.tsx"
+      ],
+      "steps": [
+        {
+          "goto": "/"
+        },
+        {
+          "waitFor": ".sidebar"
+        },
+        {
+          "click": ".sidebar >> text=Tasks"
+        },
+        {
+          "wait": 900
+        },
+        {
+          "click": "text=Table"
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "takenAt": {
+        "web/src/components/CollectionView.tsx": "3ef8d8b9e667"
+      }
+    },
+    {
+      "id": "collection-board",
+      "page": "views.md",
+      "caption": "A board view, grouped by a select property. Each column is one option.",
+      "shows": [
+        "web/src/components/CollectionView.tsx",
+        "web/src/cardLayout.ts"
+      ],
+      "steps": [
+        {
+          "goto": "/"
+        },
+        {
+          "waitFor": ".sidebar"
+        },
+        {
+          "click": ".sidebar >> text=Tasks"
+        },
+        {
+          "wait": 900
+        },
+        {
+          "click": "text=Board"
+        },
+        {
+          "wait": 800
+        }
+      ],
+      "takenAt": {
+        "web/src/components/CollectionView.tsx": "3ef8d8b9e667",
+        "web/src/cardLayout.ts": "5460d753a3ca"
+      }
+    },
+    {
+      "id": "collection-calendar",
+      "page": "views.md",
+      "caption": "A calendar view. It needs a date property to place rows on.",
+      "shows": [
+        "web/src/components/CollectionView.tsx"
+      ],
+      "steps": [
+        {
+          "goto": "/"
+        },
+        {
+          "waitFor": ".sidebar"
+        },
+        {
+          "click": ".sidebar >> text=Tasks"
+        },
+        {
+          "wait": 900
+        },
+        {
+          "click": "text=Calendar"
+        },
+        {
+          "wait": 900
+        }
+      ],
+      "takenAt": {
+        "web/src/components/CollectionView.tsx": "3ef8d8b9e667"
+      }
+    },
+    {
+      "id": "library",
+      "page": "library.md",
+      "caption": "The library lists every page of one workspace, on shelves and as a tree.",
+      "shows": [
+        "web/src/components/IndexView.tsx"
+      ],
+      "steps": [
+        {
+          "goto": "/"
+        },
+        {
+          "waitFor": ".sidebar"
+        },
+        {
+          "click": "[title^=\"Library\"]"
+        },
+        {
+          "wait": 1100
+        }
+      ],
+      "takenAt": {
+        "web/src/components/IndexView.tsx": "38620799fb17"
+      }
+    },
+    {
+      "id": "graph",
+      "page": "library.md",
+      "caption": "The graph: a dot per page, a thin line where a page is filed and a bright one where it mentions another.",
+      "shows": [
+        "web/src/components/GraphView.tsx"
+      ],
+      "steps": [
+        {
+          "goto": "/"
+        },
+        {
+          "waitFor": ".sidebar"
+        },
+        {
+          "click": "[title^=\"Library\"]"
+        },
+        {
+          "wait": 700
+        },
+        {
+          "click": "text=Graph"
+        },
+        {
+          "wait": 2200
+        }
+      ],
+      "takenAt": {
+        "web/src/components/GraphView.tsx": "4d25dd60632d"
+      }
+    },
+    {
+      "id": "share-dialog",
+      "page": "sharing.md",
+      "caption": "Publishing a page: the link, an optional password and an optional expiry.",
+      "shows": [
+        "server/public.go",
+        "web/src/components/Editor.tsx"
+      ],
+      "steps": [
+        {
+          "goto": "/"
+        },
+        {
+          "waitFor": ".sidebar"
+        },
+        {
+          "click": "[title^=\"Share to web\"]"
+        },
+        {
+          "wait": 700
+        }
+      ],
+      "takenAt": {
+        "server/public.go": "efc0d0deb8d5",
+        "web/src/components/Editor.tsx": "d91452e0e147"
+      }
+    },
+    {
+      "id": "account-profile",
+      "page": "account.md",
+      "caption": "Your own account: name, colour and picture, and changing the password.",
+      "shows": [
+        "web/src/components/UserMenu.tsx"
+      ],
+      "steps": [
+        {
+          "goto": "/"
+        },
+        {
+          "click": ".user-menu-btn"
+        },
+        {
+          "click": ".menu >> text=Profile"
+        },
+        {
+          "waitFor": ".dialog"
+        },
+        {
+          "wait": 700
+        }
+      ],
+      "takenAt": {
+        "web/src/components/UserMenu.tsx": "22d532d3b2e7"
+      },
+      "element": ".dialog"
+    },
+    {
+      "id": "api-tokens",
+      "page": "account.md",
+      "caption": "API tokens carry your own identity and narrow it by scope and workspace.",
+      "shows": [
+        "server/users.go",
+        "web/src/components/UserMenu.tsx"
+      ],
+      "steps": [
+        {
+          "goto": "/"
+        },
+        {
+          "click": ".user-menu-btn"
+        },
+        {
+          "click": ".menu >> text=API tokens"
+        },
+        {
+          "waitFor": ".dialog"
+        },
+        {
+          "wait": 700
+        }
+      ],
+      "takenAt": {
+        "server/users.go": "b08479ea99c2",
+        "web/src/components/UserMenu.tsx": "22d532d3b2e7"
+      },
+      "element": ".dialog"
+    },
+    {
+      "id": "language-time",
+      "page": "language-and-time.md",
+      "caption": "Five settings, each of which can stay automatic. They live on the account, not on the device.",
+      "shows": [
+        "web/src/components/LanguageTime.tsx",
+        "server/prefs.go"
+      ],
+      "steps": [
+        {
+          "goto": "/"
+        },
+        {
+          "click": ".user-menu-btn"
+        },
+        {
+          "click": ".menu >> text=Language and time"
+        },
+        {
+          "waitFor": ".dialog"
+        },
+        {
+          "wait": 700
+        }
+      ],
+      "takenAt": {
+        "web/src/components/LanguageTime.tsx": "09ce243294b4",
+        "server/prefs.go": "95c554b255e3"
+      },
+      "element": ".dialog"
+    },
+    {
+      "id": "agents-connect",
+      "page": "agents.md",
+      "caption": "What an agent needs to connect: the endpoint address and a credential.",
+      "shows": [
+        "web/src/components/AgentConnect.tsx",
+        "server/mcp.go"
+      ],
+      "steps": [
+        {
+          "goto": "/"
+        },
+        {
+          "click": ".user-menu-btn"
+        },
+        {
+          "click": ".menu >> text=Agents & MCP"
+        },
+        {
+          "waitFor": ".dialog"
+        },
+        {
+          "wait": 700
+        }
+      ],
+      "takenAt": {
+        "web/src/components/AgentConnect.tsx": "048c1dc5ffa2",
+        "server/mcp.go": "062c1ebb0dde"
+      },
+      "element": ".dialog"
+    },
+    {
+      "id": "two-factor",
+      "page": "account.md",
+      "caption": "Turning on two-factor sign-in.",
+      "shows": [
+        "server/users.go"
+      ],
+      "steps": [
+        {
+          "goto": "/"
+        },
+        {
+          "click": ".user-menu-btn"
+        },
+        {
+          "click": ".menu >> text=Two-factor (2FA)"
+        },
+        {
+          "waitFor": ".dialog"
+        },
+        {
+          "wait": 700
+        }
+      ],
+      "takenAt": {
+        "server/users.go": "b08479ea99c2"
+      },
+      "element": ".dialog"
+    },
+    {
+      "id": "admin-general",
+      "page": "administration.md",
+      "caption": "Instance settings: the name and logo everyone sees.",
+      "shows": [
+        "web/src/components/AdminSettings.tsx",
+        "server/instance.go"
+      ],
+      "steps": [
+        {
+          "goto": "/"
+        },
+        {
+          "click": ".user-menu-btn"
+        },
+        {
+          "click": ".menu >> text=Instance settings"
+        },
+        {
+          "waitFor": ".dialog"
+        },
+        {
+          "wait": 700
+        },
+        {
+          "click": ".dialog >> text=\"General\""
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "takenAt": {
+        "web/src/components/AdminSettings.tsx": "55025869aebc",
+        "server/instance.go": "4d41044b9102"
+      },
+      "element": ".dialog"
+    },
+    {
+      "id": "admin-access",
+      "page": "administration.md",
+      "caption": "Who may register, and single sign-on with Microsoft or Google.",
+      "shows": [
+        "web/src/components/AdminSettings.tsx",
+        "server/oauth.go"
+      ],
+      "steps": [
+        {
+          "goto": "/"
+        },
+        {
+          "click": ".user-menu-btn"
+        },
+        {
+          "click": ".menu >> text=Instance settings"
+        },
+        {
+          "waitFor": ".dialog"
+        },
+        {
+          "wait": 700
+        },
+        {
+          "click": ".dialog >> text=\"Access\""
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "takenAt": {
+        "web/src/components/AdminSettings.tsx": "55025869aebc",
+        "server/oauth.go": "840714b5c2cf"
+      },
+      "element": ".dialog"
+    },
+    {
+      "id": "admin-email",
+      "page": "mail.md",
+      "caption": "Sending email: a connected mailbox, or a plain SMTP server.",
+      "shows": [
+        "web/src/components/AdminSettings.tsx",
+        "server/mail_oauth.go",
+        "server/admin.go"
+      ],
+      "steps": [
+        {
+          "goto": "/"
+        },
+        {
+          "click": ".user-menu-btn"
+        },
+        {
+          "click": ".menu >> text=Instance settings"
+        },
+        {
+          "waitFor": ".dialog"
+        },
+        {
+          "wait": 700
+        },
+        {
+          "click": ".dialog >> text=\"Email\""
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "takenAt": {
+        "web/src/components/AdminSettings.tsx": "55025869aebc",
+        "server/mail_oauth.go": "d58b546dbcb4",
+        "server/admin.go": "5641c107ad69"
+      },
+      "element": ".dialog"
+    },
+    {
+      "id": "admin-domain",
+      "page": "domain.md",
+      "caption": "The public address: what share links and agents are told to use.",
+      "shows": [
+        "web/src/components/AdminSettings.tsx"
+      ],
+      "steps": [
+        {
+          "goto": "/"
+        },
+        {
+          "click": ".user-menu-btn"
+        },
+        {
+          "click": ".menu >> text=Instance settings"
+        },
+        {
+          "waitFor": ".dialog"
+        },
+        {
+          "wait": 700
+        },
+        {
+          "click": ".dialog >> text=\"Domain & proxy\""
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "takenAt": {
+        "web/src/components/AdminSettings.tsx": "55025869aebc"
+      },
+      "element": ".dialog"
+    },
+    {
+      "id": "admin-webhooks",
+      "page": "webhooks.md",
+      "caption": "Outbound webhooks. The signing secret is shown once, when the webhook is created.",
+      "shows": [
+        "web/src/components/AdminSettings.tsx",
+        "server/webhooks.go"
+      ],
+      "steps": [
+        {
+          "goto": "/"
+        },
+        {
+          "click": ".user-menu-btn"
+        },
+        {
+          "click": ".menu >> text=Instance settings"
+        },
+        {
+          "waitFor": ".dialog"
+        },
+        {
+          "wait": 700
+        },
+        {
+          "click": ".dialog >> text=\"Webhooks\""
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "takenAt": {
+        "web/src/components/AdminSettings.tsx": "55025869aebc",
+        "server/webhooks.go": "49e796d4fa6b"
+      },
+      "element": ".dialog"
+    },
+    {
+      "id": "admin-maintenance",
+      "page": "self-hosting.md",
+      "caption": "Maintenance: the database file, backups and the search index.",
+      "shows": [
+        "web/src/components/AdminSettings.tsx",
+        "server/backup.go"
+      ],
+      "steps": [
+        {
+          "goto": "/"
+        },
+        {
+          "click": ".user-menu-btn"
+        },
+        {
+          "click": ".menu >> text=Instance settings"
+        },
+        {
+          "waitFor": ".dialog"
+        },
+        {
+          "wait": 700
+        },
+        {
+          "click": ".dialog >> text=\"Maintenance\""
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "takenAt": {
+        "web/src/components/AdminSettings.tsx": "55025869aebc",
+        "server/backup.go": "7b11cc725a0a"
+      },
+      "element": ".dialog"
+    },
+    {
+      "id": "admin-users",
+      "page": "administration.md",
+      "caption": "Managing accounts: roles, deactivating, deleting and handing work over.",
+      "shows": [
+        "web/src/components/AdminSettings.tsx",
+        "server/admin.go",
+        "server/lifecycle_account.go"
+      ],
+      "steps": [
+        {
+          "goto": "/"
+        },
+        {
+          "click": ".user-menu-btn"
+        },
+        {
+          "click": ".menu >> text=Manage users"
+        },
+        {
+          "waitFor": ".dialog"
+        },
+        {
+          "wait": 700
+        }
+      ],
+      "takenAt": {
+        "web/src/components/AdminSettings.tsx": "55025869aebc",
+        "server/admin.go": "5641c107ad69",
+        "server/lifecycle_account.go": "1dd1c28800c0"
+      },
+      "element": ".dialog"
+    },
+    {
+      "id": "activity-log",
+      "page": "history-and-audit.md",
+      "caption": "The activity log: who did what, and when.",
+      "shows": [
+        "server/audit.go"
+      ],
+      "steps": [
+        {
+          "goto": "/"
+        },
+        {
+          "click": ".user-menu-btn"
+        },
+        {
+          "click": ".menu >> text=Activity log"
+        },
+        {
+          "waitFor": ".dialog"
+        },
+        {
+          "wait": 700
+        }
+      ],
+      "takenAt": {
+        "server/audit.go": "66a4ffa9807e"
+      },
+      "element": ".dialog"
+    }
+  ]
+}
