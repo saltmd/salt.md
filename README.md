@@ -4,9 +4,9 @@
 
 <p align="center">
   <b>The open-source workspace for people and AI agents.</b><br>
-  Docs, databases and realtime collaboration for your team — and an MCP server
-  in the same binary, so an agent works <i>in</i> that workspace instead of
-  talking about it.
+  Docs, databases and realtime collaboration for your team. An MCP server sits in
+  the same binary, so an agent works <i>in</i> that workspace instead of talking
+  about it.
 </p>
 
 <p align="center">
@@ -24,7 +24,7 @@
 ---
 
 An agent asks to organise the launch notes. A page appears, a database is
-created, the rows fill in — and a person opens the same board a second later and
+created, the rows fill in. A person opens the same board a second later and
 carries on editing. Same pages, same permissions, same history.
 
 That is the whole idea. Everything below is how it works.
@@ -38,7 +38,7 @@ salt
 
 The installer downloads one binary for your platform. `salt` then starts it on
 `http://localhost:8420`, where you create the first account. There is nothing
-else to install — no database server, no cache, no object store, no separate
+else to install. No database server, no cache, no object store, no separate
 realtime service.
 
 Docker, if you prefer:
@@ -49,7 +49,7 @@ docker run -d -p 8420:8420 -v salt-data:/data ghcr.io/saltmd/salt.md:latest
 
 ## Why salt.md exists
 
-Agents increasingly need somewhere to put durable, structured work — not a chat
+Agents increasingly need somewhere to put durable, structured work. Not a chat
 log, not a vector store, but pages and tables a person will read tomorrow.
 
 Today they get one of two bad options. A workspace built for humans, with an AI
@@ -66,31 +66,31 @@ and the same permission model. And you run the whole thing yourself.
 Connect any MCP client to `/mcp` and it gets **33 tools** over the same
 workspace you use:
 
-- **Read and write pages** — create, update, move, duplicate, trash, restore
-- **Work with databases** — create one, change its schema, add and query rows,
+- **Read and write pages**: create, update, move, duplicate, trash, restore
+- **Work with databases**: create one, change its schema, add and query rows,
   configure views
 - **Search** the whole workspace, with the same permission checks a person gets
 - **Import** from a URL or a Notion export, in bulk
 - **Comment**, and write to a page's append-only note trail
 - **Announce what it is working on**, which shows live in the interface beside
-  the page — so you can see an agent is mid-edit before you start typing
+  the page, so you can see an agent is mid-edit before you start typing
 
 **And a bounded set it cannot touch.** An agent may not create or delete
 accounts, change two-factor settings, issue API tokens, take or restore a
 backup, alter instance settings, or change who is in a workspace. That list is
-not a promise in a README — the server sends it to every agent that connects.
+not a promise in a README. The server sends it to every agent that connects.
 
 Full reference: [MCP tools](https://salt.md/wiki/mcp-tools/).
 
 ## Agents get permissions, not a master key
 
-A credential belongs to a person and carries that person's access — never more.
+A credential belongs to a person and carries that person's access, never more.
 Beyond that:
 
 - Every workspace decides for itself what agents may do there: anything they
   were granted, only signed-in connections, or nothing at all.
 - Tokens narrow by scope and by workspace.
-- Agent actions are attributable — the activity log distinguishes them from
+- Agent actions are attributable: the activity log distinguishes them from
   yours.
 - Administration is deliberately out of reach of any token.
 
@@ -101,16 +101,16 @@ what, and what changed. See [Permissions](https://salt.md/wiki/permissions/).
 
 Not developer infrastructure with a login screen.
 
-**Write** — a block editor with a slash menu, nested lists, checklists, quotes,
+**Write.** A block editor with a slash menu, nested lists, checklists, quotes,
 code, tables, images and callouts. Page links, backlinks, tags, covers and
 icons. Comments in a side panel.
 
-**Organise** — turn any page into a collection with typed properties: text,
+**Organise.** Turn any page into a collection with typed properties: text,
 number, select, multi-select, date, person, checkbox, checklist, URL, relation,
 rollup, formula and backrelation. Look at it as a table, board, list, gallery,
 calendar, timeline or form. Filter, sort, group.
 
-**Together** — realtime editing with live cursors, comments, page history and an
+**Together.** Realtime editing with live cursors, comments, page history and an
 activity log. Share a page publicly with an optional password and expiry.
 
 Full-text search covers page text and the contents of uploaded PDFs, with
@@ -146,26 +146,26 @@ No PostgreSQL, no Redis, no object store, no separate collaboration server.
 | Backup | stop, copy two paths, start |
 | Platforms | Linux, macOS and Windows, amd64 and arm64 |
 
-A desktop application for macOS is available too — it is a window onto a server
+A desktop application for macOS is available too. It is a window onto a server
 you run, not a second copy of the product. See
 [The desktop app](https://salt.md/wiki/desktop-app/).
 
 ## Documentation
 
-[salt.md/wiki](https://salt.md/wiki/) — 40 pages covering every screen, every
+[salt.md/wiki](https://salt.md/wiki/) has 40 pages covering every screen, every
 property type, every tool an agent can call and every setting on the server.
 
-It is derived from this source and checked against it on every build: a tool
+It is derived from this source and checked against it on every build. A tool
 name that stopped existing, an API path that is not a route, a screenshot whose
-component has changed — each one fails the build. Every page is also available
+component has changed: each one fails the build. Every page is also available
 as plain Markdown at the same address with `.md` on the end, and
 [/wiki/llms.txt](https://salt.md/wiki/llms.txt) indexes them for agents.
 
 ## Contributing
 
 Issues and pull requests are welcome. Pull requests need a signed
-[CLA](CLA.md) — see [CONTRIBUTING.md](CONTRIBUTING.md) for what that means and
-why it exists.
+[CLA](CLA.md). [CONTRIBUTING.md](CONTRIBUTING.md) says what that means and why
+it exists.
 
 Security reports: **dev@salt.md**, not a public issue. See
 [SECURITY.md](SECURITY.md).

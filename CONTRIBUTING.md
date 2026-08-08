@@ -5,9 +5,9 @@ words, including the part people are right to ask about.
 
 ## Before a big change
 
-Open an issue first. salt.md has opinions — one binary, no external services,
-English source, everything derived from the code rather than remembered — and a
-pull request that runs against one of them is a waste of your evening. A short
+Open an issue first. salt.md has opinions: one binary, no external services,
+English source, everything derived from the code rather than remembered. A pull
+request that runs against one of them is a waste of your evening. A short
 issue costs nothing and saves that.
 
 Small fixes need no ceremony. Send them.
@@ -51,9 +51,9 @@ everything you send afterwards.
 We would rather say why than let you guess. salt.md is AGPL-3.0 and stays that
 way. The plan is to sell a hosted version later, and possibly a commercial
 licence for companies that cannot use AGPL internally. Offering that licence
-requires holding the rights to all of the code — which is impossible if forty
-people each hold rights to their own patch and some of them cannot be reached
-in two years.
+requires holding the rights to all of the code, and that is impossible once
+forty people each hold rights to their own patch and some of them cannot be
+reached in two years.
 
 So the CLA asks you to grant those rights, and it says so plainly instead of
 burying it. What it does **not** do is take your work away from you: you keep
@@ -61,7 +61,7 @@ your copyright, and everything you contribute stays available under AGPL-3.0 to
 everyone, including you.
 
 If that is not a trade you want to make, that is a fair position. Open an issue
-instead — a good bug report is worth more than most patches.
+instead. A good bug report is worth more than most patches.
 
 ## Commit messages
 

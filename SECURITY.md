@@ -7,8 +7,8 @@ Write to **dev@salt.md**, or open a private advisory through GitHub's
 form. Please do not open a public issue for a security problem.
 
 You will get an acknowledgement within 72 hours. salt.md is maintained by one
-person, so a fix takes as long as it takes — but you will be told what is
-happening rather than left in silence. There is no bounty programme.
+person, so a fix takes as long as it takes. You will be told what is happening
+rather than left in silence. There is no bounty programme.
 
 Please include what you found, how to reproduce it, and what an attacker could
 do with it. A proof of concept helps and is never required.
@@ -25,7 +25,8 @@ operator.
 ## What we ask
 
 Do not test against instances you do not own. A self-hosted product is easy to
-run locally — one binary and one command — and that is the right place to look.
+run locally with one binary and one command, and that is the right place to
+look.
 
 ## Supported versions
 

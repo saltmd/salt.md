@@ -15,8 +15,8 @@ work is significant to you, have someone check it before signing.
 **"You"** means the individual signing this agreement, or the legal entity on
 whose behalf it is signed.
 
-**"Contribution"** means any work of authorship you submit to this project —
-code, documentation, translations, configuration — in any form.
+**"Contribution"** means any work of authorship you submit to this project, in
+any form: code, documentation, translations, configuration.
 
 **"Project owner"** means Jeremia Arslan, and any legal entity to which the
 project is later assigned under section 5.
@@ -52,8 +52,8 @@ that cannot be taken back.
 
 ## 5. Assignment
 
-The rights granted here may be assigned, in whole, together with the project —
-for example when the project moves to a company formed for it. Your rights under
+The rights granted here may be assigned, in whole, together with the project,
+for example when it moves to a company formed for it. Your rights under
 section 2 are unaffected.
 
 ## 6. What you confirm
