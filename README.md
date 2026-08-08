@@ -33,11 +33,19 @@ That is the whole idea. Everything below is how it works.
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/saltmd/salt.md/main/install.sh | sh
-salt
 ```
 
-The installer downloads one binary for your platform. `salt` then starts it on
-`http://localhost:8420`, where you create the first account. There is nothing
+No `curl` on the machine? A minimal server image often has `wget` instead, and
+the script itself is happy with either:
+
+```sh
+wget -qO- https://raw.githubusercontent.com/saltmd/salt.md/main/install.sh | sh
+```
+
+That one command downloads the binary for your platform, installs it and starts
+it, then prints the address to open. On a server it prints that machine's
+address rather than `localhost`, which is the thing most install scripts get
+wrong. Open it and create the first account. Later, `salt` starts it again. There is nothing
 else to install. No database server, no cache, no object store, no separate
 realtime service.
 

@@ -16,11 +16,25 @@ your path:
 curl -fsSL https://raw.githubusercontent.com/saltmd/salt.md/main/install.sh | sh
 ```
 
+If the machine has no `curl`, fetch the script with `wget` instead. Minimal
+server images often ship one and not the other. The script itself uses whichever
+of the two it finds, so only this first line changes:
+
+```sh
+wget -qO- https://raw.githubusercontent.com/saltmd/salt.md/main/install.sh | sh
+```
+
 It detects your operating system and processor, downloads the matching file from
-the GitHub release, makes it executable and moves it to `/usr/local/bin/salt` —
+the GitHub release, makes it executable and moves it to `/usr/local/bin/salt`,
 or to `$HOME/.local/bin/salt` when that directory is not writable and `sudo` is
-not available. It finishes by printing either `Run it:   salt` or, when the
-directory it chose is not on your path, the full command to type instead.
+not available. It then starts the server and prints the address to open. On a
+machine you reached over SSH that is the machine's own address, not
+`localhost`. Sending somebody to `localhost` from an SSH session is the most
+common way a fresh install goes nowhere.
+
+Set `SALT_NO_START=1` to install without starting, which is what you want from
+a provisioning script. A non-interactive install does not start it either, and
+prints the command instead.
 
 Two variables change what it does:
 

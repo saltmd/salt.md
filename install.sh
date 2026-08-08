@@ -1,5 +1,6 @@
 #!/bin/sh
-# salt.md installer — downloads the right prebuilt binary and installs it.
+# salt.md installer: downloads the right prebuilt binary, installs it, and
+# starts it. Set SALT_NO_START=1 to install without starting.
 #
 #   curl -fsSL https://raw.githubusercontent.com/saltmd/salt.md/main/install.sh | sh
 #
@@ -75,11 +76,63 @@ else
 fi
 trap - EXIT
 
-say "Done. salt.md $("$bindir/salt" version 2>/dev/null || echo "$ver") installed."
-echo
-case ":$PATH:" in
-  *":$bindir:"*) echo "  Run it:   salt" ;;
-  *) echo "  $bindir is not on your PATH. Either add it, or run:"
-     echo "            $bindir/salt" ;;
+# `salt version` already prints a leading v, and $ver is "latest" when nobody
+# pinned one — so normalise instead of gluing a v in front of whatever comes
+# back, which produced "vv1.0.0" and could have produced "vlatest".
+installed=$("$bindir/salt" version 2>/dev/null || echo "$ver")
+installed=${installed#v}
+case "$installed" in latest|'') installed='' ;; *) installed="v$installed   " ;; esac
+
+# --- the address somebody can actually open ---------------------------------
+# Almost nobody installs this on the machine they are sitting at. Printing
+# "localhost" to a person three hops into an SSH session sends them to their
+# own laptop, and that is the most common way a fresh install goes nowhere.
+#
+# Every probe ends in `|| true`: `set -e` is on, and a machine without
+# `hostname -I` must not lose the whole summary over it. Linux first, because
+# that is where this mostly runs.
+lan=$(hostname -I 2>/dev/null | awk '{ print $1 }' || true)
+[ -n "$lan" ] || lan=$(ip route get 1.1.1.1 2>/dev/null | awk '{ for (i = 1; i < NF; i++) if ($i == "src") { print $(i + 1); exit } }' || true)
+[ -n "$lan" ] || lan=$(ipconfig getifaddr en0 2>/dev/null || true)
+
+case "$lan" in
+  ''|127.*) url="http://localhost:8420"; also='' ;;
+  *)        url="http://$lan:8420";      also="http://localhost:8420" ;;
 esac
-echo "  Then open http://localhost:8420 and create your admin account."
+
+# Colour only for a terminal. Piped into a file or a log, the escapes would be
+# the only thing anybody sees.
+if [ -t 1 ]; then
+  b=$(printf '\033[1m'); d=$(printf '\033[2m'); r=$(printf '\033[0m')
+  g1=$(printf '\033[38;5;211m'); g3=$(printf '\033[38;5;177m'); g5=$(printf '\033[38;5;110m')
+else
+  b=''; d=''; r=''; g1=''; g3=''; g5=''
+fi
+
+printf '\n'
+printf '  %s█▀▀▀ █▀▀█ █    ▀█▀   █▄ ▄█ █▀▀▄%s\n' "$g1" "$r"
+printf '  %s▀▀▀█ █▄▄█ █     █    █ ▀ █ █  █%s\n' "$g3" "$r"
+printf '  %s▀▀▀▀ ▀  ▀ ▀▀▀▀  ▀    ▀   ▀ ▀▀▀%s\n' "$g5" "$r"
+printf '\n  %s%sthe workspace people and agents share%s\n\n' "$d" "$installed" "$r"
+
+printf '  Open in browser   %s%s%s\n' "$b" "$url" "$r"
+[ -n "$also" ] && printf '                    %s%s on the machine itself%s\n' "$d" "$also" "$r"
+printf '  Star it           %shttps://github.com/%s%s\n' "$d" "$REPO" "$r"
+printf '  Data              %s%s/data%s\n' "$d" "$PWD" "$r"
+printf '\n'
+
+# --- start it ---------------------------------------------------------------
+# One command should end with a running instance, not with homework. Only when
+# somebody is watching, though: piped into a Dockerfile or a provisioning
+# script this would block forever, so a non-tty install prints the command and
+# gets out of the way.
+if [ -n "${SALT_NO_START:-}" ] || [ ! -t 1 ]; then
+  case ":$PATH:" in
+    *":$bindir:"*) printf '  Run it:   salt\n' ;;
+    *)             printf '  %s is not on your PATH. Run it with:\n            %s/salt\n' "$bindir" "$bindir" ;;
+  esac
+  exit 0
+fi
+
+printf '  %sStarting it now. Ctrl-C stops it; run salt again any time.%s\n\n' "$d" "$r"
+exec "$bindir/salt"

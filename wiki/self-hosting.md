@@ -17,7 +17,19 @@ one. Everything the instance owns lives in one directory.
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/saltmd/salt.md/main/install.sh | sh
-salt
+```
+
+That installs it and starts it, and prints the address to open. `SALT_NO_START=1`
+installs without starting, and a non-interactive run never starts it, so this is
+safe in a provisioning script.
+
+On a machine with `wget` and no `curl`, which is common on minimal server
+images, fetch the script with that instead. Only this line changes; the script
+downloads with whichever of the two it finds, and stops with a clear message if
+neither is installed:
+
+```sh
+wget -qO- https://raw.githubusercontent.com/saltmd/salt.md/main/install.sh | sh
 ```
 
 The script reads `uname` and picks the matching prebuilt binary — Linux and
