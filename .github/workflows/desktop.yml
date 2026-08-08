@@ -181,6 +181,10 @@ jobs:
           # binaries should never find an installer for a different program
           # under the same tag.
           name: Desktop ${{ github.ref_name }}
+          # A tag carrying -beta or -rc is not what somebody should land on when
+          # they click "latest". It also must not sit above the server release,
+          # which is the download people actually come for.
+          prerelease: ${{ contains(github.ref_name, '-beta') || contains(github.ref_name, '-rc') }}
           body: |
             The salt.md desktop app — a window onto a server you run.
 
