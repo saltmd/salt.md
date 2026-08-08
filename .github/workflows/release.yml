@@ -26,8 +26,16 @@ jobs:
 
       # Build the frontend once — it's the same embedded static bundle for
       # every OS/arch, so we reuse web/dist across all cross-compiles.
+      #
+      # SALT_VERSION is not optional here. The frontend stamps it in and
+      # compares it against the version the server reports; built without it
+      # the bundle says "dev", the binary says "v1.0.0", and every page load
+      # raises "a new version is available" that reloading never clears. That
+      # shipped in v1.0.0 and is what this env block exists to prevent.
       - name: Build frontend
         run: make frontend
+        env:
+          SALT_VERSION: ${{ github.ref_name }}
 
       - name: Cross-compile binaries
         run: |
