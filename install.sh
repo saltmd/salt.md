@@ -99,7 +99,11 @@ lan=$(hostname -I 2>/dev/null | awk '{ print $1 }' || true)
 # regardless sends people to a port nothing is listening on. Take whatever
 # follows the last colon, fall back to the default when SALT_ADDR is unset or
 # is a bare address.
-port=${SALT_ADDR##*:}
+# `set -u` is on, so SALT_ADDR has to be defaulted before it is expanded —
+# ${SALT_ADDR##*:} on its own aborts the whole install when nobody set it,
+# which is every ordinary run.
+addr=${SALT_ADDR:-}
+port=${addr##*:}
 case "$port" in ''|*[!0-9]*) port=8420 ;; esac
 
 case "$lan" in
