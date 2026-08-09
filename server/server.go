@@ -159,6 +159,7 @@ func New(dataDir string, dist fs.FS) (*Server, error) {
 	m.HandleFunc("PUT /api/settings", s.auth(s.sessionOnly(s.handlePutSettings)))
 	m.HandleFunc("GET /api/admin/info", s.auth(s.handleAdminInfo))
 	m.HandleFunc("GET /api/update", s.adminOnly(s.handleUpdate))
+	m.HandleFunc("GET /api/templates", s.auth(s.handleListTemplates))
 	// The instance backup holds EVERY workspace including password hashes. As a
 	// GET, even a READ-ONLY token used to get through — reading was allowed.
 	m.HandleFunc("GET /api/admin/backup", s.auth(s.sessionOnly(s.handleAdminBackup)))

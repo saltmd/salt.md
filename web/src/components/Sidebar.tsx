@@ -1346,7 +1346,14 @@ export default function Sidebar({
               <div
                 key={p.id}
                 className={'tree-item sb-flat' + (p.id === currentId ? ' active' : '')}
-                onClick={() => onNavigate(p.id)}
+                /* Clicking a template USES it: it makes a page from the template and
+                   opens THAT. It used to open the template itself, which is what every
+                   other row in this sidebar does and therefore the obvious thing to try
+                   — so people worked inside the template, and deleting it took their
+                   document with it. No dependency in the data; a straight path to losing
+                   work all the same. Editing the template is the deliberate act now. */
+                title={t('New page from this template')}
+                onClick={() => void instantiateTemplate(p.id)}
               >
                 <span className="chevron spacer" />
                 <span className="tree-icon">
@@ -1365,6 +1372,14 @@ export default function Sidebar({
                   </button>
                   {tplMenuFor === p.id && (
                     <div className="menu">
+                      <button
+                        onClick={() => {
+                          setTplMenuFor(null);
+                          onNavigate(p.id);
+                        }}
+                      >
+                        <Pencil size={16} /> {t('Edit the template itself')}
+                      </button>
                       <button
                         onClick={() => {
                           setTplMenuFor(null);

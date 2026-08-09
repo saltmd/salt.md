@@ -86,13 +86,64 @@ func (s *Server) handleListPages(w http.ResponseWriter, r *http.Request) {
 	// count argument never applied to it — but it was dropped by the same rule,
 	// so the sidebar only ever saw it through the rows endpoint and drew it as
 	// a row: no ⋯ menu, and therefore no way to move it back out again.
-	rows, err := s.db.Query(`SELECT `+pageMetaCols+` FROM pages p
+	// Exclude templates AND everything under them. A template is a snapshot that
+	// stands on its own; it is not a page in anybody's tree. It used to be one,
+	// hidden by a filter in each view that listed pages — six of those, each
+	// checking only the page's OWN flag, so a template's CHILDREN leaked into
+	// Documents with an invisible parent, and deleting the template took them
+	// with it. Every new view was another chance to forget. Drawing the line
+	// here means no view can get it wrong, the same way database rows are
+	// handled two comments down.
+	//
+	// Trashed ones still come through, or a template in the bin could never be
+	// restored.
+	rows, err := s.db.Query(`WITH RECURSIVE tpl(id) AS (
+			SELECT id FROM pages WHERE is_template = 1
+			UNION ALL
+			SELECT p.id FROM pages p JOIN tpl ON p.parent_id = tpl.id
+		)
+		SELECT `+pageMetaCols+` FROM pages p
 		WHERE workspace_id IN (`+placeholders(len(ws))+`)
+		AND (p.trashed_at IS NOT NULL OR p.id NOT IN (SELECT id FROM tpl))
 		AND (parent_id IS NULL OR trashed_at IS NOT NULL
 		     OR p.type = 'collection'
 		     OR (SELECT type FROM pages parent WHERE parent.id = p.parent_id) != 'collection'
 		     OR EXISTS (SELECT 1 FROM pages c WHERE c.parent_id = p.id AND c.trashed_at IS NULL))
 		ORDER BY position, created_at`, args...)
+	if err != nil {
+		httpError(w, 500, err.Error())
+		return
+	}
+	defer rows.Close()
+	list := []pageMeta{}
+	for rows.Next() {
+		m, err := scanMeta(rows)
+		if err != nil {
+			httpError(w, 500, err.Error())
+			return
+		}
+		list = append(list, m)
+	}
+	writeJSON(w, s.filterReadable(requestUser(r).ID, list))
+}
+
+// handleListTemplates is the templates' own list, because they are no longer in
+// the page tree. Roots only — a template's body is fetched when somebody opens
+// or uses it, and the sidebar and the gallery both only ever need the name.
+func (s *Server) handleListTemplates(w http.ResponseWriter, r *http.Request) {
+	ws := s.scopeWorkspacesFor(requestUser(r), s.visibleWorkspaces(requestUser(r).ID))
+	if len(ws) == 0 {
+		writeJSON(w, []pageMeta{})
+		return
+	}
+	args := make([]any, len(ws))
+	for i, v := range ws {
+		args[i] = v
+	}
+	rows, err := s.db.Query(`SELECT `+pageMetaCols+` FROM pages p
+		WHERE workspace_id IN (`+placeholders(len(ws))+`)
+		AND is_template = 1 AND trashed_at IS NULL
+		ORDER BY title`, args...)
 	if err != nil {
 		httpError(w, 500, err.Error())
 		return
