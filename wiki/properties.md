@@ -387,6 +387,20 @@ the linked ids strung together, which says nothing useful.
 **On a board card it never appears.** On a customer row that would be every
 order ever placed. Fine in a table, far too much for a card.
 
+### lastActivity
+
+When anything last happened on this row, and who did it. Nothing to fill in and
+nothing to keep up to date: it is computed when the row is read, so it moves by
+itself the moment somebody edits a property, writes in the row, or an agent
+changes it over MCP.
+
+The time comes from the row's own last-changed stamp, which every write path
+sets. The
+name comes from the newest entry in the activity log for that row, and is simply
+left out when nothing was logged — a guess would be worse than a gap.
+
+Read-only, like a rollup or a formula. Setting it does nothing.
+
 ### rollup
 
 Aggregates a property across the rows a relation — or a backrelation — points

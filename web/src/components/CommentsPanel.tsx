@@ -100,6 +100,7 @@ export default function CommentsPanel({
     const text = body.trim();
     if (!text) return;
     setBody('');
+    if (boxRef.current) boxRef.current.style.height = '';
     try {
       await api.createComment(pageId, text);
       load();
@@ -126,6 +127,15 @@ export default function CommentsPanel({
 
   // Mounted but invisible: the count above has to be right before anybody looks.
   if (!open) return null;
+
+  // Grow with what is written. A textarea has no content height of its own, so
+  // the height is reset to auto first: otherwise scrollHeight keeps reporting
+  // the height the box already has, and it could only ever get taller, never
+  // shrink back when text is deleted.
+  const grow = (el: HTMLTextAreaElement) => {
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+  };
 
   return (
     <aside className="comments-panel" aria-label={t('Comments')}>
@@ -197,9 +207,12 @@ export default function CommentsPanel({
         <textarea
           ref={boxRef}
           value={body}
-          rows={6}
+          rows={2}
           placeholder={t('Write a comment…')}
-          onChange={(e) => setBody(e.target.value)}
+          onChange={(e) => {
+            setBody(e.target.value);
+            grow(e.target);
+          }}
           onKeyDown={(e) => {
             // ⌘/Ctrl+Enter sends; Enter makes a paragraph. The other way round
             // would be faster for one-liners and would cost a half-written

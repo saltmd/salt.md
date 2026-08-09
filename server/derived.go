@@ -130,9 +130,11 @@ func toNumber(v any) (float64, bool) {
 // numeric literals, and other-property references by id, with cycle detection.
 func (s *Server) computeDerived(u *user, schema []propDef, rows []map[string]any) {
 	// Index derived props.
-	var rollups, formulas, relations, backrelations []propDef
+	var rollups, formulas, relations, backrelations, activities []propDef
 	for _, d := range schema {
 		switch d.Type {
+		case "lastActivity":
+			activities = append(activities, d)
 		case "rollup":
 			rollups = append(rollups, d)
 		case "formula":
@@ -143,8 +145,11 @@ func (s *Server) computeDerived(u *user, schema []propDef, rows []map[string]any
 			backrelations = append(backrelations, d)
 		}
 	}
-	if len(rollups) == 0 && len(formulas) == 0 && len(relations) == 0 && len(backrelations) == 0 {
+	if len(rollups) == 0 && len(formulas) == 0 && len(relations) == 0 && len(backrelations) == 0 && len(activities) == 0 {
 		return
+	}
+	if len(activities) > 0 {
+		s.fillLastActivity(activities, rows)
 	}
 
 	// Backrelations FIRST: they fill a props entry that looks exactly like a
@@ -609,4 +614,69 @@ func (p *fparser) resolveRef(id string) (float64, error) {
 	}
 	n, _ := toNumber(p.props[id])
 	return n, nil
+}
+
+// fillLastActivity answers "when did anything last happen here, and who did
+// it" for every row at once.
+//
+// Nothing is stored: like a rollup, it is computed on read, so it cannot drift
+// out of step with the thing it describes. `updated_at` is the source for WHEN
+// because every write path sets it — a property edit, a body edit, an agent
+// over MCP — while an audit entry exists only for the actions worth logging.
+// WHO comes from the newest audit entry for that page and is simply absent
+// when nothing was logged, which is better than guessing.
+//
+// ONE query for all rows, not one per row: this server holds a single database
+// connection, so a query per row inside a loop is the classic way to make the
+// whole instance wait.
+func (s *Server) fillLastActivity(defs []propDef, rows []map[string]any) {
+	ids := make([]any, 0, len(rows))
+	for _, r := range rows {
+		if id, _ := r["id"].(string); id != "" {
+			ids = append(ids, id)
+		}
+	}
+	if len(ids) == 0 {
+		return
+	}
+
+	when := map[string]string{}
+	if qr, err := s.db.Query(`SELECT id, updated_at FROM pages WHERE id IN (`+placeholders(len(ids))+`)`, ids...); err == nil {
+		for qr.Next() {
+			var id, at string
+			if qr.Scan(&id, &at) == nil {
+				when[id] = at
+			}
+		}
+		qr.Close()
+	}
+
+	who := map[string]string{}
+	if qr, err := s.db.Query(`SELECT page_id, actor_name FROM audit_log
+		WHERE page_id IN (`+placeholders(len(ids))+`)
+		ORDER BY id ASC`, ids...); err == nil {
+		// Ascending, so the last row written for a page wins — the newest one.
+		for qr.Next() {
+			var id, name string
+			if qr.Scan(&id, &name) == nil {
+				who[id] = name
+			}
+		}
+		qr.Close()
+	}
+
+	for _, r := range rows {
+		id, _ := r["id"].(string)
+		props, _ := r["props"].(map[string]any)
+		if id == "" || props == nil {
+			continue
+		}
+		for _, d := range defs {
+			v := map[string]any{"at": when[id]}
+			if n := who[id]; n != "" {
+				v["by"] = n
+			}
+			props[d.ID] = v
+		}
+	}
 }

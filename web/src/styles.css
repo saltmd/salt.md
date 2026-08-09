@@ -18,7 +18,11 @@
      open, so two sizes read as an inconsistency rather than as a distinction.
      340 comes from the comments: at 248 a normal sentence broke over four
      lines, and a tree of page titles is perfectly happy wider. */
-  --panel-w: 340px;
+  /* Was a flat 340px. On a wide monitor that wasted the space that was there
+     and squeezed comments into a column narrower than the page they discuss;
+     on a laptop anything fixed and larger would eat the document. So it scales
+     with the window and stops at both ends. */
+  --panel-w: clamp(340px, 26vw, 460px);
   --bg: #ffffff;
   --fg: #37352f;
   --muted: #787774;
@@ -7324,9 +7328,14 @@ a,
 .cp-compose textarea {
   width: 100%;
   box-sizing: border-box;
-  resize: vertical;
-  min-height: 108px;
-  max-height: 45vh;
+  /* It grows with what you type (see grow() in CommentsPanel), so it starts
+     small instead of reserving six lines for a comment that is often one. The
+     cap is what keeps the Send button on screen — without it a long comment
+     pushes its own button out of the panel. */
+  resize: none;
+  overflow-y: auto;
+  min-height: 62px;
+  max-height: 60vh;
   font: inherit;
   font-size: 13.5px;
   line-height: 1.5;
@@ -9355,4 +9364,10 @@ body:has(.live-down) .update-banner {
 }
 .user-row-name a:hover {
   text-decoration: underline;
+}
+
+/* The "who" behind a last-activity value: present but secondary, so the time
+   stays the thing you scan a column for. */
+.prop-activity-by {
+  color: var(--muted);
 }

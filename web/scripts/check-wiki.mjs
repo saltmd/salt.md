@@ -86,9 +86,12 @@ for (const [file, text] of pages) {
 
 // ---- 4: every type is covered ---------------------------------------------
 
+// [a-zA-Z], not [a-z]: a camelCase type (lastActivity) slipped straight past
+// the lowercase pattern, so the one check meant to force a wiki section for
+// every property type would have stayed silent about it.
 const propTypes = new Set(
   [...readFileSync(join(repo, 'web/src/components/PropertyValue.tsx'), 'utf8')
-    .matchAll(/case '([a-z]+)':/g)].map((m) => m[1]),
+    .matchAll(/case '([a-zA-Z]+)':/g)].map((m) => m[1]),
 );
 for (const t of propTypes) {
   if (!new RegExp('###\\s+' + t + '\\b').test(all)) {

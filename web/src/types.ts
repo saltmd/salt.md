@@ -180,7 +180,8 @@ export type PropType =
   | 'relation'
   | 'backrelation'
   | 'rollup'
-  | 'formula';
+  | 'formula'
+  | 'lastActivity';
 
 /** One sub-task of a checklist property. Progress is derived from these — a
     stored percentage would be a second truth to keep in sync. */

@@ -24,6 +24,9 @@ const TYPES: { value: PropType; label: string }[] = [
   { value: 'relation', label: 'Relation' },
   { value: 'backrelation', label: 'Backrelation' },
   { value: 'rollup', label: 'Rollup' },
+  // Read-only and self-updating: there is nothing to configure, which is why it
+  // sits with the computed types rather than the ones you fill in.
+  { value: 'lastActivity', label: 'Last activity' },
   { value: 'formula', label: 'Formula' },
 ];
 
