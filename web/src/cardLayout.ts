@@ -79,6 +79,12 @@ export function zoneOf(def: PropDef, value: unknown): CardZone {
     case 'checklist':
     case 'rollup':
     case 'formula':
+    // A moment with a name beside it, which is exactly what the fact zone is
+    // for. Without a case here it fell through to the text branch, where
+    // String({at, by}) is "[object Object]" — and that is what board cards
+    // showed. A computed type has to be named in this switch; the default
+    // branch can only ever be right for something that IS text.
+    case 'lastActivity':
       return 'fact';
     case 'person':
       return 'person';

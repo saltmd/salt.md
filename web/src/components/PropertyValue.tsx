@@ -4,6 +4,7 @@ import type { ChecklistItem, PropDef, PropOption } from '../types';
 import Portal from './Portal';
 import { OPTION_HEXES, optionPalette, optionSlug } from '../selectOptions';
 import { daysUntil, formatDay, formatMoment, formatNumber } from '../format';
+import { showActivityFor } from './ActivityLogHost';
 import { initials, nameColor } from './CommentsPanel';
 import { Check, Link2 as LinkIcon, Plus, Trash2 } from 'lucide-react';
 import { PageIcon } from '../pageIcon';
@@ -777,20 +778,36 @@ export default function PropertyValue({ def, value, onChange, onOptionsChange, r
         />
       );
     case 'lastActivity': {
-      // Computed on read from the row's updated_at and the newest audit entry —
-      // never stored, so it cannot go stale the way a field somebody has to
-      // remember to set does. That is the whole point of the column: it moves by
-      // itself when anyone, person or agent, touches the row.
-      const v = (value ?? {}) as { at?: string; by?: string };
+      // Computed on read from the row's last-changed stamp and the newest audit
+      // entry — never stored, so it cannot go stale the way a field somebody has
+      // to remember to set does. That is the whole point: it moves by itself when
+      // anyone, person or agent, touches the row.
+      //
+      // The row id rides along in the value, which is what lets the cell open the
+      // log for this row: a property renderer is handed a value, not a row.
+      const v = (value ?? {}) as { at?: string; by?: string; page?: string; title?: string };
       if (!v.at) return compact ? null : <span className="prop-empty">—</span>;
+      if (!v.page) {
+        return (
+          <span className="prop-computed">
+            {formatMoment(v.at, 'datetime')}
+            {v.by ? <span className="prop-activity-by"> · {v.by}</span> : null}
+          </span>
+        );
+      }
       return (
-        <span
-          className="prop-computed"
-          title={v.by ? t('Last change by {who}').replace('{who}', v.by) : undefined}
+        <button
+          type="button"
+          className="prop-computed prop-activity"
+          title={t('Show what happened to this row')}
+          onClick={(ev) => {
+            ev.stopPropagation();
+            showActivityFor(v.page!, v.title);
+          }}
         >
           {formatMoment(v.at, 'datetime')}
           {v.by ? <span className="prop-activity-by"> · {v.by}</span> : null}
-        </span>
+        </button>
       );
     }
     case 'rollup':

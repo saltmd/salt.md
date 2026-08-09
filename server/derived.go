@@ -671,10 +671,19 @@ func (s *Server) fillLastActivity(defs []propDef, rows []map[string]any) {
 		if id == "" || props == nil {
 			continue
 		}
+		title, _ := r["title"].(string)
 		for _, d := range defs {
-			v := map[string]any{"at": when[id]}
+			// The row's own id travels IN the value. The cell that renders this
+			// needs it to open the log for exactly this row, and it has no other
+			// way to know: a property renderer is handed a value, not a row.
+			// Threading the id through every caller instead would touch a dozen
+			// components that have no business knowing about an audit log.
+			v := map[string]any{"at": when[id], "page": id}
 			if n := who[id]; n != "" {
 				v["by"] = n
+			}
+			if title != "" {
+				v["title"] = title
 			}
 			props[d.ID] = v
 		}

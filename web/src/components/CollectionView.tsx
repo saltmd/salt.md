@@ -63,8 +63,7 @@ import {
   Trash2,
   SquareArrowOutUpRight,
   ArrowLeft,
-  ArrowRight,
-} from 'lucide-react';
+  ArrowRight, History} from 'lucide-react';
 
 // Small type glyph shown next to each property (Notion-style visibility panel).
 function propTypeIcon(t: PropDef['type']) {
@@ -87,6 +86,8 @@ function propTypeIcon(t: PropDef['type']) {
     case 'rollup':
     case 'formula':
       return <Sigma size={s} />;
+    case 'lastActivity':
+      return <History size={s} />;
     default:
       return <AlignLeft size={s} />;
   }

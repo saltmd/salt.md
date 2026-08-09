@@ -9371,3 +9371,18 @@ body:has(.live-down) .update-banner {
 .prop-activity-by {
   color: var(--muted);
 }
+
+/* The last-activity cell is a button, but must not look like one: it sits in a
+   table among plain values, and a real button there would shout. Underline on
+   hover is the whole affordance. */
+.prop-activity {
+  padding: 0;
+  font: inherit;
+  text-align: left;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.prop-activity:hover {
+  text-decoration: underline;
+}

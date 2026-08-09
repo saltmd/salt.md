@@ -57,6 +57,14 @@ try {
   check('date is a fact', cl.zoneOf(def('a', 'date'), '2026-01-01'), 'fact');
   check('number is a fact', cl.zoneOf(def('a', 'number'), 55), 'fact');
   check('checklist is a fact', cl.zoneOf(def('a', 'checklist'), []), 'fact');
+  // A computed value is an OBJECT, and the text branch turns one into
+  // "[object Object]" on every card. That shipped once, so every computed type
+  // gets a line here.
+  check(
+    'last activity is a fact, not text',
+    cl.zoneOf(def('a', 'lastActivity'), { at: '2026-01-01T10:00:00Z', by: 'Ada' }),
+    'fact',
+  );
   check('person is a person', cl.zoneOf(def('a', 'person'), 'u1'), 'person');
   check('url is a contact', cl.zoneOf(def('a', 'url'), 'https://trello.com/c/x'), 'contact');
   // A relation used to be banned from cards. That held while a board could

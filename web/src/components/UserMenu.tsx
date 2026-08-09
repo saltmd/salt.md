@@ -328,7 +328,7 @@ export default function UserMenu({ user, onLogout, onUserChanged, onOpenAgents, 
   );
 }
 
-function ActivityModal({ onClose }: { onClose: () => void }) {
+export function ActivityModal({ onClose, pageId, pageTitle }: { onClose: () => void; pageId?: string; pageTitle?: string }) {
   useExclusiveModal(onClose);
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [done, setDone] = useState(false);
@@ -338,15 +338,15 @@ function ActivityModal({ onClose }: { onClose: () => void }) {
   const [onlyAgents, setOnlyAgents] = useState(false);
   const [busy, setBusy] = useState<number | null>(null);
   useEffect(() => {
-    void api.audit().then((e) => {
+    void api.audit(undefined, pageId).then((e) => {
       setEntries(e);
       if (e.length < 50) setDone(true);
     });
-  }, []);
+  }, [pageId]);
   const loadMore = async () => {
     const oldest = entries[entries.length - 1]?.id;
     if (!oldest) return;
-    const more = await api.audit(oldest).catch(() => []);
+    const more = await api.audit(oldest, pageId).catch(() => []);
     setEntries((prev) => [...prev, ...more]);
     if (more.length < 50) setDone(true);
   };
@@ -399,9 +399,11 @@ function ActivityModal({ onClose }: { onClose: () => void }) {
     <Portal>
     <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="dialog">
-        <h2>{t('Activity log')}</h2>
+        <h2>{pageId && pageTitle ? t('Activity: {page}').replace('{page}', pageTitle) : t('Activity log')}</h2>
         <p className="dialog-hint">
-          {t('The most recent changes — noting whether a human or an agent made them.')}
+          {pageId
+            ? t('Everything that happened to this page — human or agent.')
+            : t('The most recent changes — noting whether a human or an agent made them.')}
         </p>
         <label className="audit-filter">
           <input

@@ -280,7 +280,7 @@
         }
       ],
       "takenAt": {
-        "web/src/components/CollectionView.tsx": "4fd526b3e3ad"
+        "web/src/components/CollectionView.tsx": "954d5e64b8c5"
       }
     },
     {
@@ -312,8 +312,8 @@
         }
       ],
       "takenAt": {
-        "web/src/components/CollectionView.tsx": "4fd526b3e3ad",
-        "web/src/cardLayout.ts": "5460d753a3ca"
+        "web/src/components/CollectionView.tsx": "954d5e64b8c5",
+        "web/src/cardLayout.ts": "eb7f92584275"
       }
     },
     {
@@ -344,7 +344,7 @@
         }
       ],
       "takenAt": {
-        "web/src/components/CollectionView.tsx": "4fd526b3e3ad"
+        "web/src/components/CollectionView.tsx": "954d5e64b8c5"
       }
     },
     {
@@ -455,7 +455,7 @@
         }
       ],
       "takenAt": {
-        "web/src/components/UserMenu.tsx": "4285481e62ca"
+        "web/src/components/UserMenu.tsx": "b04ae6a80b19"
       },
       "element": ".dialog"
     },
@@ -486,7 +486,7 @@
       ],
       "takenAt": {
         "server/users.go": "b08479ea99c2",
-        "web/src/components/UserMenu.tsx": "4285481e62ca"
+        "web/src/components/UserMenu.tsx": "b04ae6a80b19"
       },
       "element": ".dialog"
     },
@@ -861,7 +861,7 @@
         }
       ],
       "takenAt": {
-        "server/audit.go": "25f1253cad1d"
+        "server/audit.go": "18ec720174f2"
       },
       "element": ".dialog"
     }

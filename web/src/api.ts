@@ -399,8 +399,15 @@ export const api = {
       body: JSON.stringify(config),
     }),
 
-  audit: (before?: number) =>
-    req<import('./types').AuditEntry[]>(`/api/audit${before ? `?before=${before}` : ''}`),
+  /** `pageId` narrows the log to one page — "what happened to this row",
+   *  which otherwise means scrolling a whole workspace fifty entries at a time. */
+  audit: (before?: number, pageId?: string) => {
+    const q = new URLSearchParams();
+    if (before) q.set('before', String(before));
+    if (pageId) q.set('page', pageId);
+    const s = q.toString();
+    return req<import('./types').AuditEntry[]>(`/api/audit${s ? '?' + s : ''}`);
+  },
 
   listRevisions: (pageId: string) => req<import('./types').Revision[]>(`/api/pages/${pageId}/revisions`),
   getRevision: (pageId: string, revId: string) =>

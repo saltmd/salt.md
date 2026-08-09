@@ -114,6 +114,16 @@ func (s *Server) handleAudit(w http.ResponseWriter, r *http.Request) {
 		// puts them here.
 		wsCond = "(" + wsCond + " OR workspace_id IS NULL)"
 	}
+	// ?page=<id> narrows the log to one page. Without it, "what happened to this
+	// row" means scrolling a whole workspace's history fifty entries at a time —
+	// which is not something anybody does, so the answer was effectively not
+	// available even though the data was there.
+	pageFilter := r.URL.Query().Get("page")
+	if pageFilter != "" && !s.canRead(requestUser(r).ID, pageFilter) {
+		writeJSON(w, []auditEntry{})
+		return
+	}
+
 	limit := 50
 	if v, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && v > 0 && v <= 200 {
 		limit = v
@@ -141,8 +151,13 @@ func (s *Server) handleAudit(w http.ResponseWriter, r *http.Request) {
 			beforeSQL = " AND id < ?"
 			qArgs = append(qArgs, cursor)
 		}
+		pageSQL := ""
+		if pageFilter != "" {
+			pageSQL = " AND page_id = ?"
+			qArgs = append(qArgs, pageFilter)
+		}
 		rows, err := s.db.Query(`SELECT id, created_at, actor_type, actor_name, action, COALESCE(page_id,''), detail, COALESCE(changes,''), COALESCE((SELECT title FROM pages WHERE pages.id = audit_log.page_id),'')
-			FROM audit_log WHERE `+wsCond+beforeSQL+`
+			FROM audit_log WHERE `+wsCond+beforeSQL+pageSQL+`
 			ORDER BY id DESC LIMIT `+strconv.Itoa(limit), qArgs...)
 		if err != nil {
 			httpError(w, 500, err.Error())
