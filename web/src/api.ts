@@ -136,6 +136,9 @@ export const api = {
   mailDisconnect: () => req<{ ok: boolean }>('/api/admin/mail-oauth/disconnect', { method: 'POST', body: '{}' }),
   /** Admin-only, and 403 for everybody else — the banner treats that refusal as
    *  "nothing to show" rather than as an error. */
+  /** Templates have their own list because they are deliberately not in the
+   *  page tree — see the comment on handleListPages. */
+  templates: () => req<PageMeta[]>('/api/templates'),
   update: () => req<UpdateInfo>('/api/update'),
   adminInfo: () =>
     req<{

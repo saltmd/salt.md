@@ -792,10 +792,25 @@ export default function Sidebar({
     [pages, currentWs, tagFilter],
   );
 
+  // Templates come from their own endpoint: they are deliberately not in the
+  // page tree any more, so `pages` no longer carries them. Refetched whenever
+  // the page list changes, which is the signal that something was saved,
+  // instantiated or thrown away.
+  const [allTemplates, setAllTemplates] = useState<PageMeta[]>([]);
+  useEffect(() => {
+    let alive = true;
+    void api
+      .templates()
+      .then((t) => alive && setAllTemplates(t))
+      .catch(() => alive && setAllTemplates([]));
+    return () => {
+      alive = false;
+    };
+  }, [pages]);
   const templatePages = useMemo(
-    () => pages.filter((p) => p.isTemplate && !p.trashed && inWs(p)),
+    () => allTemplates.filter((p) => !p.trashed && inWs(p)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [pages, currentWs],
+    [allTemplates, currentWs],
   );
 
   const instantiateTemplate = async (id: string) => {
@@ -1337,7 +1352,11 @@ export default function Sidebar({
           label={t('Templates')}
           icon={<LayoutTemplate size={17} />}
           count={templatePages.length}
-          defaultOpen={false}
+          /* Open by default. The section only exists once there is a template,
+             so it appears at the moment somebody saves one — collapsed, it
+             looked like the save had done nothing, which is how this was
+             reported as broken twice. Collapsing it is remembered, so anybody
+             who does not want it open says so once. */
           openOnGrowth
           createTitle={t('New page from a template')}
           onCreate={() => setGalleryOpen(true)}
