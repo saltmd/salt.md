@@ -588,7 +588,7 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
           >
             <MoreHorizontal size={14} />
           </button>
-          {viewMenuFor && (
+          {viewMenuFor === view.id && (
             <>
               <div className="fs-backdrop" onClick={() => setViewMenuFor(null)} />
               <div className="menu view-tab-menu">
@@ -713,7 +713,8 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
         <SchemaEditor
           config={config}
           collections={[...pages.values()]
-            .filter((p) => p.type === 'collection' && !p.trashed)
+            // A template is a snapshot, not a database rows can point at.
+            .filter((p) => p.type === 'collection' && !p.trashed && !p.isTemplate)
             .map((p) => ({ id: p.id, title: p.title }))}
           onSave={saveConfig}
           onClose={() => setSchemaOpen(false)}

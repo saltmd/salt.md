@@ -384,6 +384,13 @@ export default function GraphView({
   };
 
   const panFrom = useRef<{ x: number; y: number } | null>(null);
+  // A click arrives after every mouse-up, whether or not the pointer moved, so
+  // dragging a dot to see what comes with it ended by opening the page you were
+  // only trying to move — the one interaction this view exists for, punished
+  // with a navigation. These remember whether the pointer travelled far enough
+  // to count as a drag.
+  const downAt = useRef<{ x: number; y: number } | null>(null);
+  const moved = useRef(false);
 
   return (
     <div className="graph-wrap">
@@ -391,6 +398,8 @@ export default function GraphView({
         ref={canvasRef}
         className="graph-canvas"
         onMouseDown={(e) => {
+          moved.current = false;
+          downAt.current = { x: e.clientX, y: e.clientY };
           const { x, y } = toWorld(e);
           const hit = pick(x, y);
           if (hit !== null) state.current.drag = hit;
@@ -398,6 +407,12 @@ export default function GraphView({
         }}
         onMouseMove={(e) => {
           const s = state.current;
+          if (downAt.current && !moved.current) {
+            // Four pixels: a shaky hand on a trackpad still counts as a click.
+            const dx = e.clientX - downAt.current.x;
+            const dy = e.clientY - downAt.current.y;
+            if (dx * dx + dy * dy > 16) moved.current = true;
+          }
           const { x, y } = toWorld(e);
           if (s.drag !== null) {
             // Dragging a node stirs the whole graph back to life, which is the
@@ -430,6 +445,10 @@ export default function GraphView({
           setHoverTitle(null);
         }}
         onClick={(e) => {
+          const wasDrag = moved.current;
+          downAt.current = null;
+          moved.current = false;
+          if (wasDrag) return; // that was a drag, not a click
           const { x, y } = toWorld(e);
           const hit = pick(x, y);
           if (hit !== null) onNavigate(state.current.nodes[hit].id);

@@ -983,8 +983,12 @@ export default function Sidebar({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [pages, currentWs],
   );
+  // `!p.isTemplate` for the same reason allDocs carries it: a template is a
+  // snapshot that stands on its own, not a page in the tree. Without it here, a
+  // collection saved as a template showed up under Collections as an ordinary
+  // database — and deleting that apparent duplicate deleted the template.
   const allDbs = useMemo(
-    () => pages.filter((p) => !p.trashed && inWs(p) && p.type === 'collection'),
+    () => pages.filter((p) => !p.trashed && !p.isTemplate && inWs(p) && p.type === 'collection'),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [pages, currentWs],
   );

@@ -4099,6 +4099,18 @@ button {
   z-index: 310;
 }
 
+/* Menus that live behind .fs-backdrop.
+ *
+ * .menu is z-index 50 and the backdrop is 310, so a menu that only carries
+ * .menu sits UNDER the sheet meant to catch clicks outside it: every click on
+ * an item lands on the backdrop, which closes the menu and does nothing else.
+ * It reads as a dead menu, not as a stacking bug. .fs-popover already had the
+ * higher value; these two were missed and were dead from the day they shipped. */
+.view-tab-menu,
+.view-add-menu {
+  z-index: 320;
+}
+
 .fs-popover {
   z-index: 320;
   overflow-y: auto;
