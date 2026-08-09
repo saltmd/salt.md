@@ -222,6 +222,12 @@ const COVER_GRADIENTS = [
   'gradient:linear-gradient(120deg,#c9d6ff,#5c6bc0)',
   'gradient:linear-gradient(135deg,#ffecd2,#fcb69f 55%,#e0846a)',
   'gradient:linear-gradient(135deg,#a1c4fd,#c2e9fb 45%,#6aa9e0)',
+  // Saturated, and on purpose: everything above is a soft blend, so a page that
+  // wants to shout had nothing to reach for. The site's own beam colours.
+  'gradient:linear-gradient(120deg,#ff2d60,#ff8a2d 25%,#ffd12d 45%,#22c55e 62%,#3b82f6 80%,#9333ea)',
+  'gradient:linear-gradient(120deg,#22c55e,#3b82f6 55%,#9333ea)',
+  'gradient:linear-gradient(120deg,#ffd12d,#ff8a2d 45%,#ff2d60)',
+  'gradient:linear-gradient(120deg,#22d3ee,#3b82f6 50%,#9333ea)',
 ];
 
 function coverStyle(cover: string): React.CSSProperties {

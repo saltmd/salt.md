@@ -169,7 +169,17 @@ export default function GraphView({
     }
     // Size by how connected a page is — the hub of a workspace should look like
     // one. Square root, or one page with fifty children swamps the picture.
-    for (const n of nodes) n.r = 4 + Math.sqrt(n.deg) * 2.6;
+    //
+    // A database gets a floor. Its rows are deliberately not in this graph (a
+    // database can hold tens of thousands and the canvas would die), so it has
+    // no edges to be sized by and came out as the smallest mark on screen: a
+    // container holding a hundred pages looked exactly like an orphan nobody
+    // linked. The floor makes it read as a container, and it clears the label
+    // threshold below, so it says its own name.
+    for (const n of nodes) {
+      n.r = 4 + Math.sqrt(n.deg) * 2.6;
+      if (n.isDb) n.r = Math.max(n.r, 8);
+    }
 
     state.current = { ...state.current, nodes, edges, byId, alpha: 1, pan: { x: 0, y: 0 }, zoom: 1 };
     setCounts({ nodes: nodes.length, links });
@@ -338,7 +348,7 @@ export default function GraphView({
         }
         // Labels only for the big ones and for whatever is under the pointer:
         // every label at once is a wall of text with a graph behind it.
-        if ((a.r > 7 || i === hov) && lit && s.zoom > 0.55) {
+        if ((a.r > 7 || a.isDb || i === hov) && lit && s.zoom > 0.55) {
           ctx.globalAlpha = i === hov ? 1 : 0.75;
           ctx.fillStyle = fg;
           ctx.font = `${i === hov ? 600 : 400} 11px system-ui, sans-serif`;
