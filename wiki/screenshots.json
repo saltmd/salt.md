@@ -74,7 +74,7 @@
         }
       ],
       "takenAt": {
-        "web/src/components/Sidebar.tsx": "1db018e661c1",
+        "web/src/components/Sidebar.tsx": "b660d1150a0f",
         "web/src/components/Editor.tsx": "28fb4f06ebc0",
         "web/src/App.tsx": "37414e889d16"
       }
@@ -99,7 +99,7 @@
         }
       ],
       "takenAt": {
-        "web/src/components/Sidebar.tsx": "1db018e661c1",
+        "web/src/components/Sidebar.tsx": "b660d1150a0f",
         "web/src/treeMode.ts": "413de5b84cd9"
       },
       "element": ".sidebar"

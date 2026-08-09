@@ -249,6 +249,7 @@ function SidebarSection({
   createTitle,
   onCreate,
   defaultOpen = true,
+  openOnGrowth = false,
   children,
 }: {
   id: string;
@@ -258,6 +259,14 @@ function SidebarSection({
   createTitle?: string;
   onCreate?: () => void;
   defaultOpen?: boolean;
+  /** Open this section when its count grows.
+   *
+   *  Saving a template was invisible: the section exists only once there is a
+   *  template AND starts collapsed, so the one action whose entire result lives
+   *  in there looked like nothing had happened at all. Watching the count is
+   *  local to this component — the button that saves lives in a different one
+   *  and has no way to reach in here. */
+  openOnGrowth?: boolean;
   children: React.ReactNode;
 }) {
   const key = 'salt-sec-' + id;
@@ -265,6 +274,18 @@ function SidebarSection({
     const v = localStorage.getItem(key);
     return v === null ? defaultOpen : v === '1';
   });
+  const prevCount = useRef(count);
+  useEffect(() => {
+    if (openOnGrowth && count > prevCount.current) {
+      setOpen(true);
+      try {
+        localStorage.setItem(key, '1');
+      } catch {
+        /* private mode */
+      }
+    }
+    prevCount.current = count;
+  }, [count, openOnGrowth, key]);
   const toggle = () =>
     setOpen((o) => {
       try {
@@ -1317,6 +1338,7 @@ export default function Sidebar({
           icon={<LayoutTemplate size={17} />}
           count={templatePages.length}
           defaultOpen={false}
+          openOnGrowth
           createTitle={t('New page from a template')}
           onCreate={() => setGalleryOpen(true)}
         >
