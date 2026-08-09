@@ -455,7 +455,7 @@
         }
       ],
       "takenAt": {
-        "web/src/components/UserMenu.tsx": "22d532d3b2e7"
+        "web/src/components/UserMenu.tsx": "4285481e62ca"
       },
       "element": ".dialog"
     },
@@ -486,7 +486,7 @@
       ],
       "takenAt": {
         "server/users.go": "b08479ea99c2",
-        "web/src/components/UserMenu.tsx": "22d532d3b2e7"
+        "web/src/components/UserMenu.tsx": "4285481e62ca"
       },
       "element": ".dialog"
     },
@@ -548,7 +548,7 @@
       ],
       "takenAt": {
         "web/src/components/AgentConnect.tsx": "048c1dc5ffa2",
-        "server/mcp.go": "062c1ebb0dde"
+        "server/mcp.go": "1c1186129b69"
       },
       "element": ".dialog"
     },
@@ -861,7 +861,7 @@
         }
       ],
       "takenAt": {
-        "server/audit.go": "66a4ffa9807e"
+        "server/audit.go": "25f1253cad1d"
       },
       "element": ".dialog"
     }

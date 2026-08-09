@@ -925,7 +925,7 @@ func (s *Server) mcpCall(u *user, name string, rawArgs json.RawMessage, publicBa
 			// only complete after a second call, and between the two a half-finished
 			// row sits in the database.
 			if len(args.Properties) > 0 {
-				if _, err := s.mcpSetProperties(id, args.Properties); err != nil {
+				if _, err := s.mcpSetProperties(id, args.Properties, nil); err != nil {
 					return "", fmt.Errorf("page created (%s) but properties failed: %w", id, err)
 				}
 			}
@@ -1113,7 +1113,7 @@ func (s *Server) mcpCall(u *user, name string, rawArgs json.RawMessage, publicBa
 			if len(args.Updates) > 0 {
 				return s.mcpBatchSetProperties(userID, args.Updates)
 			}
-			return s.mcpSetProperties(args.PageID, args.Properties)
+			return s.mcpSetProperties(args.PageID, args.Properties, u)
 		case "create_database":
 			if parentID != "" && !s.canWrite(userID, parentID) {
 				return "", fmt.Errorf("parent page %q not found", parentID)
@@ -1170,7 +1170,11 @@ func (s *Server) mcpCall(u *user, name string, rawArgs json.RawMessage, publicBa
 	// place that a different set of people (workspace admins) reads, and buy
 	// nothing that is not already there.
 	if err == nil && mutating {
-		if name != "working_on" && name != "note" {
+		// set_properties writes its own entry, carrying the before/after of each
+		// property — the generic one here has no way to know what changed, and
+		// two entries for one call would make the log lie about how much
+		// happened.
+		if name != "working_on" && name != "note" && name != "set_properties" {
 			ws := s.pageWorkspace(args.PageID)
 			if ws == "" { // create_page has no page_id arg — attribute to the actor's workspace
 				ws = s.userDefaultWorkspace(userID)

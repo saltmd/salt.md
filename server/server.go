@@ -242,6 +242,7 @@ func New(dataDir string, dist fs.FS) (*Server, error) {
 	m.HandleFunc("DELETE /api/favorites/{id}", s.auth(s.handleRemoveFavorite))
 
 	m.HandleFunc("GET /api/audit", s.auth(s.handleAudit))
+	m.HandleFunc("POST /api/audit/{id}/revert", s.auth(s.handleAuditRevert))
 	m.HandleFunc("GET /api/workspaces", s.auth(s.handleListWorkspaces))
 	m.HandleFunc("POST /api/workspaces", s.auth(s.handleCreateWorkspace))
 	// Native 1:1 transfer (registered before the {id} routes so that "import"

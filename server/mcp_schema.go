@@ -634,7 +634,7 @@ func (s *Server) mcpCreateRows(userID, pageID string, rows json.RawMessage) (str
 		}
 		pos++
 		if len(r.Properties) > 0 {
-			if _, err := s.mcpSetProperties(id, r.Properties); err != nil {
+			if _, err := s.mcpSetProperties(id, r.Properties, nil); err != nil {
 				return "", fmt.Errorf("created %d row(s), then failed setting properties on %q: %w", len(ids)+1, r.Title, err)
 			}
 		}
@@ -671,7 +671,7 @@ func (s *Server) mcpBatchSetProperties(userID string, updates json.RawMessage) (
 	}
 	done := 0
 	for _, u := range list {
-		if _, err := s.mcpSetProperties(u.PageID, u.Properties); err != nil {
+		if _, err := s.mcpSetProperties(u.PageID, u.Properties, nil); err != nil {
 			return "", fmt.Errorf("updated %d row(s), then failed on %q: %w", done, u.PageID, err)
 		}
 		done++

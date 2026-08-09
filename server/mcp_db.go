@@ -1,6 +1,7 @@
 package server
 
 import (
+	"strings"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -55,7 +56,7 @@ func (s *Server) mcpQueryRows(u *user, pageID string, filters []rowFilter, sort 
 
 // mcpSetProperties field-level-merges the given property values into a row's
 // props, mirroring the REST propsPatch semantics (null clears a key).
-func (s *Server) mcpSetProperties(pageID string, properties json.RawMessage) (string, error) {
+func (s *Server) mcpSetProperties(pageID string, properties json.RawMessage, actor *user) (string, error) {
 	if len(properties) == 0 {
 		return "", fmt.Errorf("properties is required")
 	}
@@ -85,8 +86,17 @@ func (s *Server) mcpSetProperties(pageID string, properties json.RawMessage) (st
 	}
 	merged := map[string]json.RawMessage{}
 	json.Unmarshal([]byte(current), &merged)
+	// The before/after of every property this call touches. Recorded so the
+	// change can be taken back later — a log that only says "2 properties" tells
+	// you that something happened and leaves you no way to undo it.
+	diff := map[string]propChange{}
 	changed := make([]string, 0, len(patch))
 	for k, v := range patch {
+		before := "null"
+		if prev, ok := merged[k]; ok {
+			before = string(prev)
+		}
+		diff[k] = propChange{From: json.RawMessage(before), To: json.RawMessage(v)}
 		if string(v) == "null" {
 			delete(merged, k)
 		} else {
@@ -109,6 +119,18 @@ func (s *Server) mcpSetProperties(pageID string, properties json.RawMessage) (st
 	// An open board must show the move without a reload — that is the whole
 	// point of an agent working while somebody watches.
 	s.rowChanged(pageID)
+
+	// Its own audit entry, carrying the diff — the generic one in the MCP
+	// dispatch has no way to know what changed. set_properties is excluded
+	// there, the same way working_on and note are.
+	if actor != nil {
+		title := s.pageTitle(pageID)
+		if blob, err := json.Marshal(diff); err == nil {
+			s.auditChanges("agent", actor.ID, actor.Name+" (MCP)", "set_properties", pageID,
+				s.pageWorkspace(pageID),
+				fmt.Sprintf("%s — %s", title, strings.Join(changed, ", ")), string(blob))
+		}
+	}
 	return fmt.Sprintf("Set %d propert%s on row %s", len(changed), plural(len(changed), "y", "ies"), pageID), nil
 }
 

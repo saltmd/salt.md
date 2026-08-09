@@ -9336,3 +9336,23 @@ body:has(.live-down) .update-banner {
     white-space: normal;
   }
 }
+
+/* The "only agents" switch above the activity log. Small and quiet: it is a
+   narrowing, not a mode. */
+.audit-filter {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 10px;
+  font-size: 0.8125rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.user-row-name a {
+  color: var(--accent);
+  text-decoration: none;
+}
+.user-row-name a:hover {
+  text-decoration: underline;
+}

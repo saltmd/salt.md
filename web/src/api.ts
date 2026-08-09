@@ -138,6 +138,11 @@ export const api = {
    *  "nothing to show" rather than as an error. */
   /** Templates have their own list because they are deliberately not in the
    *  page tree — see the comment on handleListPages. */
+  /** Take back one recorded change. The server only puts a value back if it is
+   *  still exactly as the actor left it — anything edited since is reported as
+   *  skipped rather than overwritten. */
+  revertChange: (id: number) =>
+    req<{ reverted: string[]; skipped: string[] }>(`/api/audit/${id}/revert`, { method: 'POST' }),
   templates: () => req<PageMeta[]>('/api/templates'),
   update: () => req<UpdateInfo>('/api/update'),
   adminInfo: () =>

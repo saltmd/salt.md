@@ -442,6 +442,7 @@
   "Nothing links here": "Nichts verlinkt hierher",
   "Nothing secret in the address. Expires and can be ended.": "Nichts Geheimes in der Adresse. Läuft ab und lässt sich beenden.",
   "Nothing shown": "Nichts angezeigt",
+  "Nothing was taken back — every value has been changed since.": "Nichts zurückgenommen — jeder Wert wurde seither geändert.",
   "Nothing yet — nobody is being called.": "Noch nichts — es wird niemand angerufen.",
   "Notifications": "Benachrichtigungen",
   "Number": "Zahl",
@@ -466,6 +467,7 @@
   "Only the owner of this instance can do that.": "Das kann nur der Owner dieser Instanz.",
   "Only the owner or an admin of this workspace can change its members.": "Nur der Owner oder ein Admin dieses Workspace kann seine Mitglieder ändern.",
   "Only the owner or an admin of this workspace can change this.": "Nur der Owner oder ein Admin dieses Workspace kann das ändern.",
+  "Only what agents did": "Nur was Agenten getan haben",
   "Only “{name}”": "Nur „{name}“",
   "Open": "Öffnen",
   "Open (anyone)": "Offen (jeder)",
@@ -525,6 +527,7 @@
   "Public link revoked": "Öffentlicher Link aufgehoben",
   "Publicly reachable:": "Öffentlich erreichbar:",
   "Purple": "Lila",
+  "Put back what this changed, unless it has been edited since": "Zurücksetzen, außer es wurde seither bearbeitet",
   "QR code for the authenticator app": "QR-Code für die Authenticator-App",
   "Raw trail": "Rohspur",
   "Reactivate": "Wieder aktivieren",
@@ -654,6 +657,8 @@
   "Subscription link (webcal):": "Abo-Link (webcal):",
   "Table": "Tabelle",
   "Table of contents": "Inhaltsverzeichnis",
+  "Take back": "Zurücknehmen",
+  "Taken back.": "Zurückgenommen.",
   "Takes every page in it along": "Nimmt jede Seite darin mit",
   "Teach the agent how you work here": "Dem Agenten beibringen, wie hier gearbeitet wird",
   "Tell other tools when something changes": "Andere Programme benachrichtigen, wenn sich etwas ändert",
@@ -661,6 +666,7 @@
   "Test failed": "Test fehlgeschlagen",
   "Test mail sent to {address} ✓": "Test-Mail an {address} verschickt ✓",
   "Thank you!": "Danke!",
+  "That could not be taken back.": "Das ließ sich nicht zurücknehmen.",
   "That did not work": "Hat nicht geklappt",
   "That is the last admin of this workspace. Make somebody else an admin first.": "Das ist der letzte Admin dieses Workspace. Mach zuerst jemand anderen zum Admin.",
   "That is this person’s personal space — their role in it stays as it is.": "Das ist der persönliche Bereich dieser Person — ihre Rolle darin bleibt.",
@@ -950,6 +956,7 @@
     "other": "{n} Zeilen"
   },
   "{n} skipped": "{n} übersprungen",
+  "{n} taken back, {m} left alone because they changed since.": "{n} zurückgenommen, {m} unangetastet gelassen, weil sie seither geändert wurden.",
   "{n} templates": {
     "one": "{n} Vorlage",
     "other": "{n} Vorlagen"

@@ -660,7 +660,7 @@ func (s *Server) runIngest(jobID, userID, parentID, workspaceID string, items []
 			}
 			if len(patch) > 0 {
 				b, _ := json.Marshal(patch)
-				if _, err := s.mcpSetProperties(id, b); err != nil {
+				if _, err := s.mcpSetProperties(id, b, nil); err != nil {
 					s.ingest.update(jobID, func(j *ingestJob) {
 						if len(j.Errors) < 10 {
 							j.Errors = append(j.Errors, fmt.Sprintf("%s: properties: %v", it.title, err))

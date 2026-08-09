@@ -9,7 +9,7 @@ import { useExclusiveModal } from '../modal';
 import { formatDay, formatMoment } from '../format';
 import { plural, t } from '../i18n';
 import { AdminSettingsModal, TwoFAModal, CalendarSubModal } from './AdminSettings';
-import { Key, History, CalendarDays, ShieldCheck, Users, Settings, LogOut, Bot, User as UserIcon, Columns2, Type, Languages } from 'lucide-react';
+import { Key, History, CalendarDays, ShieldCheck, Users, Settings, LogOut, Bot, User as UserIcon, Columns2, Type, Languages, Undo2 } from 'lucide-react';
 import { LanguageTimeModal } from './LanguageTime';
 
 export function Avatar({ user, size = 22 }: { user: User; size?: number }) {
@@ -332,6 +332,11 @@ function ActivityModal({ onClose }: { onClose: () => void }) {
   useExclusiveModal(onClose);
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [done, setDone] = useState(false);
+  // "Show me only what an agent did" is the question this log gets asked. Forty
+  // rows touched by one agent, scattered between everything else that happened
+  // that afternoon, is not something anybody finds by scrolling.
+  const [onlyAgents, setOnlyAgents] = useState(false);
+  const [busy, setBusy] = useState<number | null>(null);
   useEffect(() => {
     void api.audit().then((e) => {
       setEntries(e);
@@ -345,6 +350,28 @@ function ActivityModal({ onClose }: { onClose: () => void }) {
     setEntries((prev) => [...prev, ...more]);
     if (more.length < 50) setDone(true);
   };
+  const revert = async (id: number) => {
+    setBusy(id);
+    try {
+      const r = await api.revertChange(id);
+      if (r.reverted.length === 0) {
+        toast(t('Nothing was taken back — every value has been changed since.'));
+      } else if (r.skipped.length > 0) {
+        toast(
+          t('{n} taken back, {m} left alone because they changed since.')
+            .replace('{n}', String(r.reverted.length))
+            .replace('{m}', String(r.skipped.length)),
+        );
+      } else {
+        toast(t('Taken back.'));
+      }
+    } catch {
+      toast(t('That could not be taken back.'));
+    } finally {
+      setBusy(null);
+    }
+  };
+
   // The account and workspace events are the reason this log exists — without
   // wording they sat between the page edits as a raw "disable_user".
   const label: Record<string, string> = {
@@ -376,16 +403,55 @@ function ActivityModal({ onClose }: { onClose: () => void }) {
         <p className="dialog-hint">
           {t('The most recent changes — noting whether a human or an agent made them.')}
         </p>
+        <label className="audit-filter">
+          <input
+            type="checkbox"
+            checked={onlyAgents}
+            onChange={(ev) => setOnlyAgents(ev.target.checked)}
+          />
+          {t('Only what agents did')}
+        </label>
         <div className="user-list">
-          {entries.map((e) => (
+          {entries
+            .filter((e) => !onlyAgents || e.actorType === 'agent')
+            .map((e) => (
             <div key={e.id} className="user-row">
               <span className={'badge ' + (e.actorType === 'agent' ? 'agent-badge' : '')}>
                 {e.actorType === 'agent' ? <><Bot size={12} /> {t('agent')}</> : <><UserIcon size={12} /> {t('human')}</>}
               </span>
               <span className="user-row-name">
                 {e.actorName} {label[e.action] ?? e.action}
-                {e.detail ? ` “${e.detail.slice(0, 60)}”` : ''}
+                {/* The page by NAME, and clickable. The detail used to trail
+                    off in a raw id — the difference between a log you can act on
+                    and one you can only read. */}
+                {e.pageTitle ? (
+                  <>
+                    {' '}
+                    <a
+                      href={'/p/' + e.pageId}
+                      onClick={(ev) => {
+                        ev.preventDefault();
+                        onClose();
+                        window.location.assign('/p/' + e.pageId);
+                      }}
+                    >
+                      {e.pageTitle}
+                    </a>
+                  </>
+                ) : (
+                  e.detail ? ` “${e.detail.slice(0, 60)}”` : ''
+                )}
               </span>
+              {e.revertible && (
+                <button
+                  className="btn-sm"
+                  disabled={busy === e.id}
+                  title={t('Put back what this changed, unless it has been edited since')}
+                  onClick={() => void revert(e.id)}
+                >
+                  <Undo2 size={13} /> {t('Take back')}
+                </button>
+              )}
               {/* Was `createdAt.slice(0, 16)`, which printed the stored UTC
                   string verbatim — two hours off for a reader in Berlin, and
                   further for anyone else. */}

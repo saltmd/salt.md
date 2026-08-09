@@ -385,6 +385,13 @@ func openDB(path string) (*sql.DB, error) {
 		return nil, fmt.Errorf("migrate share_links.expires_at: %w", err)
 	}
 	// Pages marked as templates (instantiated via duplicate?fromTemplate=1).
+	// What an agent changed, so it can be taken back. JSON, one object per
+	// property: {"status":{"from":"offen","to":"erledigt"}}. Empty for every
+	// action that is not a property change — the column is the difference
+	// between a log that says something happened and one you can act on.
+	if err := ensureColumn(db, "audit_log", "changes", `changes TEXT NOT NULL DEFAULT ''`); err != nil {
+		return nil, fmt.Errorf("migrate audit_log.changes: %w", err)
+	}
 	if err := ensureColumn(db, "pages", "is_template", `is_template INTEGER NOT NULL DEFAULT 0`); err != nil {
 		return nil, fmt.Errorf("migrate pages.is_template: %w", err)
 	}

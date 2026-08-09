@@ -22,6 +22,25 @@ None of the four answers "who is on this page right now". That question has its
 own answer, and it is live rather than recorded — see [Who is here right
 now](#who-is-here-right-now) at the end of this page.
 
+## Taking an agent's change back
+
+An agent that edits forty rows and gets three of them wrong is the case this
+exists for. Every property an agent sets is recorded with its value **before**
+and **after**, so the log does not merely say that something changed.
+
+In the activity log, tick **Only what agents did** to narrow it to them. Each
+entry names the page and links to it, and the ones carrying a recorded change
+offer **Take back**.
+
+**A take-back never overwrites your own work.** Before putting a value back it
+compares what is there now against what the agent wrote. If somebody has edited
+that property since, it is left exactly as it is and reported as skipped —
+restoring it quietly is the one failure this feature must not have. So a
+half-reverted entry is a correct outcome, not an error.
+
+Only property changes on database rows are recorded this way. Body text is
+covered by page history instead, and the two are separate.
+
 ## Version history
 
 A revision is a whole copy of the page's **title and body** at one moment, not a

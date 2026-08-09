@@ -90,7 +90,7 @@ func TestSetPropertiesWrapsASingleValueIntoAList(t *testing.T) {
 		"system": "`+sysRow+`",
 		"tags": "Bug",
 		"status": "Open",
-		"note": "just text"}`)); err != nil {
+		"note": "just text"}`), nil); err != nil {
 		t.Fatalf("set properties: %v", err)
 	}
 
@@ -125,7 +125,7 @@ func TestSetPropertiesLeavesAProperListAlone(t *testing.T) {
 		`[{"id":"system","name":"System","type":"relation","relationCollection":"`+systems+`"}]`)
 	row := s.makeRow(t, ws, uid, tasks, "A task", `{}`)
 
-	if _, err := s.mcpSetProperties(row, json.RawMessage(`{"system":["`+a+`","`+b+`"]}`)); err != nil {
+	if _, err := s.mcpSetProperties(row, json.RawMessage(`{"system":["`+a+`","`+b+`"]}`), nil); err != nil {
 		t.Fatalf("set properties: %v", err)
 	}
 	if got := s.propsOf(t, row)["system"]; !sameList(got, []string{a, b}) {

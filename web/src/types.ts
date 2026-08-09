@@ -64,6 +64,9 @@ export interface AuditEntry {
   action: string;
   pageId: string;
   detail: string;
+  /** The server offers a take-back only where it recorded a before/after. */
+  revertible?: boolean;
+  pageTitle?: string;
 }
 
 export interface Page extends PageMeta {

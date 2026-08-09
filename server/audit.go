@@ -1,6 +1,10 @@
 package server
 
 import (
+	"strings"
+	"fmt"
+	"database/sql"
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"sync"
@@ -13,9 +17,32 @@ import (
 
 // audit records a mutation. actorType is "human" or "agent" (MCP).
 func (s *Server) audit(actorType, actorID, actorName, action, pageID, workspaceID, detail string) {
-	s.db.Exec(`INSERT INTO audit_log (created_at, actor_type, actor_id, actor_name, action, page_id, workspace_id, detail)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		now(), actorType, actorID, actorName, action, nullIfEmpty(pageID), nullIfEmpty(workspaceID), detail)
+	s.auditChanges(actorType, actorID, actorName, action, pageID, workspaceID, detail, "")
+}
+
+// auditChanges is audit plus the before/after of what was written. Without the
+// before, a log can say that something was changed and never what it was — so
+// the only way back is to remember, and nobody remembers 40 rows.
+func (s *Server) auditChanges(actorType, actorID, actorName, action, pageID, workspaceID, detail, changes string) {
+	s.db.Exec(`INSERT INTO audit_log (created_at, actor_type, actor_id, actor_name, action, page_id, workspace_id, detail, changes)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		now(), actorType, actorID, actorName, action, nullIfEmpty(pageID), nullIfEmpty(workspaceID), detail, changes)
+}
+
+// propChange is one property's before and after, as raw JSON so a value keeps
+// its type — a number stays a number, a multi-select stays a list.
+type propChange struct {
+	From json.RawMessage `json:"from"`
+	To   json.RawMessage `json:"to"`
+}
+
+func (s *Server) pageTitle(id string) string {
+	var t string
+	s.db.QueryRow(`SELECT title FROM pages WHERE id = ?`, id).Scan(&t)
+	if t == "" {
+		return "Untitled"
+	}
+	return t
 }
 
 func nullIfEmpty(s string) any {
@@ -39,6 +66,11 @@ type auditEntry struct {
 	Action    string `json:"action"`
 	PageID    string `json:"pageId"`
 	Detail    string `json:"detail"`
+	// Whether this entry carries a before/after that can be taken back. The
+	// diff itself stays on the server: the browser only needs to know whether
+	// to offer the button.
+	Revertible bool   `json:"revertible"`
+	PageTitle  string `json:"pageTitle,omitempty"`
 }
 
 // handleAudit returns recent audit entries for the caller's workspaces.
@@ -109,7 +141,7 @@ func (s *Server) handleAudit(w http.ResponseWriter, r *http.Request) {
 			beforeSQL = " AND id < ?"
 			qArgs = append(qArgs, cursor)
 		}
-		rows, err := s.db.Query(`SELECT id, created_at, actor_type, actor_name, action, COALESCE(page_id,''), detail
+		rows, err := s.db.Query(`SELECT id, created_at, actor_type, actor_name, action, COALESCE(page_id,''), detail, COALESCE(changes,''), COALESCE((SELECT title FROM pages WHERE pages.id = audit_log.page_id),'')
 			FROM audit_log WHERE `+wsCond+beforeSQL+`
 			ORDER BY id DESC LIMIT `+strconv.Itoa(limit), qArgs...)
 		if err != nil {
@@ -119,7 +151,9 @@ func (s *Server) handleAudit(w http.ResponseWriter, r *http.Request) {
 		batch := []auditEntry{}
 		for rows.Next() {
 			var e auditEntry
-			if rows.Scan(&e.ID, &e.CreatedAt, &e.ActorType, &e.ActorName, &e.Action, &e.PageID, &e.Detail) == nil {
+			var changes string
+			if rows.Scan(&e.ID, &e.CreatedAt, &e.ActorType, &e.ActorName, &e.Action, &e.PageID, &e.Detail, &changes, &e.PageTitle) == nil {
+				e.Revertible = changes != ""
 				batch = append(batch, e)
 			}
 		}
@@ -220,4 +254,109 @@ func (s *Server) storeIdempotent(key, result string) {
 		return
 	}
 	s.db.Exec(`INSERT INTO idempotency (key, result, created_at) VALUES (?, ?, ?) ON CONFLICT(key) DO NOTHING`, key, result, now())
+}
+
+// handleAuditRevert takes back ONE recorded change, and only the part of it
+// that is still exactly as the actor left it.
+//
+// That condition is the whole feature. "Undo what the agent did" is easy;
+// "undo what the agent did without undoing what I did since" is the thing
+// people actually need, and the only way to have it is to compare the current
+// value against the recorded `to` before writing `from` back. A property
+// somebody has edited since is left alone and reported as skipped, because
+// quietly restoring it would be the exact failure this is meant to prevent.
+func (s *Server) handleAuditRevert(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		httpErrorCode(w, 400, "bad_id", "That is not an audit entry id.")
+		return
+	}
+	var pageID, changes string
+	err = s.db.QueryRow(`SELECT COALESCE(page_id,''), COALESCE(changes,'') FROM audit_log WHERE id = ?`, id).
+		Scan(&pageID, &changes)
+	if err == sql.ErrNoRows {
+		httpErrorCode(w, 404, "not_found", "No such audit entry.")
+		return
+	} else if err != nil {
+		httpError(w, 500, err.Error())
+		return
+	}
+	if changes == "" || pageID == "" {
+		httpErrorCode(w, 400, "not_revertible", "This entry records no property change that could be taken back.")
+		return
+	}
+	u := requestUser(r)
+	if !s.canWrite(u.ID, pageID) {
+		httpErrorCode(w, 403, "forbidden", "You cannot write to that page.")
+		return
+	}
+
+	var diff map[string]propChange
+	if err := json.Unmarshal([]byte(changes), &diff); err != nil {
+		httpErrorCode(w, 500, "bad_changes", "The recorded change could not be read.")
+		return
+	}
+
+	var current string
+	if err := s.db.QueryRow(`SELECT COALESCE(props,'{}') FROM pages WHERE id = ? AND trashed_at IS NULL`, pageID).
+		Scan(&current); err == sql.ErrNoRows {
+		httpErrorCode(w, 404, "page_gone", "That page is no longer there.")
+		return
+	} else if err != nil {
+		httpError(w, 500, err.Error())
+		return
+	}
+	props := map[string]json.RawMessage{}
+	json.Unmarshal([]byte(current), &props)
+
+	reverted, skipped := []string{}, []string{}
+	for key, ch := range diff {
+		now, has := props[key]
+		nowStr := "null"
+		if has {
+			nowStr = string(now)
+		}
+		// Byte comparison of the stored JSON. Both sides were written by the
+		// same marshaller, so a value that has not been touched is byte-identical.
+		if !jsonEqual(nowStr, string(ch.To)) {
+			skipped = append(skipped, key)
+			continue
+		}
+		if jsonEqual(string(ch.From), "null") {
+			delete(props, key)
+		} else {
+			props[key] = ch.From
+		}
+		reverted = append(reverted, key)
+	}
+
+	if len(reverted) > 0 {
+		blob, err := json.Marshal(props)
+		if err != nil {
+			httpError(w, 500, err.Error())
+			return
+		}
+		if _, err := s.db.Exec(`UPDATE pages SET props = ?, updated_at = ? WHERE id = ?`, string(blob), now(), pageID); err != nil {
+			httpError(w, 500, err.Error())
+			return
+		}
+		s.reindexPage(pageID)
+		s.pagesChanged()
+		s.rowChanged(pageID)
+		s.audit("human", u.ID, u.Name, "revert_change", pageID, s.pageWorkspace(pageID),
+			fmt.Sprintf("%s — %s", s.pageTitle(pageID), strings.Join(reverted, ", ")))
+	}
+	writeJSON(w, map[string]any{"reverted": reverted, "skipped": skipped})
+}
+
+// jsonEqual compares two JSON values by meaning rather than by bytes, so
+// whitespace or key order cannot make an untouched value look changed.
+func jsonEqual(a, b string) bool {
+	var x, y any
+	if json.Unmarshal([]byte(a), &x) != nil || json.Unmarshal([]byte(b), &y) != nil {
+		return a == b
+	}
+	ab, _ := json.Marshal(x)
+	bb, _ := json.Marshal(y)
+	return string(ab) == string(bb)
 }
