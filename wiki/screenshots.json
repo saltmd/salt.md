@@ -613,7 +613,7 @@
         }
       ],
       "takenAt": {
-        "web/src/components/AdminSettings.tsx": "dc876ec2d4c4",
+        "web/src/components/AdminSettings.tsx": "14e01d683b8e",
         "server/instance.go": "4d41044b9102"
       },
       "element": ".dialog"
@@ -650,7 +650,7 @@
         }
       ],
       "takenAt": {
-        "web/src/components/AdminSettings.tsx": "dc876ec2d4c4",
+        "web/src/components/AdminSettings.tsx": "14e01d683b8e",
         "server/oauth.go": "840714b5c2cf"
       },
       "element": ".dialog"
@@ -688,9 +688,9 @@
         }
       ],
       "takenAt": {
-        "web/src/components/AdminSettings.tsx": "dc876ec2d4c4",
+        "web/src/components/AdminSettings.tsx": "14e01d683b8e",
         "server/mail_oauth.go": "d58b546dbcb4",
-        "server/admin.go": "81877419d613"
+        "server/admin.go": "38c093129460"
       },
       "element": ".dialog"
     },
@@ -725,7 +725,7 @@
         }
       ],
       "takenAt": {
-        "web/src/components/AdminSettings.tsx": "dc876ec2d4c4"
+        "web/src/components/AdminSettings.tsx": "14e01d683b8e"
       },
       "element": ".dialog"
     },
@@ -761,7 +761,7 @@
         }
       ],
       "takenAt": {
-        "web/src/components/AdminSettings.tsx": "dc876ec2d4c4",
+        "web/src/components/AdminSettings.tsx": "14e01d683b8e",
         "server/webhooks.go": "49e796d4fa6b"
       },
       "element": ".dialog"
@@ -799,8 +799,8 @@
       ],
       "element": ".dialog",
       "takenAt": {
-        "web/src/components/AdminSettings.tsx": "dc876ec2d4c4",
-        "server/export_html.go": "8a14918d5c02"
+        "web/src/components/AdminSettings.tsx": "14e01d683b8e",
+        "server/export_html.go": "18313b87ea96"
       }
     },
     {
@@ -835,7 +835,7 @@
         }
       ],
       "takenAt": {
-        "web/src/components/AdminSettings.tsx": "dc876ec2d4c4",
+        "web/src/components/AdminSettings.tsx": "14e01d683b8e",
         "server/backup.go": "7b11cc725a0a"
       },
       "element": ".dialog"
@@ -867,8 +867,8 @@
         }
       ],
       "takenAt": {
-        "web/src/components/AdminSettings.tsx": "dc876ec2d4c4",
-        "server/admin.go": "81877419d613",
+        "web/src/components/AdminSettings.tsx": "14e01d683b8e",
+        "server/admin.go": "38c093129460",
         "server/lifecycle_account.go": "1dd1c28800c0"
       },
       "element": ".dialog"

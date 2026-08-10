@@ -127,6 +127,8 @@ export const api = {
       pdfFooter: boolean;
       pdfWorkspace: boolean;
       pdfPageNums: boolean;
+      pdfComments: boolean;
+      pdfLinks: boolean;
       sessionDays: number;
       httpsDomain: string;
       httpsEnabled: boolean;

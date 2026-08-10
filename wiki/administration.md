@@ -210,26 +210,37 @@ effect immediately, without **Save**. See [Webhooks](webhooks.md).
 ![Documents: how a printed document or a PDF from this instance looks.](img/admin-documents.png)
 
 How a document from this instance looks when somebody prints it or saves it as
-a PDF. These are the instance's defaults; the bar above a print view can deviate
-for a single document, and that choice travels in the link.
+a PDF. These are the instance's defaults; the panel beside a print view can
+deviate for a single document, and that choice travels in the link.
 
 | Option | Default | What it does |
 | --- | --- | --- |
-| **A title page of its own** | off | A first page carrying the icon, title, description and the lines below |
+| **A title page of its own** | off | A first page carrying the icon, title, description and where the document came from |
 | **Show the document's icon** | on | The emoji beside the title |
-| **Title and date at the foot of every page** | on | A thin running footer, drawn by salt.md |
-| **Name the workspace and the instance** | on | Two lines on the title page saying where the document came from |
-| **Page numbers** | off | See below — this one is a trade |
+| **Title and date at the foot of every page** | on | A thin running foot, so a loose sheet still says what it belongs to |
+| **Page numbers** | on | *n / total*, counted across the document |
+| **Name the workspace and the instance** | on | Two lines on the title page |
+| **The comments, after the document** | off | The page's comments as a closing section |
+| **Links as links, not as plain text** | on | Off prints them in black without an underline, which is what a link is worth on paper |
 
-**Page numbers are the browser's, and they never come alone.** Nothing in a web
-page can count printed pages: the CSS feature for it exists on paper and no
-browser implements it. The browser can, and when it does it also prints the
-address, the date and the document title into the margins. That is the header
-and footer the option brings back, which is why it is off and why the rest of
-the page is clean without it.
+**salt.md lays the pages out itself.** The document is cut into A4 sheets before
+printing and the browser only puts them on paper. Three things follow, and they
+are the whole reason it works this way:
 
-Everything else on the page is drawn by salt.md, including the running footer,
-so a printed document carries no trace of the browser it came out of.
+- **Nothing of the browser is printed along.** No address across the bottom, no
+  date and title across the top. Those come from the browser drawing into the
+  page margin, and there is no margin left for it to draw in — every margin you
+  see belongs to the sheet.
+- **Page numbers are possible at all.** Nothing in a web page can count printed
+  pages; the CSS feature meant for it is implemented by no browser. Cutting the
+  pages ourselves means we already know. A title page is never numbered, and the
+  count starts on the first page of the document.
+- **What you see is what comes out.** The print view shows the real sheets, so
+  there is no second layout to be surprised by.
+
+A table too tall for one sheet is continued on the next between two of its rows,
+and a heading is never left alone at the foot of a page — it moves to the sheet
+its section starts on.
 
 ### Maintenance
 

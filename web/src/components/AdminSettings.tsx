@@ -55,7 +55,10 @@ export function AdminSettingsModal({ onClose }: { onClose: () => void }) {
   // How documents from this instance print. Held as one object because the five
   // travel together everywhere: loaded together, saved together, and the print
   // view reads them as a set.
-  const [pdf, setPdf] = useState({ cover: false, icon: true, footer: true, workspace: true, pageNums: false });
+  const [pdf, setPdf] = useState({
+    cover: false, icon: true, footer: true, workspace: true,
+    pageNums: true, comments: false, links: true,
+  });
   const [allowUserWs, setAllowUserWs] = useState(true);
   const [passSet, setPassSet] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -108,6 +111,7 @@ export function AdminSettingsModal({ onClose }: { onClose: () => void }) {
         setPdf({
           cover: v.pdfCover, icon: v.pdfIcon, footer: v.pdfFooter,
           workspace: v.pdfWorkspace, pageNums: v.pdfPageNums,
+          comments: v.pdfComments, links: v.pdfLinks,
         });
         setAllowUserWs(v.allowUserWorkspaces !== false);
         setHttpsEnabled(v.httpsEnabled);
@@ -217,6 +221,8 @@ export function AdminSettingsModal({ onClose }: { onClose: () => void }) {
         pdfFooter: pdf.footer,
         pdfWorkspace: pdf.workspace,
         pdfPageNums: pdf.pageNums,
+        pdfComments: pdf.comments,
+        pdfLinks: pdf.links,
         allowUserWorkspaces: allowUserWs,
         maxUploadMb: num('maxUploadMb', 1, 2048),
         trashDays: num('trashDays', 0, 3650),
@@ -751,7 +757,10 @@ ingress:
                         ['cover', t('A title page of its own')],
                         ['icon', t("Show the document's icon")],
                         ['footer', t('Title and date at the foot of every page')],
+                        ['pageNums', t('Page numbers')],
                         ['workspace', t('Name the workspace and the instance')],
+                        ['comments', t('The comments, after the document')],
+                        ['links', t('Links as links, not as plain text')],
                       ] as const).map(([key, label]) => (
                         <label key={key} className="settings-check">
                           <input
@@ -762,20 +771,12 @@ ingress:
                           {label}
                         </label>
                       ))}
-                      <label className="settings-check">
-                        <input
-                          type="checkbox"
-                          checked={pdf.pageNums}
-                          onChange={(e) => setPdf({ ...pdf, pageNums: e.target.checked })}
-                        />
-                        {t('Page numbers — but see below')}
-                      </label>
                     </div>
                     <p className="dialog-hint settings-hint">
-                      {t('Only the browser can count pages, and it prints the address, the date and the document title alongside them. Everything else here is drawn by salt.md, which is why the rest of the page stays clean.')}
+                      {t('salt.md lays the pages out itself and the browser only puts them on paper, so nothing of the browser gets printed along — no address, no date in the corner.')}
                     </p>
                     <p className="dialog-hint settings-hint">
-                      {t('These are the defaults. The bar above a print view can deviate for one document, and those choices travel in the link.')}
+                      {t('These are the defaults. The panel beside a print view can deviate for one document, and that choice travels in the link.')}
                     </p>
                   </>
                 )}
