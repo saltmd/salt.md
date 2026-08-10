@@ -75,6 +75,17 @@ const pageLinkHint = `A Markdown link whose target is a page of this instance ` 
 	`graph. Use it whenever you mention another page — a plain link navigates ` +
 	`but leaves the page an island.`
 
+// diagramHint is the same idea for diagrams, and it exists for the same reason
+// the one above does: a block nobody is told about is a block nobody uses. The
+// diagram block was built so that an AGENT could draw — writing "A --> B" is
+// something an agent does well, and placing boxes by coordinate is not — and
+// agents only ever send Markdown here. Without this sentence the feature would
+// have shipped for people with a mouse.
+const diagramHint = `A fenced ` + "```mermaid" + ` block becomes a real DIAGRAM, ` +
+	`drawn on the page and in its PDF — the same spelling GitHub and Obsidian ` +
+	`use. Prefer it over describing a flow in prose; you write the text, salt.md ` +
+	`draws it.`
+
 // parseInline converts inline markdown to BlockNote inline content.
 func parseInline(md string) []any {
 	var out []any
@@ -214,6 +225,20 @@ func mdToBlocks(md string) []*mBlock {
 			for i < len(lines) && !fenceCloseRe.MatchString(strings.TrimSpace(lines[i])) {
 				code = append(code, lines[i])
 				i++
+			}
+			// ```mermaid becomes a DIAGRAM, not a code block. That convention is
+			// how GitHub, GitLab and Obsidian already spell one, so an agent
+			// writes it without being told — and being able to write one at all
+			// is the entire point of the block. Agents send Markdown here;
+			// without this line the feature exists only for people with a mouse.
+			//
+			// No picture is stored: the server cannot draw. The page renders it
+			// the first time somebody opens it, and until then the export prints
+			// the source (see the mermaid case in export_html.go).
+			if strings.EqualFold(m[2], "mermaid") {
+				appendBlock(&mBlock{Type: "mermaid",
+					Props: map[string]any{"code": strings.Join(code, "\n"), "svg": ""}}, 0)
+				continue
 			}
 			props := map[string]any{}
 			if m[2] != "" {

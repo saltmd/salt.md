@@ -239,7 +239,7 @@ reversible.
 | Tool | For |
 | --- | --- |
 | `create_page` | A new page, optionally under a parent, from a template, with content, cover, tags and properties in the same call. A parent that is a database id makes a ROW in it. |
-| `write_content` | Markdown into a page — append, prepend or replace. |
+| `write_content` | Markdown into a page — append, prepend or replace. A ```mermaid fence becomes a drawn diagram. |
 | `update_page` | Title, icon, cover, description, tags, visibility, where it sits, and whether it is a favourite. |
 | `duplicate_page` | A deep copy of a page and its sub-tree. |
 | `save_as_template` | Snapshot a page as a template. See [Templates](templates.md). |

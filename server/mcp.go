@@ -120,7 +120,7 @@ var mcpTools = []map[string]any{
 				"template_id":  map[string]any{"type": "string", "description": "Build the page from a template instead of from scratch — call list with kind=\"templates\" for the ids. Only title applies alongside it."},
 				"parent_id":    map[string]any{"type": "string", "description": "Optional parent page id. Pass a database id to create a ROW in that database."},
 				"workspace_id": map[string]any{"type": "string", "description": "Which workspace to create in when there is no parent_id. Call list with kind=\"workspaces\" first — without this the page lands in your first workspace, which may not be the one you mean."},
-				"markdown":     map[string]any{"type": "string", "description": "Optional initial content as Markdown. " + pageLinkHint},
+				"markdown":     map[string]any{"type": "string", "description": "Optional initial content as Markdown. " + pageLinkHint + " " + diagramHint},
 				"icon":         map[string]any{"type": "string", "description": "Optional emoji, \"lucide:Name\", \"mdi:Name\" or image URL"},
 				"properties":   map[string]any{"type": "object", "description": "Typed property values when creating a database row — same shape as set_properties. Call get_collection first for property ids."},
 				"cover":        map[string]any{"type": "string", "description": coverHint},
@@ -269,7 +269,7 @@ var mcpTools = []map[string]any{
 	},
 	{
 		"name":        "write_content",
-		"description": "Write Markdown into a page. mode: append (the default — adds at the end) | prepend (adds at the top) | replace (replaces the whole body). " + pageLinkHint,
+		"description": "Write Markdown into a page. mode: append (the default — adds at the end) | prepend (adds at the top) | replace (replaces the whole body). " + pageLinkHint + " " + diagramHint,
 		"inputSchema": map[string]any{"type": "object",
 			"properties": map[string]any{
 				"page_id":  map[string]any{"type": "string"},

@@ -177,6 +177,10 @@ func renderBlocks(b *strings.Builder, blocks []mdBlock, depth int) {
 			blk.Children = nil
 		case "quote":
 			b.WriteString(indent + "> " + renderInline(blk.Content) + "\n\n")
+		// Back out the way it came in, so a page survives a round trip through
+		// Markdown without its diagrams turning into code.
+		case "mermaid":
+			b.WriteString(indent + "```mermaid\n" + strProp(blk.Props, "code", "") + "\n" + indent + "```\n\n")
 		case "codeBlock":
 			b.WriteString(indent + "```" + strProp(blk.Props, "language", "") + "\n" + plainInline(blk.Content) + "\n" + indent + "```\n\n")
 		case "image":
