@@ -386,30 +386,24 @@ export const columnsSpec = createReactBlockSpec(
   },
 );
 
-// wideDiagram: is this drawing so much wider than it is tall that fitting it to
-// a column would leave the labels unreadable? Read from the viewBox mermaid
-// writes, which is the only place its real size is recorded.
-function wideDiagram(svg: string): boolean {
-  const m = /viewBox="0 0 ([\d.]+) ([\d.]+)"/.exec(svg);
-  if (!m) return false;
-  return Number(m[1]) > 900 && Number(m[1]) / Number(m[2]) > 3;
-}
-
 // The drawing as an image source. encodeURIComponent rather than base64: it
 // keeps the markup readable in devtools and avoids a second copy in memory.
 function svgDataURI(svg: string): string {
   return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
 }
 
-// An <img> has no intrinsic size for an SVG without width and height, so the
-// aspect ratio is taken from the viewBox and the browser does the rest. Without
-// it the image collapses to nothing at all.
+// An <img> holding an SVG with no width or height has no intrinsic size, so
+// both come from the viewBox — the only place the drawing's real size is
+// recorded.
+//
+// min(), and that is the whole rule: a diagram is shown at its own size and
+// shrinks to fit a narrower column, but is NEVER blown up. Plain 100% made a
+// tall narrow flowchart fill the column and run one and a half screens down the
+// page, and gave a wide one no room at all. Both were the same mistake.
 function diagramSize(svg: string): { width: string; aspectRatio?: string } {
   const m = /viewBox="0 0 ([\d.]+) ([\d.]+)"/.exec(svg);
   if (!m) return { width: '100%' };
-  return wideDiagram(svg)
-    ? { width: m[1] + 'px', aspectRatio: `${m[1]} / ${m[2]}` }
-    : { width: '100%', aspectRatio: `${m[1]} / ${m[2]}` };
+  return { width: `min(100%, ${m[1]}px)`, aspectRatio: `${m[1]} / ${m[2]}` };
 }
 
 // ---- Diagram (Mermaid) ----
@@ -502,10 +496,7 @@ export const mermaidSpec = createReactBlockSpec(
             // It is also safer: an SVG in an <img> cannot run anything.
             <button
               type="button"
-              // A diagram far wider than the column is legible at its own size
-              // and unreadable at the column's. Below that ratio it is scaled to
-              // fit as before; above it, the block scrolls sideways.
-              className={'bn-mermaid-view' + (wideDiagram(svg) ? ' is-wide' : '')}
+              className="bn-mermaid-view"
               title={t('Click to edit the diagram')}
               onClick={() => {
                 setDraft(code);

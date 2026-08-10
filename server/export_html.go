@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"html"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -216,7 +217,12 @@ func renderBlockHTML(b *strings.Builder, blk mdBlock) {
 		// page put a blank box where a diagram belonged and said nothing about
 		// why — which is how the foreignObject refusal stayed invisible.
 		if clean := sanitizeSVG(svg); strings.Contains(clean, "<svg") {
-			b.WriteString(`<div class="diagram">` + clean + `</div>`)
+			// The same rule the editor follows: the drawing's own size, shrunk
+			// to fit a narrower page, never blown up. The width and height were
+			// stripped when it was drawn so that CSS could decide, which means
+			// something has to say what the size IS — and on paper "as wide as
+			// the page" turns a small flowchart into a full sheet.
+			b.WriteString(`<div class="diagram"` + diagramStyle(clean) + `>` + clean + `</div>`)
 			return
 		}
 		if code, _ := blk.Props["code"].(string); strings.TrimSpace(code) != "" {
@@ -367,8 +373,8 @@ body:not(.opt-ws) .cover-ws{display:none}
 .cols{display:grid;gap:24px;align-items:start;grid-template-columns:repeat(2,minmax(0,1fr))}
 .cols[data-count="3"]{grid-template-columns:repeat(3,minmax(0,1fr))}
 .cols>div>*:first-child{margin-top:0}
-.diagram{margin:1em 0;text-align:center}
-.diagram svg{max-width:100%;height:auto}
+.diagram{margin:1em 0}
+.diagram svg{width:100%;height:auto;display:block}
 .doc-comments{margin-top:2.2em;border-top:1px solid #e3e2df;padding-top:1em}
 .doc-comments h2{font-size:1.2em;margin:0 0 .6em}
 .doc-comment{margin:0 0 .8em;font-size:.95em}
@@ -872,4 +878,19 @@ func sanitizeSVG(svg string) string {
 		}
 	}
 	return svg
+}
+
+// viewBoxRe reads the only place a stripped SVG still records its real size.
+var viewBoxRe = regexp.MustCompile(`viewBox="0 0 ([\d.]+) ([\d.]+)"`)
+
+// diagramStyle sizes a diagram for the page: its own width, capped at the
+// column, with the aspect ratio held so nothing is squashed. Returns nothing at
+// all when the drawing carries no viewBox — better a default size than a
+// mis-stated one.
+func diagramStyle(svg string) string {
+	m := viewBoxRe.FindStringSubmatch(svg)
+	if m == nil {
+		return ""
+	}
+	return ` style="width:min(100%, ` + m[1] + `px);aspect-ratio:` + m[1] + ` / ` + m[2] + `"`
 }

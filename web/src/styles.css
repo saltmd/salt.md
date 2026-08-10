@@ -9500,28 +9500,20 @@ body:has(.live-down) .update-banner {
 .bn-mermaid-view:hover {
   border-color: var(--border, #e3e2df);
 }
-/* A wide diagram is shown at a READABLE size and scrolls, rather than being
-   squeezed until its labels are two pixels tall. Mermaid writes its natural
-   width into the element's own style attribute, which beats any stylesheet — so
-   the width is taken off in JS (see the view below) and the real constraint
-   lives here. Paper cannot scroll, so the printed version still scales; that is
-   what landscape is for. */
-.bn-mermaid-view {
-  overflow-x: auto;
+/* The ring belongs to keyboard use. A picture that shows a focus outline just
+   from being on the page reads as an error state. */
+.bn-mermaid-view:focus {
+  outline: none;
 }
-.bn-mermaid-view svg {
-  max-width: 100%;
-  height: auto;
+.bn-mermaid-view:focus-visible {
+  outline: 2px solid var(--accent, #2f7d4f);
+  outline-offset: 2px;
 }
-.bn-mermaid-view.is-wide {
-  text-align: left;
-}
+/* The size comes from the drawing itself — see diagramSize in blocks.tsx. The
+   stylesheet only stops it from ever exceeding the column. */
 .bn-mermaid-view img {
   max-width: 100%;
   height: auto;
-}
-.bn-mermaid-view.is-wide img {
-  max-width: none;
 }
 .bn-mermaid-empty {
   display: inline-block;
