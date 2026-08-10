@@ -52,11 +52,15 @@ export function AdminSettingsModal({ onClose }: { onClose: () => void }) {
   useExclusiveModal(onClose);
   const [s, setS] = useState<Record<string, string>>({});
   const [trustProxy, setTrustProxy] = useState(false);
+  // How documents from this instance print. Held as one object because the five
+  // travel together everywhere: loaded together, saved together, and the print
+  // view reads them as a set.
+  const [pdf, setPdf] = useState({ cover: false, icon: true, footer: true, workspace: true, pageNums: false });
   const [allowUserWs, setAllowUserWs] = useState(true);
   const [passSet, setPassSet] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [loadErr, setLoadErr] = useState<string | null>(null);
-  const [tab, setTab] = useState<'general' | 'access' | 'email' | 'proxy' | 'webhooks' | 'maintenance'>('general');
+  const [tab, setTab] = useState<'general' | 'access' | 'email' | 'proxy' | 'webhooks' | 'documents' | 'maintenance'>('general');
   const [hooks, setHooks] = useState<Webhook[] | null>(null);
   const [hookURL, setHookURL] = useState('');
   const [hookEvents, setHookEvents] = useState<string[]>(['page.created', 'page.updated']);
@@ -101,6 +105,10 @@ export function AdminSettingsModal({ onClose }: { onClose: () => void }) {
           msClientSecret: '',
         });
         setTrustProxy(v.trustProxy);
+        setPdf({
+          cover: v.pdfCover, icon: v.pdfIcon, footer: v.pdfFooter,
+          workspace: v.pdfWorkspace, pageNums: v.pdfPageNums,
+        });
         setAllowUserWs(v.allowUserWorkspaces !== false);
         setHttpsEnabled(v.httpsEnabled);
         setOauthSet({ google: v.googleSecretSet, ms: v.msSecretSet });
@@ -204,6 +212,11 @@ export function AdminSettingsModal({ onClose }: { onClose: () => void }) {
         smtpPass: s.smtpPass,
         publicBaseUrl: s.publicBaseUrl,
         trustProxy,
+        pdfCover: pdf.cover,
+        pdfIcon: pdf.icon,
+        pdfFooter: pdf.footer,
+        pdfWorkspace: pdf.workspace,
+        pdfPageNums: pdf.pageNums,
         allowUserWorkspaces: allowUserWs,
         maxUploadMb: num('maxUploadMb', 1, 2048),
         trashDays: num('trashDays', 0, 3650),
@@ -280,6 +293,7 @@ ingress:
     { id: 'email', label: t('Email') },
     { id: 'proxy', label: t('Domain & proxy') },
     { id: 'webhooks', label: t('Webhooks') },
+    { id: 'documents', label: t('Documents') },
     { id: 'maintenance', label: t('Maintenance') },
   ];
 
@@ -729,6 +743,43 @@ ingress:
                     ))}
                   </>
                 )}
+                {tab === 'documents' && (
+                  <>
+                    <label>{t('When a document is printed or saved as PDF')}</label>
+                    <div className="settings-checks">
+                      {([
+                        ['cover', t('A title page of its own')],
+                        ['icon', t("Show the document's icon")],
+                        ['footer', t('Title and date at the foot of every page')],
+                        ['workspace', t('Name the workspace and the instance')],
+                      ] as const).map(([key, label]) => (
+                        <label key={key} className="settings-check">
+                          <input
+                            type="checkbox"
+                            checked={pdf[key]}
+                            onChange={(e) => setPdf({ ...pdf, [key]: e.target.checked })}
+                          />
+                          {label}
+                        </label>
+                      ))}
+                      <label className="settings-check">
+                        <input
+                          type="checkbox"
+                          checked={pdf.pageNums}
+                          onChange={(e) => setPdf({ ...pdf, pageNums: e.target.checked })}
+                        />
+                        {t('Page numbers — but see below')}
+                      </label>
+                    </div>
+                    <p className="dialog-hint settings-hint">
+                      {t('Only the browser can count pages, and it prints the address, the date and the document title alongside them. Everything else here is drawn by salt.md, which is why the rest of the page stays clean.')}
+                    </p>
+                    <p className="dialog-hint settings-hint">
+                      {t('These are the defaults. The bar above a print view can deviate for one document, and those choices travel in the link.')}
+                    </p>
+                  </>
+                )}
+
                 {tab === 'maintenance' && (
                   <>
                     <label>{t('Backup')}</label>

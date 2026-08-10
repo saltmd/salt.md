@@ -9393,3 +9393,18 @@ body:has(.live-down) .update-banner {
 .settings-days {
   max-width: 6rem;
 }
+
+/* A column of checkboxes in the settings grid. The grid is label/control pairs,
+   so a group of related flags needs a container of its own or each one claims a
+   row and the group stops reading as a group. */
+.settings-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.settings-check {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  cursor: pointer;
+}

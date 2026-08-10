@@ -46,8 +46,9 @@ already completed*. The screen itself is in
 
 ## Instance settings
 
-Six tabs — **General**, **Access**, **Email**, **Domain & proxy**, **Webhooks**,
-**Maintenance** — and one pair of buttons at the bottom, **Cancel** and **Save**.
+Seven tabs — **General**, **Access**, **Email**, **Domain & proxy**,
+**Webhooks**, **Documents**, **Maintenance** — and one pair of buttons at the
+bottom, **Cancel** and **Save**.
 **Save** writes the fields of every tab at once, so you can change the instance
 name and the signup policy in one pass. Some controls do **not** wait for Save
 because they act the moment you press them: starting or stopping a tunnel,
@@ -203,6 +204,32 @@ Under **Configured**, each hook shows its address, its events and either
 *not called yet* or a *last call:* line with the HTTP status the receiver
 answered and when — with **Remove** beside it. Both **Add** and **Remove** take
 effect immediately, without **Save**. See [Webhooks](webhooks.md).
+
+### Documents
+
+![Documents: how a printed document or a PDF from this instance looks.](img/admin-documents.png)
+
+How a document from this instance looks when somebody prints it or saves it as
+a PDF. These are the instance's defaults; the bar above a print view can deviate
+for a single document, and that choice travels in the link.
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| **A title page of its own** | off | A first page carrying the icon, title, description and the lines below |
+| **Show the document's icon** | on | The emoji beside the title |
+| **Title and date at the foot of every page** | on | A thin running footer, drawn by salt.md |
+| **Name the workspace and the instance** | on | Two lines on the title page saying where the document came from |
+| **Page numbers** | off | See below — this one is a trade |
+
+**Page numbers are the browser's, and they never come alone.** Nothing in a web
+page can count printed pages: the CSS feature for it exists on paper and no
+browser implements it. The browser can, and when it does it also prints the
+address, the date and the document title into the margins. That is the header
+and footer the option brings back, which is why it is off and why the rest of
+the page is clean without it.
+
+Everything else on the page is drawn by salt.md, including the running footer,
+so a printed document carries no trace of the browser it came out of.
 
 ### Maintenance
 

@@ -122,6 +122,11 @@ export const api = {
       maxUploadMb: number;
       trashDays: number;
       auditDays: number;
+      pdfCover: boolean;
+      pdfIcon: boolean;
+      pdfFooter: boolean;
+      pdfWorkspace: boolean;
+      pdfPageNums: boolean;
       sessionDays: number;
       httpsDomain: string;
       httpsEnabled: boolean;

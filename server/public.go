@@ -67,5 +67,5 @@ func (s *Server) handlePublicView(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>` + title + `</title><style>` + htmlDocStyle + `</style></head><body><pre style="white-space:pre-wrap">` + html.EscapeString(md) + `</pre></body></html>`))
 		return
 	}
-	w.Write([]byte(pageHTML(p, false)))
+	w.Write([]byte(pageHTML(p, false, s.printOptionsFor(p))))
 }

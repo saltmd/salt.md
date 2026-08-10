@@ -412,10 +412,11 @@ func (s *Server) handleExportPage(w http.ResponseWriter, r *http.Request) {
 		// on mobile too); otherwise it's a downloadable .html file.
 		if r.URL.Query().Get("print") == "1" {
 			w.Header().Set("X-Robots-Tag", "noindex")
-			w.Write([]byte(pageHTML(p, true)))
+			opts := applyPrintQuery(s.printOptionsFor(p), r.URL.Query())
+			w.Write([]byte(pageHTML(p, true, opts)))
 		} else {
 			w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": safeFilename(p.Title) + ".html"}))
-			w.Write([]byte(pageHTML(p, false)))
+			w.Write([]byte(pageHTML(p, false, s.printOptionsFor(p))))
 		}
 		return
 	}

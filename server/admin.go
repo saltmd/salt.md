@@ -125,6 +125,11 @@ type appSettings struct {
 	MaxUploadMB     int    `json:"maxUploadMb"`
 	TrashDays       int    `json:"trashDays"`
 	AuditDays       int    `json:"auditDays"`
+	PdfCover        bool   `json:"pdfCover"`
+	PdfIcon         bool   `json:"pdfIcon"`
+	PdfFooter       bool   `json:"pdfFooter"`
+	PdfWorkspace    bool   `json:"pdfWorkspace"`
+	PdfPageNums     bool   `json:"pdfPageNums"`
 	SessionDays     int    `json:"sessionDays"`
 	HTTPSDomain     string `json:"httpsDomain"`
 	HTTPSEnabled    bool   `json:"httpsEnabled"`
@@ -156,6 +161,11 @@ func (s *Server) loadSettings() appSettings {
 		MaxUploadMB:         s.intSetting("max_upload_mb", 50, 1, 2048),
 		TrashDays:           s.trashRetentionDays(),
 		AuditDays:           s.auditRetentionDays(),
+		PdfCover:            s.boolSetting("pdf_cover"),
+		PdfIcon:             s.setting("pdf_icon", "1") == "1",
+		PdfFooter:           s.setting("pdf_footer", "1") == "1",
+		PdfWorkspace:        s.setting("pdf_workspace", "1") == "1",
+		PdfPageNums:         s.boolSetting("pdf_pagenums"),
 		SessionDays:         s.sessionDays(),
 		HTTPSDomain:         s.setting("https_domain", ""),
 		HTTPSEnabled:        s.boolSetting("https_enabled"),
@@ -196,6 +206,11 @@ func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 		MaxUploadMB         *int    `json:"maxUploadMb"`
 		TrashDays           *int    `json:"trashDays"`
 		AuditDays           *int    `json:"auditDays"`
+		PdfCover            *bool   `json:"pdfCover"`
+		PdfIcon             *bool   `json:"pdfIcon"`
+		PdfFooter           *bool   `json:"pdfFooter"`
+		PdfWorkspace        *bool   `json:"pdfWorkspace"`
+		PdfPageNums         *bool   `json:"pdfPageNums"`
 		SessionDays         *int    `json:"sessionDays"`
 		HTTPSDomain         *string `json:"httpsDomain"`
 		HTTPSEnabled        *bool   `json:"httpsEnabled"`
@@ -285,6 +300,23 @@ func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 		httpError(w, 400, err.Error())
 		return
 	}
+	// The print options. setFlag writes "1" or "" — the same shape every other
+	// flag here uses, so boolSetting reads them without a special case.
+	setFlag := func(key string, v *bool) {
+		if v == nil {
+			return
+		}
+		if *v {
+			s.setSetting(key, "1")
+		} else {
+			s.setSetting(key, "")
+		}
+	}
+	setFlag("pdf_cover", body.PdfCover)
+	setFlag("pdf_icon", body.PdfIcon)
+	setFlag("pdf_footer", body.PdfFooter)
+	setFlag("pdf_workspace", body.PdfWorkspace)
+	setFlag("pdf_pagenums", body.PdfPageNums)
 	if err := setInt("audit_days", body.AuditDays, 0, 3650); err != nil {
 		httpError(w, 400, err.Error())
 		return

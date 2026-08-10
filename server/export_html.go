@@ -5,6 +5,7 @@ import (
 	"html"
 	"net/url"
 	"strings"
+	"time"
 )
 
 // safeURL returns s only if it is a benign http(s)/mailto (or scheme-relative)
@@ -219,6 +220,40 @@ func renderTableHTML(b *strings.Builder, raw json.RawMessage) {
 	b.WriteString("</table>")
 }
 
+// printOptions is the house style for a printed document: what appears besides
+// the text itself. Everything here is off-by-default-safe — an option nobody
+// touches produces the plain document people expected before any of this
+// existed.
+type printOptions struct {
+	Cover     bool   // a title page of its own
+	Icon      bool   // the document's emoji beside its title
+	Footer    bool   // title and date repeated at the foot of every page
+	Workspace bool   // which workspace and instance this came from
+	PageNums  bool   // see the comment on the stylesheet — this one has a cost
+	WSName    string // filled in only when Workspace is on
+	Instance  string
+	Date      string
+}
+
+// printOptionsFor reads the instance's defaults. They are settings rather than
+// per-export choices because they describe how documents from THIS instance
+// look — a house style, not a decision somebody makes forty times.
+func (s *Server) printOptionsFor(p *page) printOptions {
+	o := printOptions{
+		Cover:     s.boolSetting("pdf_cover"),
+		Icon:      s.setting("pdf_icon", "1") == "1",
+		Footer:    s.setting("pdf_footer", "1") == "1",
+		Workspace: s.setting("pdf_workspace", "1") == "1",
+		PageNums:  s.boolSetting("pdf_pagenums"),
+		Instance:  s.setting("instance_name", ""),
+		Date:      time.Now().UTC().Format("2006-01-02"),
+	}
+	if o.Workspace && p.WorkspaceID != "" {
+		s.db.QueryRow(`SELECT name FROM workspaces WHERE id = ?`, p.WorkspaceID).Scan(&o.WSName)
+	}
+	return o
+}
+
 // htmlDocStyle is a clean, print-first stylesheet: readable measure, real
 // typography and @page rules so "Save as PDF" produces a beautiful document
 // with no app chrome. Light-only (a printed page should look like paper).
@@ -242,33 +277,122 @@ ul,ol{padding-left:1.4em}li{margin:.25em 0;break-inside:avoid}
 a{color:#2f6fb0}
 .print-bar{position:sticky;top:0;display:flex;gap:10px;align-items:center;background:#f7f6f3;border:1px solid #e3e2df;border-radius:10px;padding:10px 14px;margin:-16px 0 24px;font-size:14px;color:#5b5b57}
 .print-bar button{font:inherit;cursor:pointer;background:#2f7d4f;color:#fff;border:none;border-radius:7px;padding:7px 14px}
-@media print{@page{margin:18mm 15mm}body{margin:0 auto;max-width:100%;font-size:11.5pt}a{color:#1a1a1a}h2,h3,img,table,pre,blockquote,li{break-inside:avoid;page-break-inside:avoid}.print-bar{display:none!important}}`
+.cover{display:none}
+.page-frame{border-collapse:collapse;width:100%}
+.page-frame>thead>tr>td,.page-frame>tbody>tr>td,.page-frame>tfoot>tr>td{border:none;padding:0}
+.doc-foot{display:none}
+
+/* Printing, and the one rule everything else hangs off: @page has NO margin.
+   Chrome draws its own header and footer INTO the page margin — the date and
+   title at the top, the URL and page number at the bottom — and a page cannot
+   turn that off. Take the margin away and there is nowhere for them to go.
+ 
+   That alone would ruin the document: with no page margin, page two starts at
+   the paper edge and printers cannot print there. So the whole document sits in
+   a table, and a table's thead and tfoot REPEAT on every printed page with
+   their space reserved. That is what buys a real top and bottom margin on every
+   sheet, and a footer of our own along with it.
+ 
+   The archaic-looking table is therefore load-bearing. CSS has a proper answer
+   for this — @page margin boxes — and no browser implements it. */
+@media print{
+@page{margin:0}
+body{margin:0;max-width:100%;padding:0;font-size:11.5pt}
+.page-frame>thead>tr>td{height:14mm}
+.page-frame>tfoot>tr>td{height:14mm}
+.page-body{padding:0 15mm}
+a{color:#1a1a1a}
+h2,h3,img,table,pre,blockquote,li{break-inside:avoid;page-break-inside:avoid}
+.print-bar{display:none!important}
+.doc-foot{display:block;padding:0 15mm;font-size:8.5pt;color:#8a8a85;border-top:1px solid #e3e2df;margin:0 15mm;padding:3mm 0 0}
+.cover{display:flex;flex-direction:column;justify-content:center;height:247mm;padding:25mm 15mm;break-after:page;page-break-after:always}
+.cover h1{font-size:2.6em;margin:0 0 .3em}
+.cover .cover-meta{font-size:1em;color:#5b5b57;line-height:1.9}
+.cover .cover-rule{width:56px;border-top:3px solid #2f7d4f;margin:0 0 1.4em}
+.no-icon .doc-icon{display:none}
+/* Page numbers are the browser's own, and it only draws them when there IS a
+   margin to draw them in — which brings its header and the URL back with them.
+   Offered honestly rather than silently: the label says what it costs. */
+}`
+
+// pageNumStyle is the opposite choice, and it is a trade rather than an option:
+// giving the margin back lets the browser number the pages, and the browser
+// puts the address and the date up there at the same time. Our own frame steps
+// aside so the two do not stack.
+const pageNumStyle = `@media print{
+@page{margin:16mm 15mm}
+.page-frame>thead>tr>td,.page-frame>tfoot>tr>td{height:0}
+.page-body{padding:0}
+.doc-foot{display:none}
+.cover{padding:0}
+}`
 
 // pageHTML renders a document page as a full standalone HTML document. In print
 // mode it shows a small (screen-only) print bar and auto-opens the print dialog
 // on load — on mobile, where window.print() is unreliable, the clean page is
 // itself the deliverable (share → "Print"/"Save to Files as PDF").
-func pageHTML(p *page, printMode bool) string {
+func pageHTML(p *page, printMode bool, o printOptions) string {
 	title := p.Title
 	if title == "" {
 		title = "Untitled"
 	}
-	head := html.EscapeString(title)
-	if p.Icon != "" {
-		head = html.EscapeString(p.Icon) + " " + head
+	esc := html.EscapeString
+	icon := ""
+	if p.Icon != "" && o.Icon {
+		icon = `<span class="doc-icon">` + esc(p.Icon) + `</span> `
 	}
+
 	var b strings.Builder
 	b.WriteString("<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>")
-	b.WriteString(html.EscapeString(title))
-	b.WriteString("</title><style>" + htmlDocStyle + "</style></head><body>")
-	if printMode {
-		b.WriteString(`<div class="print-bar"><button onclick="window.print()">Print / Save as PDF</button><span>On a phone: Share&nbsp;→&nbsp;Print, or "Save to Files".</span></div>`)
+	b.WriteString(esc(title))
+	b.WriteString("</title><style>" + htmlDocStyle + "</style>")
+	if printMode && o.PageNums {
+		b.WriteString("<style>" + pageNumStyle + "</style>")
 	}
-	b.WriteString("<h1>" + head + "</h1>")
-	if d := strings.TrimSpace(p.Description); d != "" {
-		b.WriteString(`<p class="doc-desc">` + html.EscapeString(d) + "</p>")
+	b.WriteString("</head><body>")
+	if printMode {
+		b.WriteString(printBarHTML(o))
+	}
+
+	// The cover sits OUTSIDE the frame, and that is not tidiness: a forced page
+	// break inside the table stopped Chrome repeating the running footer on
+	// every following sheet. Proven on a rendered PDF — the footer was on every
+	// page without a cover and on none with one.
+	if printMode && o.Cover {
+		b.WriteString(`<section class="cover"><div class="cover-rule"></div><h1>` + icon + esc(title) + "</h1>")
+		if d := strings.TrimSpace(p.Description); d != "" {
+			b.WriteString(`<p class="doc-desc">` + esc(d) + "</p>")
+		}
+		b.WriteString(`<div class="cover-meta">`)
+		for _, line := range coverLines(o) {
+			b.WriteString(esc(line) + "<br>")
+		}
+		b.WriteString("</div></section>")
+	}
+
+	// Everything else goes inside the frame — see the stylesheet for why a
+	// table, of all things, is what gives every sheet its margins back.
+	b.WriteString(`<table class="page-frame"><thead><tr><td></td></tr></thead>`)
+	if printMode && o.Footer {
+		b.WriteString(`<tfoot><tr><td><div class="doc-foot">` + esc(title))
+		if o.Date != "" {
+			b.WriteString(" &middot; " + esc(o.Date))
+		}
+		b.WriteString(`</div></td></tr></tfoot>`)
+	} else {
+		b.WriteString(`<tfoot><tr><td></td></tr></tfoot>`)
+	}
+	b.WriteString(`<tbody><tr><td><div class="page-body">`)
+
+	b.WriteString("<h1>" + icon + esc(title) + "</h1>")
+	// On a cover the description has already been said; repeating it under the
+	// heading reads like a mistake.
+	if d := strings.TrimSpace(p.Description); d != "" && !(printMode && o.Cover) {
+		b.WriteString(`<p class="doc-desc">` + esc(d) + "</p>")
 	}
 	b.WriteString(blocksToHTML(p.Content))
+	b.WriteString(`</div></td></tr></tbody></table>`)
+
 	if printMode {
 		// Desktop: open the print dialog automatically. Mobile browsers ignore
 		// this (no-op), leaving the clean page for the OS share/print sheet.
@@ -276,4 +400,68 @@ func pageHTML(p *page, printMode bool) string {
 	}
 	b.WriteString("</body></html>")
 	return b.String()
+}
+
+// coverLines is what the title page says about where the document came from.
+// Empty entries are dropped rather than printed as blank lines, so an instance
+// that has set no name simply shows one line fewer.
+func coverLines(o printOptions) []string {
+	out := []string{}
+	if o.Workspace {
+		if o.WSName != "" {
+			out = append(out, o.WSName)
+		}
+		if o.Instance != "" && o.Instance != o.WSName {
+			out = append(out, o.Instance)
+		}
+	}
+	if o.Date != "" {
+		out = append(out, o.Date)
+	}
+	return out
+}
+
+// printBarHTML is the strip above the document, on screen only. The toggles
+// reload with a query parameter rather than flipping a class, because one of
+// them — page numbers — changes an @page rule, and an at-rule cannot be scoped
+// to a class. Doing all five the same way keeps the URL an honest description
+// of what will come out of the printer, which also makes it worth bookmarking.
+func printBarHTML(o printOptions) string {
+	box := func(param, label string, on bool) string {
+		checked := ""
+		if on {
+			checked = " checked"
+		}
+		return `<label><input type="checkbox" data-opt="` + param + `"` + checked + `> ` + html.EscapeString(label) + `</label>`
+	}
+	return `<div class="print-bar"><button onclick="window.print()">Print / Save as PDF</button>` +
+		box("cover", "Title page", o.Cover) +
+		box("icon", "Icon", o.Icon) +
+		box("foot", "Footer", o.Footer) +
+		box("ws", "Workspace", o.Workspace) +
+		box("nums", "Page numbers (the browser also prints the address)", o.PageNums) +
+		`<script>document.querySelectorAll('.print-bar input[data-opt]').forEach(function(c){
+c.addEventListener('change',function(){
+var u=new URL(location.href);u.searchParams.set(c.dataset.opt,c.checked?'1':'0');location.href=u.toString();});});</script>` +
+		`</div>`
+}
+
+// applyPrintQuery lets a link, a bookmark or the bar above the document deviate
+// from the instance's house style. Absent parameters keep the default: this is
+// an override, not a form, so an old link keeps meaning what it meant.
+func applyPrintQuery(o printOptions, q url.Values) printOptions {
+	set := func(name string, target *bool) {
+		switch q.Get(name) {
+		case "1":
+			*target = true
+		case "0":
+			*target = false
+		}
+	}
+	set("cover", &o.Cover)
+	set("icon", &o.Icon)
+	set("foot", &o.Footer)
+	set("ws", &o.Workspace)
+	set("nums", &o.PageNums)
+	return o
 }
