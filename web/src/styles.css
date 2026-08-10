@@ -9472,3 +9472,50 @@ body:has(.live-down) .update-banner {
 .bn-block:has(> * > .bn-block-content[data-content-type='columns'][data-count='3']) > .bn-block-group {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
+
+/* Diagram block. The picture is a button, because clicking it is how you get to
+   the source — there is nowhere else to put an edit affordance without stealing
+   room from the drawing. */
+.bn-mermaid {
+  margin: 0.4em 0;
+}
+.bn-mermaid-view {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: none;
+  cursor: pointer;
+  text-align: center;
+}
+.bn-mermaid-view:hover {
+  border-color: var(--border, #e3e2df);
+}
+.bn-mermaid-view svg {
+  max-width: 100%;
+  height: auto;
+}
+.bn-mermaid-empty {
+  display: inline-block;
+  padding: 14px;
+  font-size: 13px;
+  color: var(--muted, #8a8a85);
+}
+.bn-mermaid-src {
+  display: block;
+  width: 100%;
+  min-height: 8em;
+  resize: vertical;
+  font: 13px/1.55 var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  padding: 10px 12px;
+  border: 1px solid var(--border, #e3e2df);
+  border-radius: 8px;
+  background: var(--code-bg, #f5f5f4);
+  color: inherit;
+}
+.bn-mermaid-hint {
+  margin: 5px 2px 0;
+  font-size: 12px;
+  color: var(--muted, #8a8a85);
+}

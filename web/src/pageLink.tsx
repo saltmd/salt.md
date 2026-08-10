@@ -1,6 +1,6 @@
 import { BlockNoteSchema, defaultBlockSpecs, defaultInlineContentSpecs } from '@blocknote/core';
 import { createReactInlineContentSpec } from '@blocknote/react';
-import { bookmarkSpec, databaseSpec, calloutSpec, tocSpec, columnsSpec } from './blocks';
+import { bookmarkSpec, databaseSpec, calloutSpec, tocSpec, columnsSpec, mermaidSpec } from './blocks';
 
 // A "pageLink" is an inline mention of another salt.md page. It stores the target
 // page id and a display label. Clicking it dispatches a navigation event that
@@ -50,6 +50,7 @@ export const saltSchema =
       bookmark: bookmarkSpec(),
       database: databaseSpec(),
       columns: columnsSpec(),
+      mermaid: mermaidSpec(),
     },
     inlineContentSpecs: {
       ...defaultInlineContentSpecs,

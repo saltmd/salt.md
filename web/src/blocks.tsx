@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { createReactBlockSpec } from '@blocknote/react';
 import { Table2 } from 'lucide-react';
 import { useBlockCtx } from './blockContext';
+import { renderMermaid } from './mermaidLoader';
 import { PageIcon } from './pageIcon';
 import CollectionView from './components/CollectionView';
 import { plural, t } from './i18n';
@@ -379,6 +380,101 @@ export const columnsSpec = createReactBlockSpec(
               </button>
             ))}
           </div>
+        </div>
+      );
+    },
+  },
+);
+
+// ---- Diagram (Mermaid) ----
+//
+// A diagram written as text: "A --> B" rather than coordinates. That choice is
+// the whole point — an agent can write one, and computing x/y for every box is
+// exactly what an agent does badly.
+//
+// The block keeps two things: the SOURCE, which is the truth, and the rendered
+// SVG, which is derived. The picture is stored because the print view is built
+// by the server and has no way to draw one; without it every diagram would be
+// missing from every PDF. Same lesson as the page icons.
+export const mermaidSpec = createReactBlockSpec(
+  {
+    type: 'mermaid',
+    propSchema: {
+      code: { default: '' },
+      svg: { default: '' },
+    },
+    content: 'none',
+  } as const,
+  {
+    render: (props) => {
+      const { block, editor } = props;
+      const code = String((block.props as { code: string }).code ?? '');
+      const svg = String((block.props as { svg: string }).svg ?? '');
+      const [editing, setEditing] = useState(!code);
+      const [draft, setDraft] = useState(code);
+      const [error, setError] = useState('');
+
+      // Re-drawn whenever the source changes, and the result written back to the
+      // block. Guarded so a diagram that has not changed does not rewrite the
+      // page on every mount — an edit is a real change to the document.
+      useEffect(() => {
+        let alive = true;
+        if (!code) return;
+        void renderMermaid('mmd-' + block.id, code).then((r) => {
+          if (!alive) return;
+          setError(r.error);
+          if (r.svg && r.svg !== svg) {
+            editor.updateBlock(block, { props: { svg: r.svg } } as never);
+          }
+        });
+        return () => {
+          alive = false;
+        };
+      }, [code]);
+
+      const save = () => {
+        setEditing(false);
+        if (draft !== code) editor.updateBlock(block, { props: { code: draft } } as never);
+      };
+
+      return (
+        <div className="bn-mermaid" contentEditable={false}>
+          {editing ? (
+            <div className="bn-mermaid-edit">
+              <textarea
+                className="bn-mermaid-src"
+                value={draft}
+                autoFocus
+                spellCheck={false}
+                placeholder={"graph TD\n  A[Start] --> B[Done]"}
+                onChange={(e) => setDraft(e.target.value)}
+                onBlur={save}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
+                    setDraft(code);
+                    setEditing(false);
+                  }
+                  // Enter makes a new line; the diagram is saved on leaving the
+                  // box, which is what every other multi-line field here does.
+                  e.stopPropagation();
+                }}
+              />
+              <p className="bn-mermaid-hint">{t('Leave the box to draw it. Escape discards.')}</p>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="bn-mermaid-view"
+              title={t('Click to edit the diagram')}
+              onClick={() => {
+                setDraft(code);
+                setEditing(true);
+              }}
+              dangerouslySetInnerHTML={svg && !error ? { __html: svg } : undefined}
+            >
+              {svg && !error ? undefined : <span className="bn-mermaid-empty">{error || t('Empty diagram')}</span>}
+            </button>
+          )}
         </div>
       );
     },

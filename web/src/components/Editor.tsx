@@ -33,7 +33,7 @@ import { usePeers, setPeers, clearPeers } from '../presence';
 import { tagColorClass, TAG_PALETTE } from '../tags';
 import { collectTags, suggestTags } from '../tagSuggest';
 import { useMenuDismiss } from '../modal';
-import { Menu, Star, Lock, LockOpen, Globe, MessageSquare, History, MoreHorizontal, Printer, FileCode, FileText, Upload, AlignLeft, Check, Image as ImageIcon , Smile, PanelRight, Link2, Trash2, FilePlus2, Columns2} from 'lucide-react';
+import { Menu, Star, Lock, LockOpen, Globe, MessageSquare, History, MoreHorizontal, Printer, FileCode, FileText, Upload, AlignLeft, Check, Image as ImageIcon , Smile, PanelRight, Link2, Trash2, FilePlus2, Columns2, Workflow} from 'lucide-react';
 import { blockTypeFor, carriesExternalFiles } from '../dropFiles';
 
 export interface EditorProps {
@@ -1419,6 +1419,18 @@ function BlockContent({
   // Slash menu: default items + column layout + our custom blocks.
   const getSlashItems = async (query: string) => {
     const custom = [
+      {
+        title: t('Diagram'),
+        subtext: t('A flow chart written as text'),
+        aliases: ['diagram', 'diagramm', 'mermaid', 'flow', 'flussdiagramm', 'graph'], // i18n-ok: search aliases, deliberately multi
+        group: 'Advanced',
+        icon: <Workflow size={18} />,
+        onItemClick: () =>
+          insertOrUpdateBlockForSlashMenu(editor, {
+            type: 'mermaid',
+            props: { code: 'graph TD\n  A[Start] --> B[Done]' },
+          } as never),
+      },
       {
         title: t('Columns'),
         subtext: t('Two blocks side by side'),

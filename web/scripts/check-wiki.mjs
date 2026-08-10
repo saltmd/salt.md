@@ -133,7 +133,7 @@ for (const [file, text] of pages) {
 
 // Subdomains of the documentation domains count too — `salt.example.com` is
 // exactly the invented example this rule wants people to use.
-const ALLOWED_HOSTS = /^(([a-z0-9-]+\.)*example\.(com|org|net)|localhost|github\.com|raw\.githubusercontent\.com|ghcr\.io|your-instance)$/;
+const ALLOWED_HOSTS = /^(([a-z0-9-]+\.)*example\.(com|org|net)|localhost|github\.com|raw\.githubusercontent\.com|ghcr\.io|mermaid\.js\.org|your-instance)$/;
 // Reserved for documentation (RFC 5737) plus the loopback address.
 // 169.254.169.254 is the cloud metadata endpoint — a well-known constant that
 // the webhook page names precisely because deliveries must never reach it. It

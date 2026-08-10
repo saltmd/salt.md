@@ -66,6 +66,7 @@ other text, the new block is inserted **after** it.
 | **Embed a collection** | Basic blocks | — |
 | **Table of contents** | Basic blocks | — |
 | **Table** | Advanced | — |
+| **Diagram** | Advanced | — |
 | **Image**, **Video**, **Audio**, **File** | Media | — |
 | **Bookmark / Embed** | Media | — |
 | **Toggle Heading 1** … **3** | Subheadings | — |
@@ -77,9 +78,10 @@ whether or not the menu is open — **except `Mod-Alt-c`**, which is printed
 beside **Code Block** but is bound to no key at all. One shortcut goes the other
 way and is advertised nowhere: `Mod-Alt-q` turns the current block into a quote.
 
-The five salt.md blocks carry a one-line description in the menu:
+The six salt.md blocks carry a one-line description in the menu:
 
 - **Columns** — *Two blocks side by side*
+- **Diagram** — *A flow chart written as text*
 - **Callout** — *A highlighted note with an emoji*
 - **Bookmark / Embed** — *A link card, or a YouTube/Vimeo player*
 - **Embed a collection** — *Show an existing collection inside the document*
@@ -95,8 +97,25 @@ dragging a block sideways to open a new column, and pulling the edges to change
 their widths. Both are worth having; neither was worth a component whose licence
 would have to be renegotiated the day any part of salt.md is closed.
 
+**Diagram** is written, not drawn. The block holds
+[Mermaid](https://mermaid.js.org) source — `A --> B` rather than coordinates for
+every box — and draws it. Click the picture to get back to the text; leave the
+box and it is redrawn. Escape discards.
+
+Written rather than drawn is the point: an agent can produce one. Placing boxes
+by pixel is exactly what an agent does badly, and a diagram as text also lives
+in the page itself, so it is searchable, sits in the version history, and an
+agent changes it with an ordinary write.
+
+The drawing is kept on the block beside its source. That is what puts it in a
+PDF: the print view is built by the server, which cannot draw. A diagram that an
+agent wrote and nobody has opened yet has no drawing — the export prints its
+source instead, which is worth more than a gap. Open the page once and the
+picture is there from then on.
+
 Their aliases are deliberately bilingual, so `datenbank`, `tabelle`, `hinweis`,
-`inhalt`, `spalten` and `warnung` find them as well as the English words.
+`inhalt`, `spalten`, `diagramm`, `flussdiagramm` and `warnung` find them as well as
+the English words.
 
 ### Markdown shortcuts
 

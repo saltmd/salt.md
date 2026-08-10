@@ -202,6 +202,27 @@ func renderBlockHTML(b *strings.Builder, blk mdBlock) {
 		}
 		b.WriteString("</div>")
 		return
+	// A diagram carries its own picture: the editor draws it and stores the SVG
+	// back on the block. That is what lets it appear here at all — this runs on
+	// the SERVER, which has no way to draw one.
+	//
+	// Without a picture the SOURCE is printed instead of nothing. A page an
+	// agent wrote and nobody has opened yet has no SVG, and "A --> B" on the
+	// page is worth more than a gap where a diagram should be.
+	case "mermaid":
+		svg, _ := blk.Props["svg"].(string)
+		// sanitizeSVG returning empty is a REFUSAL, not an empty picture, so it
+		// falls through to the source below. Writing the empty result into the
+		// page put a blank box where a diagram belonged and said nothing about
+		// why — which is how the foreignObject refusal stayed invisible.
+		if clean := sanitizeSVG(svg); strings.Contains(clean, "<svg") {
+			b.WriteString(`<div class="diagram">` + clean + `</div>`)
+			return
+		}
+		if code, _ := blk.Props["code"].(string); strings.TrimSpace(code) != "" {
+			b.WriteString("<pre><code>" + html.EscapeString(code) + "</code></pre>")
+		}
+		return
 	case "table":
 		renderTableHTML(b, blk.Content)
 	default: // paragraph & unknown
@@ -346,6 +367,8 @@ body:not(.opt-ws) .cover-ws{display:none}
 .cols{display:grid;gap:24px;align-items:start;grid-template-columns:repeat(2,minmax(0,1fr))}
 .cols[data-count="3"]{grid-template-columns:repeat(3,minmax(0,1fr))}
 .cols>div>*:first-child{margin-top:0}
+.diagram{margin:1em 0;text-align:center}
+.diagram svg{max-width:100%;height:auto}
 .doc-comments{margin-top:2.2em;border-top:1px solid #e3e2df;padding-top:1em}
 .doc-comments h2{font-size:1.2em;margin:0 0 .6em}
 .doc-comment{margin:0 0 .8em;font-size:.95em}
@@ -830,4 +853,23 @@ func hexColour(v string) bool {
 		}
 	}
 	return true
+}
+
+// sanitizeSVG strips what must never travel in a stored picture: scripts, event
+// handlers and foreignObject.
+//
+// The SVG comes from the browser that rendered the diagram, so it arrives the
+// same way any page content does — from a person, possibly from an agent, and
+// it is written straight into a page that other people open. Mermaid renders
+// with securityLevel 'strict', which is the first line; this is the second,
+// because the value in the block is only ever as trustworthy as whoever last
+// wrote to that page.
+func sanitizeSVG(svg string) string {
+	lower := strings.ToLower(svg)
+	for _, bad := range []string{"<script", "</script", "<foreignobject", "javascript:", " onload=", " onclick=", " onerror=", " onmouseover="} {
+		if strings.Contains(lower, bad) {
+			return ""
+		}
+	}
+	return svg
 }
