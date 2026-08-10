@@ -21,9 +21,15 @@ export function loadMermaid(): Promise<void> {
           startOnLoad: false,
           // The document decides its own colours; a diagram that follows the
           // interface theme would print white-on-white from a dark editor.
-          theme: 'neutral',
+          // 'base' is the theme meant to be customised — with any other, the
+          // variables below are ignored and everything stays mermaid grey.
+          theme: 'base',
           securityLevel: 'strict',
-          fontFamily: 'inherit',
+          // Named outright, never 'inherit'. The drawing is shown as an IMAGE,
+          // and an image has no page around it to inherit from — it fell back
+          // to the browser default, which is a serif nobody chose.
+          fontFamily:
+            "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
           // Labels as SVG <text>, not as HTML inside <foreignObject>. Two
           // reasons, and both were found the hard way: the export refuses
           // foreignObject outright (it can carry anything, including an
@@ -52,6 +58,17 @@ export function loadMermaid(): Promise<void> {
   return loading;
 }
 
+// Bump this whenever the way a diagram LOOKS changes — colours, spacing, the
+// attributes stripped below. The picture on a block records the rev it was
+// drawn with, and a block drawn by an older one is redrawn the next time it is
+// opened. Without it a change to the renderer reaches only diagrams somebody
+// happens to retype, which is how a themed renderer shipped and every existing
+// diagram stayed grey.
+//
+// Same idea as ftsVersion and filesVersion on the server: a derived thing needs
+// a number that says which version derived it.
+export const MERMAID_REV = 3;
+
 export interface MermaidResult {
   svg: string;
   error: string;
@@ -66,7 +83,15 @@ export async function renderMermaid(id: string, code: string): Promise<MermaidRe
   if (!mermaid) return { svg: '', error: 'mermaid could not be loaded' };
   try {
     const out = await mermaid.render(id, text);
-    return { svg: out.svg, error: '' };
+    // Mermaid writes its natural size into the element's own style attribute,
+    // and an inline style beats any stylesheet — so "show this one at full size
+    // and scroll" could never take effect. The viewBox stays, which is all the
+    // browser needs to scale it; the sizing is CSS's business from here.
+    const svg = out.svg
+      .replace(/\sstyle="[^"]*max-width:[^"]*"/i, '')
+      .replace(/^(<svg[^>]*?)\swidth="[^"]*"/i, '$1')
+      .replace(/^(<svg[^>]*?)\sheight="[^"]*"/i, '$1');
+    return { svg, error: '' };
   } catch (e) {
     // Mermaid leaves its failed attempt in the DOM under the id it was given.
     document.getElementById(id)?.remove();

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { createReactBlockSpec } from '@blocknote/react';
 import { Table2 } from 'lucide-react';
 import { useBlockCtx } from './blockContext';
-import { renderMermaid } from './mermaidLoader';
+import { MERMAID_REV, renderMermaid } from './mermaidLoader';
 import { PageIcon } from './pageIcon';
 import CollectionView from './components/CollectionView';
 import { plural, t } from './i18n';
@@ -395,6 +395,23 @@ function wideDiagram(svg: string): boolean {
   return Number(m[1]) > 900 && Number(m[1]) / Number(m[2]) > 3;
 }
 
+// The drawing as an image source. encodeURIComponent rather than base64: it
+// keeps the markup readable in devtools and avoids a second copy in memory.
+function svgDataURI(svg: string): string {
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+}
+
+// An <img> has no intrinsic size for an SVG without width and height, so the
+// aspect ratio is taken from the viewBox and the browser does the rest. Without
+// it the image collapses to nothing at all.
+function diagramSize(svg: string): { width: string; aspectRatio?: string } {
+  const m = /viewBox="0 0 ([\d.]+) ([\d.]+)"/.exec(svg);
+  if (!m) return { width: '100%' };
+  return wideDiagram(svg)
+    ? { width: m[1] + 'px', aspectRatio: `${m[1]} / ${m[2]}` }
+    : { width: '100%', aspectRatio: `${m[1]} / ${m[2]}` };
+}
+
 // ---- Diagram (Mermaid) ----
 //
 // A diagram written as text: "A --> B" rather than coordinates. That choice is
@@ -411,6 +428,8 @@ export const mermaidSpec = createReactBlockSpec(
     propSchema: {
       code: { default: '' },
       svg: { default: '' },
+      // Which renderer drew the picture. See MERMAID_REV.
+      rev: { default: 0 },
     },
     content: 'none',
   } as const,
@@ -419,6 +438,8 @@ export const mermaidSpec = createReactBlockSpec(
       const { block, editor } = props;
       const code = String((block.props as { code: string }).code ?? '');
       const svg = String((block.props as { svg: string }).svg ?? '');
+      const rev = Number((block.props as { rev: number }).rev ?? 0);
+      const stale = !!svg && rev !== MERMAID_REV;
       const [editing, setEditing] = useState(!code);
       const [draft, setDraft] = useState(code);
       const [error, setError] = useState('');
@@ -432,14 +453,14 @@ export const mermaidSpec = createReactBlockSpec(
         void renderMermaid('mmd-' + block.id, code).then((r) => {
           if (!alive) return;
           setError(r.error);
-          if (r.svg && r.svg !== svg) {
-            editor.updateBlock(block, { props: { svg: r.svg } } as never);
+          if (r.svg && (r.svg !== svg || rev !== MERMAID_REV)) {
+            editor.updateBlock(block, { props: { svg: r.svg, rev: MERMAID_REV } } as never);
           }
         });
         return () => {
           alive = false;
         };
-      }, [code]);
+      }, [code, rev]);
 
       const save = () => {
         setEditing(false);
@@ -470,7 +491,15 @@ export const mermaidSpec = createReactBlockSpec(
               />
               <p className="bn-mermaid-hint">{t('Leave the box to draw it. Escape discards.')}</p>
             </div>
-          ) : (
+          ) : svg && !error && !stale ? (
+            // An <img>, not the SVG markup itself. This button lives inside
+            // ProseMirror's DOM, and ProseMirror rebuilds a node view whenever
+            // it likes — markup written into it (by React or by hand) was
+            // cleared and never written back, so the picture was in the block
+            // and the page showed an empty box. An image is ONE element with a
+            // src attribute, which React owns and ProseMirror leaves alone.
+            //
+            // It is also safer: an SVG in an <img> cannot run anything.
             <button
               type="button"
               // A diagram far wider than the column is legible at its own size
@@ -482,9 +511,20 @@ export const mermaidSpec = createReactBlockSpec(
                 setDraft(code);
                 setEditing(true);
               }}
-              dangerouslySetInnerHTML={svg && !error ? { __html: svg } : undefined}
             >
-              {svg && !error ? undefined : <span className="bn-mermaid-empty">{error || t('Empty diagram')}</span>}
+              <img src={svgDataURI(svg)} alt="" style={diagramSize(svg)} />
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="bn-mermaid-view"
+              title={t('Click to edit the diagram')}
+              onClick={() => {
+                setDraft(code);
+                setEditing(true);
+              }}
+            >
+              <span className="bn-mermaid-empty">{error || t('Empty diagram')}</span>
             </button>
           )}
         </div>

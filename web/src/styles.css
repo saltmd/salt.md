@@ -9476,6 +9476,14 @@ body:has(.live-down) .update-banner {
 /* Diagram block. The picture is a button, because clicking it is how you get to
    the source — there is nowhere else to put an edit affordance without stealing
    room from the drawing. */
+/* Full width, explicitly. A BlockNote block with no content of its own gets a
+   shrink-to-fit box, and that was the real reason a diagram came out small: not
+   the scaling, but a container barely wider than nothing, against which the
+   drawing's percentage width meant nothing. */
+.bn-mermaid,
+.bn-block-content[data-content-type='mermaid'] {
+  width: 100%;
+}
 .bn-mermaid {
   margin: 0.4em 0;
 }
@@ -9508,7 +9516,11 @@ body:has(.live-down) .update-banner {
 .bn-mermaid-view.is-wide {
   text-align: left;
 }
-.bn-mermaid-view.is-wide svg {
+.bn-mermaid-view img {
+  max-width: 100%;
+  height: auto;
+}
+.bn-mermaid-view.is-wide img {
   max-width: none;
 }
 .bn-mermaid-empty {
