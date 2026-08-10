@@ -426,7 +426,7 @@
         }
       ],
       "takenAt": {
-        "server/public.go": "f42650574c9b",
+        "server/public.go": "37843af6889b",
         "web/src/components/Editor.tsx": "28fb4f06ebc0"
       }
     },
@@ -800,7 +800,7 @@
       "element": ".dialog",
       "takenAt": {
         "web/src/components/AdminSettings.tsx": "14e01d683b8e",
-        "server/export_html.go": "0a884311f19f"
+        "server/export_html.go": "beb404a60a54"
       }
     },
     {

@@ -304,6 +304,11 @@ ul,ol{padding-left:1.4em}li{margin:.25em 0}
 a{color:#2f6fb0}
 body:not(.opt-links) a{color:inherit;text-decoration:none}
 body:not(.opt-icon) .doc-icon{display:none}
+/* All three kinds sit on the text baseline at the size of the heading they
+   belong to, so a document with an emoji and one with a drawn icon look like
+   the same document. */
+.doc-icon-svg,.doc-icon-img{display:inline-block;width:1em;height:1em;vertical-align:-0.12em}
+.doc-icon-img{border-radius:.15em;object-fit:contain}
 body:not(.opt-comments) .doc-comments{display:none}
 body:not(.opt-ws) .cover-ws{display:none}
 .doc-comments{margin-top:2.2em;border-top:1px solid #e3e2df;padding-top:1em}
@@ -374,15 +379,15 @@ a{color:#1a1a1a}
 // only puts them on paper. That is what a page number needs — and the reason
 // the print dialog no longer springs open on load, because every option is now
 // a class on <body> and changes nothing that needs the server.
-func pageHTML(p *page, printMode bool, o printOptions) string {
+func (srv *Server) pageHTML(p *page, printMode bool, o printOptions) string {
 	title := p.Title
 	if title == "" {
 		title = "Untitled"
 	}
 	esc := html.EscapeString
 	icon := ""
-	if p.Icon != "" {
-		icon = `<span class="doc-icon">` + esc(p.Icon) + `</span> `
+	if h := srv.iconHTML(p.Icon); h != "" {
+		icon = h + " "
 	}
 
 	var b strings.Builder
@@ -675,3 +680,76 @@ document.addEventListener('DOMContentLoaded',function(){
   });
 });
 `
+
+// iconHTML draws a page icon in an exported document. A page icon is one of
+// four things in a single string, and until this existed the export printed
+// whichever one it was as TEXT — so a document came off the printer with
+// "lucide:Rocket" or "/files/8c94….svg" where its icon belonged. Only emoji
+// happened to work, because an emoji IS its own text.
+//
+//   emoji            "🚀"                     text, sized by CSS
+//   Lucide           "lucide:Rocket[:#hex]"   inlined from the generated set
+//   MDI              "mdi:Rocket[:#hex]"      nothing — see below
+//   uploaded image   "/files/abc.png"         an <img>
+//
+// MDI is left out on purpose rather than guessed at: the app loads those paths
+// from a lazy browser chunk that the server has no copy of. Nothing is better
+// than the wrong glyph, and better than the literal word "mdi:Rocket".
+func (s *Server) iconHTML(icon string) string {
+	icon = strings.TrimSpace(icon)
+	if icon == "" {
+		return ""
+	}
+	if strings.HasPrefix(icon, "/") || strings.HasPrefix(icon, "http") || strings.HasPrefix(icon, "data:") {
+		return `<img class="doc-icon doc-icon-img" src="` + html.EscapeString(icon) + `" alt="">`
+	}
+	if strings.HasPrefix(icon, "lucide:") {
+		name, colour := iconRef(icon)
+		inner, ok := s.lucide[name]
+		if !ok {
+			return ""
+		}
+		if colour == "" {
+			colour = "currentColor"
+		}
+		// The generated markup is ours, from a fixed set, so it goes in as it
+		// is. The COLOUR comes from the page and is checked before it is used.
+		return `<svg class="doc-icon doc-icon-svg" viewBox="0 0 24 24" fill="none" stroke="` +
+			html.EscapeString(colour) + `" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">` +
+			inner + `</svg>`
+	}
+	if strings.HasPrefix(icon, "mdi:") {
+		return ""
+	}
+	return `<span class="doc-icon">` + html.EscapeString(icon) + `</span>`
+}
+
+// iconRef splits "lucide:Rocket:#e03131" into its name and colour. A trailing
+// ":fill" from the old filled variants is ignored, exactly as the app ignores
+// it, so an icon picked back then still resolves instead of vanishing.
+//
+// The colour is only accepted as a plain hex value. It reaches a stroke
+// attribute, and a value from a page is not something to hand to a stylesheet
+// unchecked.
+func iconRef(ref string) (name, colour string) {
+	parts := strings.Split(ref, ":")
+	if len(parts) > 1 {
+		name = parts[1]
+	}
+	if len(parts) > 2 && parts[2] != "fill" && hexColour(parts[2]) {
+		colour = parts[2]
+	}
+	return name, colour
+}
+
+func hexColour(v string) bool {
+	if len(v) != 4 && len(v) != 7 || v[0] != '#' {
+		return false
+	}
+	for _, c := range v[1:] {
+		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f' || c >= 'A' && c <= 'F') {
+			return false
+		}
+	}
+	return true
+}

@@ -414,10 +414,10 @@ func (s *Server) handleExportPage(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("X-Robots-Tag", "noindex")
 			opts := applyPrintQuery(s.printOptionsFor(p), r.URL.Query())
 			opts.Region, opts.Language = s.formatLocaleParts(requestUser(r).ID)
-			w.Write([]byte(pageHTML(p, true, opts)))
+			w.Write([]byte(s.pageHTML(p, true, opts)))
 		} else {
 			w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": safeFilename(p.Title) + ".html"}))
-			w.Write([]byte(pageHTML(p, false, s.printOptionsFor(p))))
+			w.Write([]byte(s.pageHTML(p, false, s.printOptionsFor(p))))
 		}
 		return
 	}

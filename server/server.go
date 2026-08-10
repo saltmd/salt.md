@@ -21,6 +21,8 @@ type Server struct {
 	db          *sql.DB
 	mux         *http.ServeMux
 	dataDir     string
+	// name → the markup INSIDE a Lucide <svg>, for the print view.
+	lucide      map[string]string
 	addr        string
 	tunnel      tunnelState
 	loginMu     sync.Mutex
@@ -75,12 +77,24 @@ func New(dataDir string, dist fs.FS) (*Server, error) {
 	// not fetch foreign images (strict CSP) — a link would be silently empty
 	// there.
 	iconURI := ""
+	// The Lucide set, generated at build time (web/scripts/build-lucide.mjs).
+	// Read once, like the favicon below: the print view is built on the server
+	// and has no browser bundle to draw icons with, so without this a document
+	// printed with a Lucide icon carried the words "lucide:Rocket" instead.
+	//
+	// Missing is not fatal. A binary built without the frontend step still runs;
+	// it simply leaves those icons out rather than refusing to start.
+	lucideSet := map[string]string{}
+	if b, err := fs.ReadFile(dist, "lucide.json"); err == nil {
+		json.Unmarshal(b, &lucideSet)
+	}
 	if b, err := fs.ReadFile(dist, "favicon.svg"); err == nil && len(b) < 64<<10 {
 		iconURI = "data:image/svg+xml;base64," + base64.StdEncoding.EncodeToString(b)
 	}
 
 	s := &Server{
 		mcpIcon:   iconURI,
+		lucide:    lucideSet,
 		ingest:    newIngestRegistry(),
 		db:        db,
 		mux:       http.NewServeMux(),

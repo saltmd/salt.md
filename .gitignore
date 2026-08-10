@@ -17,3 +17,6 @@ CLAUDE.md
 *.pem
 *.p12
 *.p8
+
+# Generated at build time from lucide-react (see scripts/build-lucide.mjs)
+web/public/lucide.json
