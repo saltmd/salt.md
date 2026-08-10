@@ -144,21 +144,20 @@ func (s *Server) handlePutPrefs(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, clean)
 }
 
-// formatLocale is the tag dates and numbers are written with for one person —
-// the same choice the app makes, so a printed document spells its date the way
-// the screen does.
+// formatLocaleParts is the pair the print view needs to spell a date the way the
+// rest of the product does: the account's REGION and its LANGUAGE, both possibly
+// empty for automatic.
 //
-// Region first, then language, then nothing at all: an empty tag means the
-// browser decides, which is exactly what "automatic" means everywhere else in
-// these settings. Never a hard-coded default — that is how an instance ends up
-// printing 2026-08-10 at a German desk.
-func (s *Server) formatLocale(userID string) string {
+// Deliberately not resolved to one string here. The rule the app follows is
+// `region || formattingTag(language)`, and formattingTag needs navigator.
+// languages — it looks for the browser tag whose base matches the interface
+// language, so a German interface in an English browser still formats German.
+// Resolving on this side would have to guess that, and guessing it wrong is
+// exactly how the date came out as 08/10/2026 at a German desk.
+func (s *Server) formatLocaleParts(userID string) (region, language string) {
 	if userID == "" {
-		return ""
+		return "", ""
 	}
 	p := s.loadPrefs(userID)
-	if p.Region != "" {
-		return p.Region
-	}
-	return p.Language
+	return p.Region, p.Language
 }

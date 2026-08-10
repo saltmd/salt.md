@@ -236,7 +236,8 @@ type printOptions struct {
 	WSName   string
 	Instance string
 	Date     string
-	Locale   string
+	Region   string
+	Language string
 	CommentL []commentJSON
 }
 
@@ -439,7 +440,8 @@ func pageHTML(p *page, printMode bool, o printOptions) string {
 	b.WriteString(`<script>` + paginateJS + "\n" +
 		`SALT_TITLE=` + jsString(title) + `;` +
 		`SALT_DAY=` + jsString(o.Date) + `;` +
-		`SALT_LOCALE=` + jsString(o.Locale) + `;` +
+		`SALT_REGION=` + jsString(o.Region) + `;` +
+		`SALT_LANG=` + jsString(o.Language) + `;` +
 		`saltStart();</script>`)
 	b.WriteString("</body></html>")
 	return b.String()
@@ -524,7 +526,23 @@ func applyPrintQuery(o printOptions, q url.Values) printOptions {
 // most documents that get printed are made of and the alternative is a page and
 // a half of white space.
 const paginateJS = `
-var SALT_TITLE='',SALT_DAY='',SALT_LOCALE='';
+var SALT_TITLE='',SALT_DAY='',SALT_REGION='',SALT_LANG='';
+
+// saltLocale is the same rule i18n.ts follows: the account's region wins, and
+// with none, the browser tag whose base matches the interface language — so a
+// German interface in an English browser still writes 10.08.2026 rather than
+// 08/10/2026. Falling back to the browser's own default instead was wrong in
+// exactly that case, which is the common one for anybody who keeps their
+// browser in English.
+function saltLocale(){
+  if(SALT_REGION)return SALT_REGION;
+  var tags=navigator.languages||[navigator.language||''];
+  if(SALT_LANG){
+    for(var i=0;i<tags.length;i++)if(tags[i].split('-')[0]===SALT_LANG)return tags[i];
+    return SALT_LANG;
+  }
+  return tags[0]||undefined;
+}
 
 // saltDay writes a calendar day out the way the reader writes one. Same rule as
 // format.ts, and the same trap avoided: new Date('2026-08-10') is UTC midnight,
@@ -536,7 +554,7 @@ function saltDay(iso){
   if(!m)return iso;
   var d=new Date(+m[1],+m[2]-1,+m[3]);
   try{
-    return new Intl.DateTimeFormat(SALT_LOCALE||undefined,
+    return new Intl.DateTimeFormat(saltLocale()||undefined,
       {year:'numeric',month:'2-digit',day:'2-digit'}).format(d);
   }catch(e){return iso;}
 }
