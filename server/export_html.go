@@ -691,6 +691,32 @@ function saltFitWide(body){
   }
 }
 
+// Cut the pages again once every picture has a height.
+//
+// An image has NO size until it is loaded, and the sheets are measured by
+// height — so a page full of pictures measured as if they were nothing, decided
+// everything fit on one sheet, and then spilled off the bottom of the paper the
+// moment they appeared. It said 1 / 1 while running over two pages.
+//
+// Two passes rather than waiting first: the images only start loading once they
+// are in the document, and inside a <template> they never load at all.
+function saltAfterImages(cb){
+  var imgs=document.querySelectorAll('#sheets img');
+  var left=0,done=false;
+  function fin(){if(done)return;done=true;cb();}
+  function tick(){if(--left<=0)fin();}
+  for(var i=0;i<imgs.length;i++){
+    var im=imgs[i];
+    if(im.complete&&im.naturalWidth)continue;
+    left++;
+    im.addEventListener('load',tick);
+    im.addEventListener('error',tick);
+  }
+  if(left===0){fin();return;}
+  // A picture that never loads must not leave the document uncut.
+  setTimeout(fin,4000);
+}
+
 function saltStart(){
   var day=saltDay(SALT_DAY);
   SALT_FOOT=day?SALT_TITLE+' \u00b7 '+day:SALT_TITLE;
@@ -699,7 +725,13 @@ function saltStart(){
     var slot=c.content.querySelector('.cover-day');
     if(slot)slot.textContent=day;
   }
+  saltRepaginate();
+}
+
+// Cut, then cut again once the pictures have loaded and therefore have a size.
+function saltRepaginate(){
   saltPaginate();
+  saltAfterImages(saltPaginate);
 }
 var SALT_FOOT='';
 function saltPaginate(){
@@ -802,7 +834,7 @@ document.addEventListener('change',function(e){
   var t=e.target;
   if(!t||!t.dataset||!t.dataset.cls)return;
   document.body.classList.toggle(t.dataset.cls,t.checked);
-  saltPaginate();
+  saltRepaginate();
 });
 document.addEventListener('DOMContentLoaded',function(){
   document.querySelectorAll('.doc-side input[data-cls]').forEach(function(c){
