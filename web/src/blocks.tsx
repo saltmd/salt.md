@@ -3,6 +3,7 @@ import { createReactBlockSpec } from '@blocknote/react';
 import { Table2 } from 'lucide-react';
 import { useBlockCtx } from './blockContext';
 import { MERMAID_REV, renderMermaid } from './mermaidLoader';
+import { EXCALIDRAW_REV, renderExcalidraw } from './excalidrawLoader';
 import { PageIcon } from './pageIcon';
 import CollectionView from './components/CollectionView';
 import { plural, t } from './i18n';
@@ -518,6 +519,75 @@ export const mermaidSpec = createReactBlockSpec(
               <span className="bn-mermaid-empty">{error || t('Empty diagram')}</span>
             </button>
           )}
+        </div>
+      );
+    },
+  },
+);
+
+// ---- Excalidraw ----
+//
+// The elaborate case: a drawing somebody made by hand, or that an agent
+// produced as a .excalidraw file. salt.md does not edit it — this is a reader.
+//
+// Built exactly like the diagram block, for the same reason: the FILE is the
+// truth, the picture is derived and stored, because the print view runs on the
+// server and cannot draw. Without the stored picture every drawing would be
+// missing from every PDF.
+//
+// The library costs about 1.4 MB over the wire, so it is fetched only when a
+// page actually holds a drawing — and only until the picture exists. Everybody
+// after that gets the picture and never loads it at all.
+export const excalidrawSpec = createReactBlockSpec(
+  {
+    type: 'excalidraw',
+    propSchema: {
+      url: { default: '' },
+      name: { default: '' },
+      svg: { default: '' },
+      rev: { default: 0 },
+    },
+    content: 'none',
+  } as const,
+  {
+    render: (props) => {
+      const { block, editor } = props;
+      const p = block.props as { url: string; name: string; svg: string; rev: number };
+      const url = String(p.url ?? '');
+      const name = String(p.name ?? '');
+      const svg = String(p.svg ?? '');
+      const rev = Number(p.rev ?? 0);
+      const stale = !!svg && rev !== EXCALIDRAW_REV;
+      const [error, setError] = useState('');
+
+      useEffect(() => {
+        let alive = true;
+        if (!url || (svg && !stale)) return;
+        void renderExcalidraw(url).then((r) => {
+          if (!alive) return;
+          setError(r.error);
+          if (r.svg) {
+            editor.updateBlock(block, { props: { svg: r.svg, rev: EXCALIDRAW_REV } } as never);
+          }
+        });
+        return () => {
+          alive = false;
+        };
+      }, [url, rev]);
+
+      if (svg && !stale && !error) {
+        return (
+          <div className="bn-excalidraw" contentEditable={false}>
+            <img src={svgDataURI(svg)} alt={name} style={diagramSize(svg)} />
+            <a className="bn-excalidraw-file" href={url} download={name || 'drawing.excalidraw'}>
+              {name || t('Drawing')}
+            </a>
+          </div>
+        );
+      }
+      return (
+        <div className="bn-excalidraw" contentEditable={false}>
+          <span className="bn-mermaid-empty">{error || t('Drawing the file…')}</span>
         </div>
       );
     },

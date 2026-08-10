@@ -81,7 +81,17 @@ const out = [
 ];
 for (const d of all) {
   out.push(`## ${d.name} ${d.version}`.trimEnd(), '');
-  out.push(d.licence ? '```\n' + d.licence + '\n```' : '_This package ships no licence file._');
+  if (d.licence) {
+    out.push('```\n' + d.licence + '\n```');
+  } else if (d.id) {
+    // Some packages declare a licence and ship no text — @excalidraw/excalidraw
+    // is one. Naming it is worth more than a blank, and the reader can find the
+    // text by its SPDX id.
+    out.push(`Declared as **${d.id}**. The package ships no licence text of its own;`);
+    out.push(`the terms are those of the ${d.id} licence.`);
+  } else {
+    out.push('_This package declares no licence and ships no licence text._');
+  }
   out.push('');
 }
 writeFileSync(join(repo, 'THIRD-PARTY-NOTICES.md'), out.join('\n'));

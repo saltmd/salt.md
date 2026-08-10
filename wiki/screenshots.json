@@ -548,7 +548,7 @@
       ],
       "takenAt": {
         "web/src/components/AgentConnect.tsx": "048c1dc5ffa2",
-        "server/mcp.go": "58ad3af1304b"
+        "server/mcp.go": "e68735a8f655"
       },
       "element": ".dialog"
     },
@@ -800,7 +800,7 @@
       "element": ".dialog",
       "takenAt": {
         "web/src/components/AdminSettings.tsx": "f3efac85c5ac",
-        "server/export_html.go": "76fc484206b3"
+        "server/export_html.go": "90b334ed98fb"
       }
     },
     {

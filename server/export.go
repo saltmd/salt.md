@@ -179,6 +179,8 @@ func renderBlocks(b *strings.Builder, blocks []mdBlock, depth int) {
 			b.WriteString(indent + "> " + renderInline(blk.Content) + "\n\n")
 		// Back out the way it came in, so a page survives a round trip through
 		// Markdown without its diagrams turning into code.
+		case "excalidraw":
+			b.WriteString(indent + "[" + strProp(blk.Props, "name", "drawing.excalidraw") + "](" + strProp(blk.Props, "url", "") + ")\n\n")
 		case "mermaid":
 			b.WriteString(indent + "```mermaid\n" + strProp(blk.Props, "code", "") + "\n" + indent + "```\n\n")
 		case "codeBlock":

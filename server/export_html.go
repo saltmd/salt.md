@@ -252,6 +252,26 @@ func renderBlockHTML(b *strings.Builder, blk mdBlock) {
 			b.WriteString("<pre><code>" + html.EscapeString(code) + "</code></pre>")
 		}
 		return
+	// A drawing read from a .excalidraw file. Its picture is stored on the block
+	// by whoever opened the page, for the same reason a diagram's is: this runs
+	// on the server, which cannot draw.
+	//
+	// With no picture yet, the FILE is named rather than nothing printed — a
+	// page an agent has just filled says what is there and where it came from.
+	case "excalidraw":
+		svg, _ := blk.Props["svg"].(string)
+		if clean := sanitizeSVG(svg); strings.Contains(clean, "<svg") {
+			b.WriteString(`<div class="diagram"` + diagramStyle(clean) + `>` + clean + `</div>`)
+			return
+		}
+		if u, _ := blk.Props["url"].(string); u != "" {
+			name, _ := blk.Props["name"].(string)
+			if name == "" {
+				name = "drawing.excalidraw"
+			}
+			b.WriteString(`<p><a href="` + html.EscapeString(safeURL(u)) + `">` + html.EscapeString(name) + `</a></p>`)
+		}
+		return
 	case "table":
 		renderTableHTML(b, blk.Content)
 	default: // paragraph & unknown
