@@ -26,6 +26,29 @@ func safeURL(s string) string {
 	}
 }
 
+// safeImageURL is safeURL with one addition: a data: URI that really is an
+// image. An <img> cannot execute anything, which is why the rule that keeps
+// data: out of LINKS does not have to apply here.
+//
+// It matters because of a chain nobody would guess. A diagram is shown as an
+// image with its drawing in a data: URI — so copying one and pasting it
+// somewhere else stores an image block holding that URI. safeURL turned it into
+// "#" and the picture vanished from the PDF, silently, while the page on screen
+// showed it perfectly well. Anything else pasted as a data: image was going the
+// same way.
+//
+// Only image types, and no SVG: an SVG in an <img> cannot run script, but the
+// prefix check is cheap and the list of things that are certainly harmless is
+// short. SVG is allowed because that is what a diagram IS, and it goes through
+// sanitizeSVG on the way in.
+func safeImageURL(s string) string {
+	t := strings.TrimSpace(s)
+	if strings.HasPrefix(strings.ToLower(t), "data:image/") && strings.Contains(t, ",") {
+		return t
+	}
+	return safeURL(s)
+}
+
 // BlockNote JSON → self-contained HTML. Used by the export endpoint's ?format=html
 // so a page can be opened in a browser or imported elsewhere with real structure
 // (headings, lists, tables) rather than only Markdown.
@@ -145,7 +168,7 @@ func renderBlockHTML(b *strings.Builder, blk mdBlock) {
 	case "divider":
 		b.WriteString("<hr>")
 	case "image":
-		b.WriteString(`<img src="` + html.EscapeString(safeURL(strProp(blk.Props, "url", ""))) + `" alt="` + html.EscapeString(strProp(blk.Props, "name", "")) + `">`)
+		b.WriteString(`<img src="` + html.EscapeString(safeImageURL(strProp(blk.Props, "url", ""))) + `" alt="` + html.EscapeString(strProp(blk.Props, "name", "")) + `">`)
 	case "video", "audio", "file":
 		link := html.EscapeString(safeURL(strProp(blk.Props, "url", "")))
 		b.WriteString(`<p><a href="` + link + `">` + html.EscapeString(strProp(blk.Props, "name", blk.Type)) + "</a></p>")
