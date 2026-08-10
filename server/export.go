@@ -413,6 +413,7 @@ func (s *Server) handleExportPage(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Query().Get("print") == "1" {
 			w.Header().Set("X-Robots-Tag", "noindex")
 			opts := applyPrintQuery(s.printOptionsFor(p), r.URL.Query())
+			opts.Locale = s.formatLocale(requestUser(r).ID)
 			w.Write([]byte(pageHTML(p, true, opts)))
 		} else {
 			w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": safeFilename(p.Title) + ".html"}))

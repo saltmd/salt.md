@@ -219,7 +219,7 @@ deviate for a single document, and that choice travels in the link.
 | **Show the document's icon** | on | The emoji beside the title |
 | **Title and date at the foot of every page** | on | A thin running foot, so a loose sheet still says what it belongs to |
 | **Page numbers** | on | *n / total*, counted across the document |
-| **Name the workspace and the instance** | on | Two lines on the title page |
+| **Name the workspace and the instance** | on | Two lines on the title page. With no title page there is nowhere to put them, and the switch dims to say so |
 | **The comments, after the document** | off | The page's comments as a closing section |
 | **Links as links, not as plain text** | on | Off prints them in black without an underline, which is what a link is worth on paper |
 
@@ -237,6 +237,13 @@ are the whole reason it works this way:
   count starts on the first page of the document.
 - **What you see is what comes out.** The print view shows the real sheets, so
   there is no second layout to be surprised by.
+
+**The date is written the way the reader writes one.** It travels as a plain
+calendar day and is spelled out in the browser using the regional format from
+[Language and time](account.md) — 10.08.2026 for a German setting, 08/10/2026
+for an American one, and whatever the browser says when the setting is
+automatic. It is never converted between timezones: the day on the document is
+the day it was made, everywhere.
 
 A table too tall for one sheet is continued on the next between two of its rows,
 and a heading is never left alone at the foot of a page — it moves to the sheet

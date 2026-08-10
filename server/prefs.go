@@ -143,3 +143,22 @@ func (s *Server) handlePutPrefs(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, clean)
 }
+
+// formatLocale is the tag dates and numbers are written with for one person —
+// the same choice the app makes, so a printed document spells its date the way
+// the screen does.
+//
+// Region first, then language, then nothing at all: an empty tag means the
+// browser decides, which is exactly what "automatic" means everywhere else in
+// these settings. Never a hard-coded default — that is how an instance ends up
+// printing 2026-08-10 at a German desk.
+func (s *Server) formatLocale(userID string) string {
+	if userID == "" {
+		return ""
+	}
+	p := s.loadPrefs(userID)
+	if p.Region != "" {
+		return p.Region
+	}
+	return p.Language
+}

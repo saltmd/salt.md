@@ -236,6 +236,7 @@ type printOptions struct {
 	WSName   string
 	Instance string
 	Date     string
+	Locale   string
 	CommentL []commentJSON
 }
 
@@ -255,7 +256,7 @@ func (s *Server) printOptionsFor(p *page) printOptions {
 		Instance:  s.setting("instance_name", ""),
 		Date:      time.Now().UTC().Format("2006-01-02"),
 	}
-	if o.Workspace && p.WorkspaceID != "" {
+	if p.WorkspaceID != "" {
 		s.db.QueryRow(`SELECT name FROM workspaces WHERE id = ?`, p.WorkspaceID).Scan(&o.WSName)
 	}
 	// Fetched whatever the default says, because the bar can switch comments on
@@ -303,6 +304,7 @@ a{color:#2f6fb0}
 body:not(.opt-links) a{color:inherit;text-decoration:none}
 body:not(.opt-icon) .doc-icon{display:none}
 body:not(.opt-comments) .doc-comments{display:none}
+body:not(.opt-ws) .cover-ws{display:none}
 .doc-comments{margin-top:2.2em;border-top:1px solid #e3e2df;padding-top:1em}
 .doc-comments h2{font-size:1.2em;margin:0 0 .6em}
 .doc-comment{margin:0 0 .8em;font-size:.95em}
@@ -344,6 +346,8 @@ body:not(.opt-nums) .foot-num{visibility:hidden}
 .doc-side label{display:flex;gap:9px;align-items:flex-start;padding:5px 0;cursor:pointer;line-height:1.35}
 .doc-side input{margin-top:3px}
 .doc-side .go{width:100%;margin-top:12px;font:inherit;font-weight:600;cursor:pointer;background:#2f7d4f;color:#fff;border:none;border-radius:8px;padding:9px 14px}
+.doc-side .dep-cover{opacity:.4}
+body.opt-cover .doc-side .dep-cover{opacity:1}
 .doc-side .note{margin:9px 0 0;font-size:12px;color:#8a8a85;line-height:1.45}
 @media (max-width:1180px){.doc-side{position:static;width:auto;margin:16px auto 0;max-width:210mm;box-shadow:none}}
 }
@@ -417,30 +421,28 @@ func pageHTML(p *page, printMode bool, o printOptions) string {
 	if d := strings.TrimSpace(p.Description); d != "" {
 		b.WriteString(`<p class="doc-desc">` + esc(d) + "</p>")
 	}
-	b.WriteString(`<div class="cover-meta">`)
-	for _, line := range coverLines(o) {
+	// Both parts are always rendered and hidden by class, never left out here.
+	// Rendered conditionally, the panel beside the document could not switch
+	// them back on without asking the server — and that round trip is exactly
+	// what reopens the print dialog on every click.
+	b.WriteString(`<div class="cover-meta"><span class="cover-ws">`)
+	for _, line := range originLines(o) {
 		b.WriteString(esc(line) + "<br>")
 	}
-	b.WriteString(`</div></template>`)
+	b.WriteString(`</span><span class="cover-day"></span></div></template>`)
 
 	b.WriteString(`<div class="sheets" id="sheets"></div>`)
-	b.WriteString(`<script>` + paginateJS +
-		`
-SALT_FOOT=` + jsString(footLine(title, o.Date)) +
-		`;
-SALT_WS=` + jsString(strings.Join(coverLines(o), " · ")) + `;
-saltPaginate();</script>`)
+	// The date travels as a plain calendar day and is written out in the
+	// browser, in the reader's own regional format — the same rule the rest of
+	// the product follows. Formatting it here would have shipped one spelling to
+	// everybody, and it would have been ISO, which no reader writes by hand.
+	b.WriteString(`<script>` + paginateJS + "\n" +
+		`SALT_TITLE=` + jsString(title) + `;` +
+		`SALT_DAY=` + jsString(o.Date) + `;` +
+		`SALT_LOCALE=` + jsString(o.Locale) + `;` +
+		`saltStart();</script>`)
 	b.WriteString("</body></html>")
 	return b.String()
-}
-
-// footLine is what the running foot says on the left: enough to identify a loose
-// sheet that has been separated from the rest, which is the whole job of one.
-func footLine(title, date string) string {
-	if date == "" {
-		return title
-	}
-	return title + " \u00b7 " + date
 }
 
 func jsString(v string) string {
@@ -448,21 +450,20 @@ func jsString(v string) string {
 	return string(out)
 }
 
-// coverLines is what the title page says about where the document came from.
+// originLines is where the document came from — the workspace and the instance,
+// which is the part the "Workspace and instance" switch hides. The date is not
+// in here: it belongs to the document, not to the place it lives, and it stays
+// on the title page either way.
+//
 // Empty entries are dropped rather than printed as blank lines, so an instance
 // that has set no name simply shows one line fewer.
-func coverLines(o printOptions) []string {
+func originLines(o printOptions) []string {
 	out := []string{}
-	if o.Workspace {
-		if o.WSName != "" {
-			out = append(out, o.WSName)
-		}
-		if o.Instance != "" && o.Instance != o.WSName {
-			out = append(out, o.Instance)
-		}
+	if o.WSName != "" {
+		out = append(out, o.WSName)
 	}
-	if o.Date != "" {
-		out = append(out, o.Date)
+	if o.Instance != "" && o.Instance != o.WSName {
+		out = append(out, o.Instance)
 	}
 	return out
 }
@@ -479,7 +480,10 @@ func sidePanelHTML() string {
 		box("opt-icon", "Icon") +
 		box("opt-foot", "Title and date at the foot") +
 		box("opt-nums", "Page numbers") +
-		box("opt-ws", "Workspace and instance") +
+		// Only the title page has room for it, so with no title page the switch
+		// does nothing — and a switch that does nothing without saying why is
+		// the thing people report as broken. It dims instead.
+		`<label class="dep-cover" title="Shown on the title page"><input type="checkbox" data-cls="opt-ws"> Workspace and instance</label>` +
 		box("opt-comments", "Comments") +
 		box("opt-links", "Links as links") +
 		`<button class="go" onclick="window.print()">Print / Save as PDF</button>` +
@@ -520,7 +524,34 @@ func applyPrintQuery(o printOptions, q url.Values) printOptions {
 // most documents that get printed are made of and the alternative is a page and
 // a half of white space.
 const paginateJS = `
-var SALT_FOOT='',SALT_WS='';
+var SALT_TITLE='',SALT_DAY='',SALT_LOCALE='';
+
+// saltDay writes a calendar day out the way the reader writes one. Same rule as
+// format.ts, and the same trap avoided: new Date('2026-08-10') is UTC midnight,
+// which renders as the 9th west of Greenwich. Built from the parts instead, so
+// the day asked for is the day shown, everywhere on earth.
+function saltDay(iso){
+  if(!iso)return '';
+  var m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if(!m)return iso;
+  var d=new Date(+m[1],+m[2]-1,+m[3]);
+  try{
+    return new Intl.DateTimeFormat(SALT_LOCALE||undefined,
+      {year:'numeric',month:'2-digit',day:'2-digit'}).format(d);
+  }catch(e){return iso;}
+}
+
+function saltStart(){
+  var day=saltDay(SALT_DAY);
+  SALT_FOOT=day?SALT_TITLE+' \u00b7 '+day:SALT_TITLE;
+  var c=document.querySelector('#doc-cover');
+  if(c){
+    var slot=c.content.querySelector('.cover-day');
+    if(slot)slot.textContent=day;
+  }
+  saltPaginate();
+}
+var SALT_FOOT='';
 function saltPaginate(){
   var src=document.getElementById('doc-src'),cov=document.getElementById('doc-cover');
   var host=document.getElementById('sheets');
