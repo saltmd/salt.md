@@ -222,6 +222,7 @@ deviate for a single document, and that choice travels in the link.
 | **Name the workspace and the instance** | on | Two lines on the title page. With no title page there is nowhere to put them, and the switch dims to say so |
 | **The comments, after the document** | off | The page's comments as a closing section |
 | **Links as links, not as plain text** | on | Off prints them in black without an underline, which is what a link is worth on paper |
+| **Landscape** | off | The sheet turned, for documents made of wide tables |
 
 **salt.md lays the pages out itself.** The document is cut into A4 sheets before
 printing and the browser only puts them on paper. Three things follow, and they
@@ -244,6 +245,12 @@ calendar day and is spelled out in the browser using the regional format from
 for an American one, and whatever the browser says when the setting is
 automatic. It is never converted between timezones: the day on the document is
 the day it was made, everywhere.
+
+**A table too wide for the sheet is scaled down, not squeezed.** Letting the
+browser squeeze the columns instead produced a table that fitted the paper and
+could not be read — "erlauben" broken across two lines as *erlaub / en*. Scaling
+keeps every column in proportion; **Landscape** is the better answer when a
+document is mostly wide tables.
 
 A table too tall for one sheet is continued on the next between two of its rows,
 and a heading is never left alone at the foot of a page — it moves to the sheet

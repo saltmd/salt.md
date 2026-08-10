@@ -132,6 +132,7 @@ type appSettings struct {
 	PdfPageNums     bool   `json:"pdfPageNums"`
 	PdfComments     bool   `json:"pdfComments"`
 	PdfLinks        bool   `json:"pdfLinks"`
+	PdfLandscape    bool   `json:"pdfLandscape"`
 	SessionDays     int    `json:"sessionDays"`
 	HTTPSDomain     string `json:"httpsDomain"`
 	HTTPSEnabled    bool   `json:"httpsEnabled"`
@@ -170,6 +171,7 @@ func (s *Server) loadSettings() appSettings {
 		PdfPageNums:         s.setting("pdf_pagenums", "1") == "1",
 		PdfComments:         s.boolSetting("pdf_comments"),
 		PdfLinks:            s.setting("pdf_links", "1") == "1",
+		PdfLandscape:        s.boolSetting("pdf_landscape"),
 		SessionDays:         s.sessionDays(),
 		HTTPSDomain:         s.setting("https_domain", ""),
 		HTTPSEnabled:        s.boolSetting("https_enabled"),
@@ -217,6 +219,7 @@ func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 		PdfPageNums         *bool   `json:"pdfPageNums"`
 		PdfComments         *bool   `json:"pdfComments"`
 		PdfLinks            *bool   `json:"pdfLinks"`
+		PdfLandscape        *bool   `json:"pdfLandscape"`
 		SessionDays         *int    `json:"sessionDays"`
 		HTTPSDomain         *string `json:"httpsDomain"`
 		HTTPSEnabled        *bool   `json:"httpsEnabled"`
@@ -325,6 +328,7 @@ func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 	setFlag("pdf_pagenums", body.PdfPageNums)
 	setFlag("pdf_comments", body.PdfComments)
 	setFlag("pdf_links", body.PdfLinks)
+	setFlag("pdf_landscape", body.PdfLandscape)
 	if err := setInt("audit_days", body.AuditDays, 0, 3650); err != nil {
 		httpError(w, 400, err.Error())
 		return

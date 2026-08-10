@@ -232,6 +232,7 @@ type printOptions struct {
 	PageNums  bool // page numbers, counted by us
 	Comments  bool // the page's comments, after the document
 	Links     bool // links as links, rather than flattened to plain text
+	Landscape bool // the sheet turned, for documents made of wide tables
 
 	WSName   string
 	Instance string
@@ -254,6 +255,7 @@ func (s *Server) printOptionsFor(p *page) printOptions {
 		PageNums:  s.setting("pdf_pagenums", "1") == "1",
 		Comments:  s.boolSetting("pdf_comments"),
 		Links:     s.setting("pdf_links", "1") == "1",
+		Landscape: s.boolSetting("pdf_landscape"),
 		Instance:  s.setting("instance_name", ""),
 		Date:      time.Now().UTC().Format("2006-01-02"),
 	}
@@ -282,7 +284,8 @@ func (o printOptions) classList() string {
 	return "doc" +
 		on(o.Cover, "opt-cover") + on(o.Icon, "opt-icon") + on(o.Footer, "opt-foot") +
 		on(o.Workspace, "opt-ws") + on(o.PageNums, "opt-nums") +
-		on(o.Comments, "opt-comments") + on(o.Links, "opt-links")
+		on(o.Comments, "opt-comments") + on(o.Links, "opt-links") +
+		on(o.Landscape, "opt-landscape")
 }
 
 const htmlDocStyle = `*{box-sizing:border-box}
@@ -298,7 +301,13 @@ code{background:#f5f5f4;padding:1px 5px;border-radius:4px;font-size:.9em}
 pre code{background:none;padding:0}
 blockquote{border-left:3px solid #e3e2df;margin:1em 0;padding:.2em 0 .2em 16px;color:#5b5b57}
 table{border-collapse:collapse;width:100%;margin:1em 0}
-td,th{border:1px solid #e3e2df;padding:7px 11px;text-align:left}
+/* break-word, deliberately NOT anywhere. The latter also lets the browser
+   squeeze every column to its narrowest possible width, and a seven-column
+   table then came out reading "erlaub / en" and "192.0.2.3 / 8" — it fitted the
+   paper and nobody could read it. This breaks only a word that would not fit on
+   a line by itself; a table still too wide is scaled down whole by the script,
+   which keeps every column in proportion. */
+td,th{border:1px solid #e3e2df;padding:7px 11px;text-align:left;overflow-wrap:break-word}
 hr{border:none;border-top:1px solid #e3e2df;margin:2em 0}
 ul,ol{padding-left:1.4em}li{margin:.25em 0}
 a{color:#2f6fb0}
@@ -333,6 +342,11 @@ body:not(.opt-ws) .cover-ws{display:none}
    failure nobody would notice until a customer did. */
 .sheet{width:210mm;height:296mm;padding:16mm 15mm 20mm;position:relative;background:#fff}
 .sheet-body{height:260mm}
+/* Landscape is the same sheet turned, and the @page rule is turned with it by
+   the script — an at-rule cannot be scoped to a class, so it is the one thing
+   here that is written rather than switched. */
+body.opt-landscape .sheet{width:297mm;height:209mm}
+body.opt-landscape .sheet-body{height:173mm}
 .sheet-foot{position:absolute;left:15mm;right:15mm;bottom:10mm;display:flex;justify-content:space-between;gap:12px;font-size:8.5pt;color:#8a8a85;border-top:1px solid #e3e2df;padding-top:2.5mm}
 body:not(.opt-foot) .foot-title{visibility:hidden}
 body:not(.opt-nums) .foot-num{visibility:hidden}
@@ -493,6 +507,7 @@ func sidePanelHTML() string {
 		`<label class="dep-cover" title="Shown on the title page"><input type="checkbox" data-cls="opt-ws"> Workspace and instance</label>` +
 		box("opt-comments", "Comments") +
 		box("opt-links", "Links as links") +
+		box("opt-landscape", "Landscape") +
 		`<button class="go" onclick="window.print()">Print / Save as PDF</button>` +
 		`<p class="note">What you see is what comes out. Nothing is sent anywhere.</p></aside>`
 }
@@ -516,6 +531,7 @@ func applyPrintQuery(o printOptions, q url.Values) printOptions {
 	set("nums", &o.PageNums)
 	set("comments", &o.Comments)
 	set("links", &o.Links)
+	set("landscape", &o.Landscape)
 	return o
 }
 
@@ -564,6 +580,39 @@ function saltDay(iso){
   }catch(e){return iso;}
 }
 
+// The page box has to agree with the sheet, or the browser scales or splits it.
+// @page cannot be scoped to a class, so it is rewritten instead of switched.
+function saltPageRule(){
+  var st=document.getElementById('salt-page');
+  if(!st){st=document.createElement('style');st.id='salt-page';document.head.appendChild(st);}
+  st.textContent='@page{size:A4 '+(document.body.classList.contains('opt-landscape')?'landscape':'portrait')+';margin:0}';
+}
+
+// The last resort for a table that is still too wide once words may break: shrink
+// it to fit. Ugly, and far better than a column disappearing off the paper where
+// nobody sees that it is missing.
+function saltFitWide(body){
+  var t=body.querySelectorAll('table');
+  for(var i=0;i<t.length;i++){
+    var el=t[i],box=el.getBoundingClientRect(),w=box.width,h=box.height;
+    if(w<=body.clientWidth+1)continue;
+    var f=body.clientWidth/w;
+    // Both measurements are taken BEFORE the transform. getBoundingClientRect
+    // reports the TRANSFORMED box, so reading the height afterwards and scaling
+    // it again made the wrapper too short and cut the last row off the table.
+    el.style.transformOrigin='left top';
+    el.style.transform='scale('+f.toFixed(4)+')';
+    // A transformed element still claims its old height in the flow, which
+    // would leave a gap and mis-measure the sheet. A wrapper carries the real
+    // one — and does not hide the overflow, so a mistake here shows up as
+    // something overlapping rather than as content quietly missing.
+    var wrap=document.createElement('div');
+    wrap.style.height=(h*f)+'px';
+    el.parentNode.insertBefore(wrap,el);
+    wrap.appendChild(el);
+  }
+}
+
 function saltStart(){
   var day=saltDay(SALT_DAY);
   SALT_FOOT=day?SALT_TITLE+' \u00b7 '+day:SALT_TITLE;
@@ -576,6 +625,7 @@ function saltStart(){
 }
 var SALT_FOOT='';
 function saltPaginate(){
+  saltPageRule();
   var src=document.getElementById('doc-src'),cov=document.getElementById('doc-cover');
   var host=document.getElementById('sheets');
   if(!src||!host)return;
@@ -633,6 +683,8 @@ function saltPaginate(){
     // Anything else that is taller than a sheet stays where it is and runs on.
     // Forcing it would only hide the end of it.
   }
+  var bodies=document.querySelectorAll('.sheet:not(.sheet-cover) .sheet-body');
+  for(var b=0;b<bodies.length;b++)saltFitWide(bodies[b]);
   saltNumber();
 }
 

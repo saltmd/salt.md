@@ -57,7 +57,7 @@ export function AdminSettingsModal({ onClose }: { onClose: () => void }) {
   // view reads them as a set.
   const [pdf, setPdf] = useState({
     cover: false, icon: true, footer: true, workspace: true,
-    pageNums: true, comments: false, links: true,
+    pageNums: true, comments: false, links: true, landscape: false,
   });
   const [allowUserWs, setAllowUserWs] = useState(true);
   const [passSet, setPassSet] = useState(false);
@@ -111,7 +111,7 @@ export function AdminSettingsModal({ onClose }: { onClose: () => void }) {
         setPdf({
           cover: v.pdfCover, icon: v.pdfIcon, footer: v.pdfFooter,
           workspace: v.pdfWorkspace, pageNums: v.pdfPageNums,
-          comments: v.pdfComments, links: v.pdfLinks,
+          comments: v.pdfComments, links: v.pdfLinks, landscape: v.pdfLandscape,
         });
         setAllowUserWs(v.allowUserWorkspaces !== false);
         setHttpsEnabled(v.httpsEnabled);
@@ -223,6 +223,7 @@ export function AdminSettingsModal({ onClose }: { onClose: () => void }) {
         pdfPageNums: pdf.pageNums,
         pdfComments: pdf.comments,
         pdfLinks: pdf.links,
+        pdfLandscape: pdf.landscape,
         allowUserWorkspaces: allowUserWs,
         maxUploadMb: num('maxUploadMb', 1, 2048),
         trashDays: num('trashDays', 0, 3650),
@@ -761,6 +762,7 @@ ingress:
                         ['workspace', t('Name the workspace and the instance')],
                         ['comments', t('The comments, after the document')],
                         ['links', t('Links as links, not as plain text')],
+                        ['landscape', t('Landscape, for documents made of wide tables')],
                       ] as const).map(([key, label]) => (
                         <label key={key} className="settings-check">
                           <input
