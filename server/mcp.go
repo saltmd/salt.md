@@ -1071,6 +1071,13 @@ func (s *Server) mcpCall(u *user, name string, rawArgs json.RawMessage, publicBa
 					clean += string(c)
 				}
 			}
+			// An empty upload is a mistake, not a file. It used to be written
+			// out as a 0-byte file with a block pointing at it, and the page
+			// then showed an error about content nobody ever sent — the wrong
+			// end of the problem entirely. Saying so here names the real cause.
+			if len(data) == 0 {
+				return "", fmt.Errorf("no file content: pass the bytes as data_base64")
+			}
 			name := newID() + clean
 			path := filepath.Join(s.dataDir, "files", name)
 			if err := os.WriteFile(path, data, 0o644); err != nil {

@@ -3,7 +3,7 @@ import { createReactBlockSpec } from '@blocknote/react';
 import { Table2 } from 'lucide-react';
 import { useBlockCtx } from './blockContext';
 import { MERMAID_REV, renderMermaid } from './mermaidLoader';
-import { EXCALIDRAW_REV, renderExcalidraw } from './excalidrawLoader';
+import { EXCALIDRAW_REV, renderExcalidraw, type DrawError } from './excalidrawLoader';
 import { PageIcon } from './pageIcon';
 import CollectionView from './components/CollectionView';
 import { plural, t } from './i18n';
@@ -558,7 +558,7 @@ export const excalidrawSpec = createReactBlockSpec(
       const svg = String(p.svg ?? '');
       const rev = Number(p.rev ?? 0);
       const stale = !!svg && rev !== EXCALIDRAW_REV;
-      const [error, setError] = useState('');
+      const [error, setError] = useState<DrawError>('');
 
       useEffect(() => {
         let alive = true;
@@ -585,9 +585,19 @@ export const excalidrawSpec = createReactBlockSpec(
           </div>
         );
       }
+      // Said in the reader's language, and saying what to DO where there is
+      // something to do. A file with no bytes in it is the commonest of these
+      // and has nothing to do with drawing at all.
+      const said: Record<Exclude<DrawError, ''>, string> = {
+        unreadable: t('This file could not be read. Is it really an Excalidraw drawing?'),
+        empty: t('This drawing is empty.'),
+        notADrawing: t('This file holds no drawing.'),
+        noLibrary: t('The drawing could not be loaded. Reload the page.'),
+        failed: t('This drawing could not be drawn.'),
+      };
       return (
         <div className="bn-excalidraw" contentEditable={false}>
-          <span className="bn-mermaid-empty">{error || t('Drawing the file…')}</span>
+          <span className="bn-mermaid-empty">{error ? said[error] : t('Drawing the file…')}</span>
         </div>
       );
     },

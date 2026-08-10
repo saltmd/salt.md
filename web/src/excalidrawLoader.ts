@@ -10,9 +10,15 @@
 
 export const EXCALIDRAW_REV = 1;
 
+// The failure is a CODE, never a sentence. These reach a person on the page, and
+// a sentence written here would be English forever: this file is not JSX, so the
+// checks that catch untranslated text never look at it. That is exactly how
+// "the file is not readable Excalidraw JSON" ended up on a German page.
+export type DrawError = '' | 'unreadable' | 'empty' | 'notADrawing' | 'noLibrary' | 'failed';
+
 export interface DrawResult {
   svg: string;
-  error: string;
+  error: DrawError;
 }
 
 let api: typeof import('@excalidraw/excalidraw') | null = null;
@@ -39,17 +45,20 @@ export async function renderExcalidraw(url: string): Promise<DrawResult> {
   let scene: { elements?: unknown[]; appState?: Record<string, unknown>; files?: unknown };
   try {
     const res = await fetch(url);
-    if (!res.ok) return { svg: '', error: `the file could not be read (${res.status})` };
+    if (!res.ok) return { svg: '', error: 'unreadable' };
     scene = await res.json();
   } catch {
-    return { svg: '', error: 'the file is not readable Excalidraw JSON' };
+    return { svg: '', error: 'unreadable' };
   }
   if (!Array.isArray(scene?.elements)) {
-    return { svg: '', error: 'this file holds no drawing' };
+    return { svg: '', error: 'notADrawing' };
+  }
+  if (scene.elements.length === 0) {
+    return { svg: '', error: 'empty' };
   }
 
   await load();
-  if (!api) return { svg: '', error: 'the drawing library could not be loaded' };
+  if (!api) return { svg: '', error: 'noLibrary' };
 
   try {
     const el = await api.exportToSvg({
@@ -69,7 +78,7 @@ export async function renderExcalidraw(url: string): Promise<DrawResult> {
     el.removeAttribute('width');
     el.removeAttribute('height');
     return { svg: el.outerHTML, error: '' };
-  } catch (e) {
-    return { svg: '', error: (e as Error).message || 'the drawing could not be rendered' };
+  } catch {
+    return { svg: '', error: 'failed' };
   }
 }
