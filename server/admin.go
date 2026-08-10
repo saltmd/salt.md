@@ -54,6 +54,51 @@ func (s *Server) intSetting(key string, fallback, min, max int) int {
 	return n
 }
 
+// auditRetentionDays is how long the activity log is kept. 0 means forever, and
+// that is the default: an audit log that quietly forgets is worse than none,
+// because people trust it. Shortening it is a deliberate act by an admin —
+// usually for data protection, sometimes for disk.
+//
+// The cost of keeping everything is small (a few hundred bytes per change), so
+// nobody has to choose this to keep an instance healthy.
+func (s *Server) auditRetentionDays() int {
+	return s.intSetting("audit_days", 0, 0, 3650)
+}
+
+// pruneAuditLog drops entries past the retention period and reports how many
+// went. Zero days means the feature is off — never read that as "delete
+// everything", which is the reading that would empty every existing instance
+// the moment this shipped.
+func (s *Server) pruneAuditLog() int64 {
+	days := s.auditRetentionDays()
+	if days <= 0 {
+		return 0
+	}
+	cutoff := time.Now().UTC().AddDate(0, 0, -days).Format(time.RFC3339Nano)
+
+	// In batches, and this is not tidiness. The server holds ONE database
+	// connection, so a single DELETE across a million rows stops every request
+	// until it finishes. Short statements let other work through in between.
+	//
+	// The cap bounds one sweep rather than the job: whatever is left goes on the
+	// next run. An instance switching from "forever" to 30 days has years to
+	// remove, and it must not spend that in one blocking go.
+	var total int64
+	for i := 0; i < 200; i++ {
+		res, err := s.db.Exec(
+			`DELETE FROM audit_log WHERE id IN (SELECT id FROM audit_log WHERE created_at < ? LIMIT 5000)`, cutoff)
+		if err != nil {
+			return total
+		}
+		n, _ := res.RowsAffected()
+		total += n
+		if n == 0 {
+			break
+		}
+	}
+	return total
+}
+
 // sessionDays is how long login sessions live (cookie + DB row).
 func (s *Server) sessionDays() int {
 	return s.intSetting("session_days", 90, 1, 365)
@@ -79,6 +124,7 @@ type appSettings struct {
 	TrustProxy      bool   `json:"trustProxy"`
 	MaxUploadMB     int    `json:"maxUploadMb"`
 	TrashDays       int    `json:"trashDays"`
+	AuditDays       int    `json:"auditDays"`
 	SessionDays     int    `json:"sessionDays"`
 	HTTPSDomain     string `json:"httpsDomain"`
 	HTTPSEnabled    bool   `json:"httpsEnabled"`
@@ -109,6 +155,7 @@ func (s *Server) loadSettings() appSettings {
 		TrustProxy:          s.boolSetting("trust_proxy"),
 		MaxUploadMB:         s.intSetting("max_upload_mb", 50, 1, 2048),
 		TrashDays:           s.trashRetentionDays(),
+		AuditDays:           s.auditRetentionDays(),
 		SessionDays:         s.sessionDays(),
 		HTTPSDomain:         s.setting("https_domain", ""),
 		HTTPSEnabled:        s.boolSetting("https_enabled"),
@@ -148,6 +195,7 @@ func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 		TrustProxy          *bool   `json:"trustProxy"`
 		MaxUploadMB         *int    `json:"maxUploadMb"`
 		TrashDays           *int    `json:"trashDays"`
+		AuditDays           *int    `json:"auditDays"`
 		SessionDays         *int    `json:"sessionDays"`
 		HTTPSDomain         *string `json:"httpsDomain"`
 		HTTPSEnabled        *bool   `json:"httpsEnabled"`
@@ -234,6 +282,10 @@ func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := setInt("trash_days", body.TrashDays, 0, 3650); err != nil {
+		httpError(w, 400, err.Error())
+		return
+	}
+	if err := setInt("audit_days", body.AuditDays, 0, 3650); err != nil {
 		httpError(w, 400, err.Error())
 		return
 	}

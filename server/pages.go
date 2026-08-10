@@ -419,6 +419,7 @@ func (s *Server) handleUpdatePage(w http.ResponseWriter, r *http.Request) {
 	sets := []string{"updated_at = ?"}
 	args := []any{now()}
 	metaChanged := false
+	auditProps := ""
 
 	if body.IsTemplate != nil {
 		v := 0
@@ -547,6 +548,8 @@ func (s *Server) handleUpdatePage(w http.ResponseWriter, r *http.Request) {
 		}
 		merged := map[string]json.RawMessage{}
 		json.Unmarshal([]byte(current), &merged)
+		before := map[string]json.RawMessage{}
+		json.Unmarshal([]byte(current), &before)
 		for k, v := range patch {
 			if string(v) == "null" {
 				delete(merged, k)
@@ -562,6 +565,23 @@ func (s *Server) handleUpdatePage(w http.ResponseWriter, r *http.Request) {
 		sets = append(sets, "props = ?")
 		args = append(args, string(mergedJSON))
 		metaChanged = true
+
+		// Record WHAT changed, not just that something did.
+		//
+		// This used to write nothing at all, and that had a consequence nobody
+		// would guess: the "last activity" column reads the person from the
+		// newest log entry, so a property edited in the browser moved the time
+		// and left the previous person's name standing. The column named the
+		// wrong human, which is worse than naming nobody.
+		//
+		// It also means the log finally covers the ordinary case — somebody
+		// moves a card on a board — and that a change made in the browser can
+		// be taken back the same way an agent's can.
+		if diff := propsDiff(before, patch); len(diff) > 0 {
+			if b, err := json.Marshal(diff); err == nil {
+				auditProps = string(b)
+			}
+		}
 	}
 
 	if len(body.ParentID) > 0 {
@@ -616,6 +636,12 @@ func (s *Server) handleUpdatePage(w http.ResponseWriter, r *http.Request) {
 	if err := tx.Commit(); err != nil {
 		httpError(w, 500, err.Error())
 		return
+	}
+	// After the commit, never inside it: the server holds ONE database
+	// connection, and a write issued while the transaction is open deadlocks it.
+	if auditProps != "" {
+		u := requestUser(r)
+		s.auditChanges("human", u.ID, u.Name, "set_properties", id, s.pageWorkspace(id), "", auditProps)
 	}
 	if body.Title != nil || len(body.Content) > 0 || len(body.Props) > 0 {
 		if err := s.reindexPage(id); err != nil {

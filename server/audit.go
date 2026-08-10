@@ -20,6 +20,28 @@ func (s *Server) audit(actorType, actorID, actorName, action, pageID, workspaceI
 	s.auditChanges(actorType, actorID, actorName, action, pageID, workspaceID, detail, "")
 }
 
+// propsDiff records what a property patch actually changes: for every key, the
+// value before and the value after. Keys whose value is identical are left out,
+// so dropping a board card back into the column it came from writes nothing.
+//
+// It lives here rather than in either caller because there are two of them —
+// the browser's propsPatch and the MCP set_properties — and a log where the two
+// disagree about the shape of a change is a log that cannot be replayed.
+func propsDiff(before, patch map[string]json.RawMessage) map[string]propChange {
+	diff := map[string]propChange{}
+	for k, v := range patch {
+		prev := json.RawMessage("null")
+		if p, ok := before[k]; ok {
+			prev = p
+		}
+		if jsonEqual(string(prev), string(v)) {
+			continue
+		}
+		diff[k] = propChange{From: prev, To: v}
+	}
+	return diff
+}
+
 // auditChanges is audit plus the before/after of what was written. Without the
 // before, a log can say that something was changed and never what it was — so
 // the only way back is to remember, and nobody remembers 40 rows.
@@ -374,4 +396,20 @@ func jsonEqual(a, b string) bool {
 	ab, _ := json.Marshal(x)
 	bb, _ := json.Marshal(y)
 	return string(ab) == string(bb)
+}
+
+// handleAuditPrune applies the retention period NOW instead of waiting for the
+// nightly run. It exists because the setting is invisible otherwise: an admin
+// shortens the period, nothing appears to happen, and the only way to find out
+// whether it worked is to come back tomorrow.
+//
+// adminOnly, which already implies a signed-in browser session: an API token is
+// a key to content, not a licence to destroy history.
+func (s *Server) handleAuditPrune(w http.ResponseWriter, r *http.Request) {
+	days := s.auditRetentionDays()
+	if days <= 0 {
+		httpErrorCode(w, 400, "audit_retention_off", "no retention period is set, so there is nothing to clean up")
+		return
+	}
+	writeJSON(w, map[string]any{"removed": s.pruneAuditLog(), "days": days})
 }

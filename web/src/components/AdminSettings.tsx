@@ -4,7 +4,7 @@ import Portal from './Portal';
 import { useExclusiveModal } from '../modal';
 import { toast } from '../toast';
 import { formatBytes, formatMoment } from '../format';
-import { t } from '../i18n';
+import { plural, t } from '../i18n';
 import type { Webhook } from '../types';
 
 type Info = Awaited<ReturnType<typeof api.adminInfo>>;
@@ -44,6 +44,10 @@ function ConfBlock({ title, text }: { title: string; text: string }) {
 // Instance-wide settings (admin only), grouped in tabs: general limits,
 // registration, SMTP, reverse-proxy setup (Caddy / Cloudflare / nginx with
 // generated configs) and maintenance (backup, instance info).
+// The periods offered in the dropdown. Anything else lands in the number field
+// beside it, so an admin who needs 45 days is not told to pick 30 or 60.
+const AUDIT_PRESETS = ['0', '30', '60', '180', '365'];
+
 export function AdminSettingsModal({ onClose }: { onClose: () => void }) {
   useExclusiveModal(onClose);
   const [s, setS] = useState<Record<string, string>>({});
@@ -87,6 +91,7 @@ export function AdminSettingsModal({ onClose }: { onClose: () => void }) {
           smtpPass: '',
           maxUploadMb: String(v.maxUploadMb),
           trashDays: String(v.trashDays),
+          auditDays: String(v.auditDays ?? 0),
           sessionDays: String(v.sessionDays),
           httpsDomain: v.httpsDomain,
           mailFrom: v.mailFrom,
@@ -125,6 +130,28 @@ export function AdminSettingsModal({ onClose }: { onClose: () => void }) {
       window.clearInterval(iv);
     };
   }, [tab]);
+
+  const [pruning, setPruning] = useState(false);
+  const [pruned, setPruned] = useState<number | null>(null);
+
+  // Applying the period NOW rather than at the next nightly sweep. Without it
+  // the setting looks like it did nothing: an admin shortens the period, the
+  // log stays as long as it was, and there is no way to tell whether it worked
+  // without coming back tomorrow.
+  const prune = async () => {
+    setPruning(true);
+    try {
+      const r = await api.auditPrune();
+      // Reported beside the button, not through toast(): that channel is the
+      // app's failure feedback and hard-wires a warning sign, so a successful
+      // clean-up came up in red with a ⚠ in front of it.
+      setPruned(r.removed);
+    } catch (e) {
+      toast((e as Error).message || t('Clean-up failed'));
+    } finally {
+      setPruning(false);
+    }
+  };
 
   const tunnel = async (action: string, token?: string) => {
     setTunnelBusy(true);
@@ -180,6 +207,7 @@ export function AdminSettingsModal({ onClose }: { onClose: () => void }) {
         allowUserWorkspaces: allowUserWs,
         maxUploadMb: num('maxUploadMb', 1, 2048),
         trashDays: num('trashDays', 0, 3650),
+        auditDays: num('auditDays', 0, 3650),
         sessionDays: num('sessionDays', 1, 365),
         httpsDomain: s.httpsDomain,
         httpsEnabled,
@@ -713,6 +741,48 @@ ingress:
                       {t('Contains the whole database (a consistent snapshot) and every upload. To restore:')}{' '}
                       <code>./salt restore backup.tar.gz</code>.{' '}
                       {t('For automatic backups, run')} <code>./salt backup</code> {t('from cron.')}
+                    </p>
+                    <label>{t('Keep the activity log for')}</label>
+                    <div className="settings-row">
+                      <select
+                        className="prop-select"
+                        value={AUDIT_PRESETS.includes(s.auditDays) ? s.auditDays : 'custom'}
+                        onChange={(e) => {
+                          setPruned(null);
+                          set('auditDays', e.target.value === 'custom' ? '90' : e.target.value);
+                        }}
+                      >
+                        <option value="0">{t('Forever')}</option>
+                        <option value="30">{plural(30, '{n} day', '{n} days')}</option>
+                        <option value="60">{plural(60, '{n} day', '{n} days')}</option>
+                        <option value="180">{plural(180, '{n} day', '{n} days')}</option>
+                        <option value="365">{plural(365, '{n} day', '{n} days')}</option>
+                        <option value="custom">{t('Custom period')}</option>
+                      </select>
+                      {!AUDIT_PRESETS.includes(s.auditDays) && (
+                        <input
+                          className="prop-input settings-days"
+                          type="number"
+                          min={1}
+                          max={3650}
+                          value={s.auditDays}
+                          onChange={(e) => set('auditDays', e.target.value)}
+                        />
+                      )}
+                      <button
+                        className="btn"
+                        disabled={s.auditDays === '0' || pruning}
+                        onClick={() => void prune()}
+                      >
+                        {t('Clean up now')}
+                      </button>
+                    </div>
+                    <p className="dialog-hint settings-hint">
+                      {pruned !== null
+                        ? plural(pruned, '{n} entry removed', '{n} entries removed')
+                        : s.auditDays === '0'
+                          ? t('Nothing is ever removed. Roughly 300 bytes per change.')
+                          : t('Older entries are removed once a day. Taking a change back stops working once its entry is gone.')}
                     </p>
                     <label>{t('Instance')}</label>
                     {!info ? (

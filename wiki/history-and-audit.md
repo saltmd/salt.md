@@ -351,8 +351,6 @@ a ban would lock out everybody. Only turn it on when the proxy is the only way i
   interpreted on the way through; what survives a session is the saved revision.
   See [Collaboration](collaboration.md).
 - **Deleted comments.** They are removed, not tombstoned.
-- **Property changes.** Neither the history nor the activity log records that a
-  status moved from *In progress* to *Done* in the browser.
 
 ## Who is here right now
 
@@ -370,6 +368,29 @@ tense, and neither is written down:
   check-in stays until the agent checks out; the badge fades after ten quiet
   minutes and the tooltip changes from *active just now* to *last seen … ago*.
   See [Agents](agents.md).
+
+## How long the log is kept
+
+By default, **forever**. Nothing is ever removed, and an instance that has run
+for years carries every change it has seen. That costs roughly 300 bytes per
+change, so a million changes is about 270 MB — real, but small beside the files
+most instances hold.
+
+An admin can shorten it in **Instance settings → Maintenance → Keep the activity
+log for**: *Forever*, 30, 60, 180 or 365 days, or any period you type. Older
+entries are removed once a day, in small batches so the sweep never blocks the
+instance. **Clean up now** applies the period immediately and reports how many
+entries went, rather than leaving you to check again tomorrow.
+
+Two consequences worth knowing before you shorten it:
+
+- **Taking a change back stops working once its entry is gone.** The before/after
+  values live in the entry, and nothing else in salt.md remembers them.
+- **Nothing warns you.** The entries are deleted, not archived, and no backup is
+  taken first. Download a backup if the record matters to you.
+
+The default is deliberate. A log that quietly forgets is worse than no log,
+because people trust it — so the shortening has to be somebody's decision.
 
 ## The raw trail, and clearing it
 

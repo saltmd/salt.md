@@ -121,6 +121,7 @@ export const api = {
       allowUserWorkspaces: boolean;
       maxUploadMb: number;
       trashDays: number;
+      auditDays: number;
       sessionDays: number;
       httpsDomain: string;
       httpsEnabled: boolean;
@@ -176,6 +177,8 @@ export const api = {
     }>('/api/admin/public-access'),
   tunnelAction: (action: string, token?: string) =>
     req<unknown>('/api/admin/tunnel', { method: 'POST', body: JSON.stringify({ action, token }) }),
+  auditPrune: () =>
+    req<{ removed: number; days: number }>('/api/admin/audit-prune', { method: 'POST' }),
   putSettings: (patch: Record<string, unknown>) =>
     req<unknown>('/api/settings', { method: 'PUT', body: JSON.stringify(patch) }),
   createInvite: (email: string, role: string, workspaceId: string) =>

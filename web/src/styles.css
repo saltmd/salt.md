@@ -9386,3 +9386,10 @@ body:has(.live-down) .update-banner {
 .prop-activity:hover {
   text-decoration: underline;
 }
+
+/* The number beside the period dropdown: it holds at most four digits, and at
+   full width it looks like the dropdown's equal partner rather than its
+   footnote. */
+.settings-days {
+  max-width: 6rem;
+}

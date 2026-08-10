@@ -227,6 +227,14 @@ already there — *"…/salt.db already exists; set SALT_RESTORE_FORCE=1 to
 overwrite"*. Restore into an empty directory, or set that variable deliberately.
 The full procedure is in [Self-hosting](self-hosting.md).
 
+**Keep the activity log for** decides how long the record of who changed what
+survives. It is **Forever** unless somebody changes it, and the presets are 30,
+60, 180 and 365 days, plus any period you type. Removal happens once a day;
+**Clean up now** does it immediately and says how many entries went. Shortening
+the period also gives up the ability to take those changes back — the before and
+after values live in the entries. Details in
+[History and audit](history-and-audit.md#how-long-the-log-is-kept).
+
 Below the button, **Instance** shows a live snapshot:
 
 | Row | What it says |

@@ -105,6 +105,11 @@ func (s *Server) runCleanup() {
 		cutoff := time.Now().UTC().AddDate(0, 0, -days).Format(time.RFC3339Nano)
 		s.db.Exec(`DELETE FROM pages WHERE trashed_at IS NOT NULL AND trashed_at < ?`, cutoff)
 	}
+	// The activity log is the only table here that nothing ever bounded. It grows
+	// with every change forever, which is right by default (see
+	// auditRetentionDays) and wrong for an instance that has to promise its
+	// people a limit. Off unless an admin sets a period.
+	s.pruneAuditLog()
 }
 
 // handleHealth is a readiness probe: it pings the DB so orchestration can tell a

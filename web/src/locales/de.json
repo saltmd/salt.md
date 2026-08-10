@@ -103,6 +103,8 @@
   "Checked": "Angehakt",
   "Choose a picture…": "Bild wählen…",
   "Choose…": "Auswählen…",
+  "Clean up now": "Jetzt bereinigen",
+  "Clean-up failed": "Bereinigen fehlgeschlagen",
   "Clear filter ×": "Filter aufheben ×",
   "Client ID": "Client-ID",
   "Client ID (application ID)": "Client-ID (Application-ID)",
@@ -170,6 +172,7 @@
   "Creates the account straight away — no email is sent.": "Legt sofort ein Konto an — kein E-Mail-Versand.",
   "Current password (needed to change the email)": "Aktuelles Passwort (nötig zum Ändern der E-Mail)",
   "Current password (to confirm)": "Aktuelles Passwort (zur Bestätigung)",
+  "Custom period": "Eigener Zeitraum",
   "Dark": "Dunkel",
   "Data": "Daten",
   "Data directory": "Datenverzeichnis",
@@ -254,6 +257,7 @@
   "Filter pages…": "Seiten filtern…",
   "For automatic backups, run": "Für automatische Backups:",
   "For clients that only have a URL field. Treat it like a password.": "Für Clients, die nur ein Adressfeld haben. Behandle sie wie ein Passwort.",
+  "Forever": "Unbegrenzt",
   "Form": "Formular",
   "Form not found": "Formular nicht gefunden",
   "Gallery": "Galerie",
@@ -313,6 +317,7 @@
   "Join": "Beitreten",
   "Join the workspace": "Workspace beitreten",
   "Joining failed": "Beitritt fehlgeschlagen",
+  "Keep the activity log for": "Protokoll aufbewahren für",
   "Kept because others work in them: {list} — this person’s private pages there are deleted.": "Bleibt erhalten, weil andere darin arbeiten: {list} — die privaten Seiten dieser Person darin werden gelöscht.",
   "Language": "Sprache",
   "Language and time": "Sprache und Zeit",
@@ -441,6 +446,7 @@
   "Nothing has happened yet.": "Noch nichts passiert.",
   "Nothing here yet. Write the first one.": "Noch nichts da. Schreib den ersten.",
   "Nothing hidden": "Nichts ausgeblendet",
+  "Nothing is ever removed. Roughly 300 bytes per change.": "Es wird nie etwas entfernt. Etwa 300 Byte pro Änderung.",
   "Nothing links here": "Nichts verlinkt hierher",
   "Nothing secret in the address. Expires and can be ended.": "Nichts Geheimes in der Adresse. Läuft ab und lässt sich beenden.",
   "Nothing shown": "Nichts angezeigt",
@@ -451,6 +457,7 @@
   "OK": "OK",
   "Of property": "Von Eigenschaft",
   "Off: only admins create workspaces. On (default): anyone can create one of their own and becomes its admin — they then manage the members of THEIR workspace only, not the instance.": "Aus: nur Admins legen Workspaces an. An (Standard): jeder kann einen eigenen Workspace erstellen und wird dessen Admin — er verwaltet dann nur die Mitglieder SEINES Workspace, nicht die Instanz.",
+  "Older entries are removed once a day. Taking a change back stops working once its entry is gone.": "Ältere Einträge werden einmal täglich entfernt. Eine Änderung zurücknehmen geht nicht mehr, sobald ihr Eintrag weg ist.",
   "On first start salt.md downloads the official cloudflared automatically.": "Beim ersten Start lädt salt.md das offizielle cloudflared automatisch herunter.",
   "Once client ID and secret are stored, the sign-in page shows the button automatically. New accounts follow the registration policy above (under “by invitation only”, OAuth signs in existing accounts and nothing else). Redirect URIs for the provider console:": "Sobald Client-ID und Secret gespeichert sind, zeigt die Login-Seite automatisch den Button. Neue Konten folgen der Registrierungs-Richtlinie oben (bei „nur per Einladung“ können sich nur bestehende Konten per OAuth anmelden). Redirect-URIs für die Provider-Konsole:",
   "One click, no account: creates a temporary": "Ein Klick, kein Account: erzeugt eine temporäre",
@@ -919,6 +926,14 @@
   "{n} databases": {
     "one": "{n} Datenbank",
     "other": "{n} Datenbanken"
+  },
+  "{n} days": {
+    "one": "{n} Tag",
+    "other": "{n} Tage"
+  },
+  "{n} entries removed": {
+    "one": "{n} Eintrag entfernt",
+    "other": "{n} Einträge entfernt"
   },
   "{n} files": {
     "one": "{n} Datei",
