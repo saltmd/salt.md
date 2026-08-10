@@ -386,6 +386,15 @@ export const columnsSpec = createReactBlockSpec(
   },
 );
 
+// wideDiagram: is this drawing so much wider than it is tall that fitting it to
+// a column would leave the labels unreadable? Read from the viewBox mermaid
+// writes, which is the only place its real size is recorded.
+function wideDiagram(svg: string): boolean {
+  const m = /viewBox="0 0 ([\d.]+) ([\d.]+)"/.exec(svg);
+  if (!m) return false;
+  return Number(m[1]) > 900 && Number(m[1]) / Number(m[2]) > 3;
+}
+
 // ---- Diagram (Mermaid) ----
 //
 // A diagram written as text: "A --> B" rather than coordinates. That choice is
@@ -464,7 +473,10 @@ export const mermaidSpec = createReactBlockSpec(
           ) : (
             <button
               type="button"
-              className="bn-mermaid-view"
+              // A diagram far wider than the column is legible at its own size
+              // and unreadable at the column's. Below that ratio it is scaled to
+              // fit as before; above it, the block scrolls sideways.
+              className={'bn-mermaid-view' + (wideDiagram(svg) ? ' is-wide' : '')}
               title={t('Click to edit the diagram')}
               onClick={() => {
                 setDraft(code);

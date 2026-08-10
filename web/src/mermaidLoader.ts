@@ -30,8 +30,19 @@ export function loadMermaid(): Promise<void> {
           // iframe), so every diagram was being dropped — and a foreignObject
           // is the part of an SVG that other renderers are least likely to
           // draw, which matters for a picture whose job is to end up in a PDF.
-          flowchart: { htmlLabels: false },
+          flowchart: { htmlLabels: false, padding: 12, nodeSpacing: 40, rankSpacing: 46 },
           htmlLabels: false,
+          // salt.md's own colours rather than mermaid's grey. A diagram in a
+          // document should look like it belongs to the document.
+          themeVariables: {
+            primaryColor: '#eef4f0',
+            primaryBorderColor: '#8fb9a2',
+            primaryTextColor: '#1f1f1d',
+            lineColor: '#8a8a85',
+            secondaryColor: '#f5f5f4',
+            tertiaryColor: '#faf9f7',
+            fontSize: '15px',
+          },
         });
       })
       .catch(() => {
