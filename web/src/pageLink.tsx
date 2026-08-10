@@ -1,7 +1,6 @@
 import { BlockNoteSchema, defaultBlockSpecs, defaultInlineContentSpecs } from '@blocknote/core';
 import { createReactInlineContentSpec } from '@blocknote/react';
-import { withMultiColumn } from '@blocknote/xl-multi-column';
-import { bookmarkSpec, databaseSpec, calloutSpec, tocSpec } from './blocks';
+import { bookmarkSpec, databaseSpec, calloutSpec, tocSpec, columnsSpec } from './blocks';
 
 // A "pageLink" is an inline mention of another salt.md page. It stores the target
 // page id and a display label. Clicking it dispatches a navigation event that
@@ -34,10 +33,15 @@ export const pageLinkSpec = createReactInlineContentSpec(
   },
 );
 
-// Schema = the default blocks plus our custom blocks (callout, table of
-// contents, bookmark/embed), column layout (xl-multi-column), and the pageLink
-// inline content. createReactBlockSpec returns a factory in 0.51 — call it.
-export const saltSchema = withMultiColumn(
+// Schema = the default blocks plus our own (callout, table of contents,
+// bookmark/embed, embedded database, columns) and the pageLink inline content.
+// createReactBlockSpec returns a factory in 0.51 — call it.
+//
+// Columns used to come from @blocknote/xl-multi-column, which is BlockNote's
+// PAID tier ("GPL-3.0 OR PROPRIETARY"). Nobody used it — 0 of 1410 pages — and
+// keeping it would have forced a licence decision the day any closed part
+// exists. Ours is below in blocks.tsx.
+export const saltSchema =
   BlockNoteSchema.create({
     blockSpecs: {
       ...defaultBlockSpecs,
@@ -45,12 +49,12 @@ export const saltSchema = withMultiColumn(
       toc: tocSpec(),
       bookmark: bookmarkSpec(),
       database: databaseSpec(),
+      columns: columnsSpec(),
     },
     inlineContentSpecs: {
       ...defaultInlineContentSpecs,
       pageLink: pageLinkSpec,
     },
-  }),
-);
+  });
 
 export type SaltEditor = typeof saltSchema.BlockNoteEditor;

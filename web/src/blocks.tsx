@@ -4,10 +4,10 @@ import { Table2 } from 'lucide-react';
 import { useBlockCtx } from './blockContext';
 import { PageIcon } from './pageIcon';
 import CollectionView from './components/CollectionView';
-import { t } from './i18n';
+import { plural, t } from './i18n';
 
 // Custom salt.md block types (Welle 17): callout, table of contents, bookmark.
-// Multi-column comes from @blocknote/xl-multi-column and is wired in pageLink.tsx.
+// Columns are ours (columnsSpec, at the end of this file) and wired in pageLink.tsx.
 
 // safeHref collapses any non-http(s)/mailto URL to '#'. A bookmark url can be
 // planted via realtime collab or the API (which bypass the input handler's
@@ -322,6 +322,63 @@ export const databaseSpec = createReactBlockSpec(
             onNavigate={onNavigate}
             onPagesChanged={onPagesChanged}
           />
+        </div>
+      );
+    },
+  },
+);
+
+// ---- Columns ----
+//
+// Blocks side by side. This used to be @blocknote/xl-multi-column, BlockNote's
+// paid tier; ours is a fraction of it on purpose.
+//
+// The trick is that we build no container at all. Every BlockNote block already
+// carries CHILDREN — that is how indenting a list works — and BlockNote renders
+// them into a .bn-block-group of their own. So a columns block holds nothing
+// itself and only lays its children out in a row. Each child is one column, and
+// everything that already works about nesting keeps working: dragging a block
+// in, indenting into it, the drag handle, undo.
+//
+// What we give up against the paid one: dragging a block SIDEWAYS to make a new
+// column, and pulling column edges to resize. Both are worth having and neither
+// is worth a licence that has to be renegotiated the day part of salt.md is
+// closed.
+export const columnsSpec = createReactBlockSpec(
+  {
+    type: 'columns',
+    propSchema: {
+      // 2 or 3. Stored so the layout survives a reload, and so the export knows
+      // how to divide the page without measuring anything.
+      count: { default: 2 },
+    },
+    content: 'none',
+  } as const,
+  {
+    render: (props) => {
+      const { block, editor } = props;
+      const count = Number((block.props as { count: number }).count) || 2;
+      const set = (n: number) => editor.updateBlock(block, { props: { count: n } } as never);
+      // No marking the block element from here, however tempting: writing an
+      // attribute onto DOM that lives INSIDE the editor makes ProseMirror
+      // re-render the node, which re-runs this, which writes again. The first
+      // version did exactly that and hung the page. The layout is reached from
+      // CSS instead — see .bn-block[data-content-type] in styles.css.
+      return (
+        <div className="bn-columns" data-count={count} contentEditable={false}>
+          <div className="bn-columns-bar">
+            {[2, 3].map((n) => (
+              <button
+                key={n}
+                type="button"
+                className={'bn-columns-n' + (n === count ? ' is-on' : '')}
+                onClick={() => set(n)}
+                title={plural(n, '{n} column', '{n} columns')}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
         </div>
       );
     },

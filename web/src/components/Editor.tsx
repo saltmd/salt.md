@@ -6,11 +6,6 @@ import {
 } from '@blocknote/react';
 import { filterSuggestionItems, insertOrUpdateBlockForSlashMenu } from '@blocknote/core';
 import { en as coreEn } from '@blocknote/core/locales';
-import {
-  getMultiColumnSlashMenuItems,
-  multiColumnDropCursor,
-  locales as multiColumnLocales,
-} from '@blocknote/xl-multi-column';
 import { BlockNoteView } from '@blocknote/mantine';
 import { api } from '../api';
 import { toast } from '../toast';
@@ -38,7 +33,7 @@ import { usePeers, setPeers, clearPeers } from '../presence';
 import { tagColorClass, TAG_PALETTE } from '../tags';
 import { collectTags, suggestTags } from '../tagSuggest';
 import { useMenuDismiss } from '../modal';
-import { Menu, Star, Lock, LockOpen, Globe, MessageSquare, History, MoreHorizontal, Printer, FileCode, FileText, Upload, AlignLeft, Check, Image as ImageIcon , Smile, PanelRight, Link2, Trash2, FilePlus2 } from 'lucide-react';
+import { Menu, Star, Lock, LockOpen, Globe, MessageSquare, History, MoreHorizontal, Printer, FileCode, FileText, Upload, AlignLeft, Check, Image as ImageIcon , Smile, PanelRight, Link2, Trash2, FilePlus2, Columns2} from 'lucide-react';
 import { blockTypeFor, carriesExternalFiles } from '../dropFiles';
 
 export interface EditorProps {
@@ -1416,8 +1411,7 @@ function BlockContent({
     // always passed a page id.
     uploadFile: (file: File) => api.upload(file, pageId),
     // Column layout: edge-drop cursor + its dictionary entries.
-    dropCursor: multiColumnDropCursor,
-    dictionary: { ...coreEn, multi_column: multiColumnLocales.en },
+    dictionary: coreEn,
   });
 
   const [preview, setPreview] = useState<{ name: string; url: string } | null>(null);
@@ -1425,6 +1419,22 @@ function BlockContent({
   // Slash menu: default items + column layout + our custom blocks.
   const getSlashItems = async (query: string) => {
     const custom = [
+      {
+        title: t('Columns'),
+        subtext: t('Two blocks side by side'),
+        aliases: ['columns', 'spalten', 'nebeneinander'], // i18n-ok: search aliases, deliberately multi
+        group: 'Basic blocks',
+        icon: <Columns2 size={18} />,
+        // Inserted WITH its two children, because an empty columns block is a
+        // control strip and nothing else — there would be no column to type in
+        // and no obvious way to make one.
+        onItemClick: () =>
+          insertOrUpdateBlockForSlashMenu(editor, {
+            type: 'columns',
+            props: { count: 2 },
+            children: [{ type: 'paragraph' }, { type: 'paragraph' }],
+          } as never),
+      },
       {
         title: t('Callout'),
         subtext: t('A highlighted note with an emoji'),
@@ -1464,7 +1474,6 @@ function BlockContent({
     return filterSuggestionItems(
       [
         ...getDefaultReactSlashMenuItems(editor),
-        ...getMultiColumnSlashMenuItems(editor),
         ...custom,
       ],
       query,

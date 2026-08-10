@@ -23,6 +23,8 @@ type Server struct {
 	dataDir     string
 	// name → the markup INSIDE a Lucide <svg>, for the print view.
 	lucide      map[string]string
+	// The third-party licence notices, embedded from the repository root.
+	notices     string
 	addr        string
 	tunnel      tunnelState
 	loginMu     sync.Mutex
@@ -196,6 +198,7 @@ func New(dataDir string, dist fs.FS) (*Server, error) {
 	m.HandleFunc("POST /api/2fa/disable", s.auth(s.sessionOnly(s.handle2FADisable)))
 
 	m.HandleFunc("GET /api/users", s.adminOnly(s.handleListUsers))
+	m.HandleFunc("GET /licenses", s.handleLicenses)
 	m.HandleFunc("POST /api/admin/audit-prune", s.adminOnly(s.handleAuditPrune))
 	m.HandleFunc("GET /api/admin/access", s.adminOnly(s.handleAccessOverview))
 	m.HandleFunc("PUT /api/admin/membership", s.adminOnly(s.handleAdminMembership))

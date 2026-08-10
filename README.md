@@ -185,5 +185,9 @@ Security reports: **dev@salt.md**, not a public issue. See
 
 ## License
 
+The components salt.md is built on, and their licences in full:
+[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md). A running instance serves
+the same list at `/licenses`.
+
 [AGPL-3.0](LICENSE). Use it, run it at work, change it. If you offer it to
 others over a network, publish your changes.

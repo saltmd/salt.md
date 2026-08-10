@@ -838,6 +838,11 @@ ingress:
                           ? t('Nothing is ever removed. Roughly 300 bytes per change.')
                           : t('Older entries are removed once a day. Taking a change back stops working once its entry is gone.')}
                     </p>
+                    <label>{t('Open-source licences')}</label>
+                    <p className="dialog-hint settings-hint">
+                      {t('Everything salt.md is built on, with its licence in full.')}{' '}
+                      <a href="/licenses" target="_blank" rel="noopener noreferrer">{t('Open')}</a>
+                    </p>
                     <label>{t('Instance')}</label>
                     {!info ? (
                       <p className="dialog-hint">{t('Loading…')}</p>

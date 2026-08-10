@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"html"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -170,11 +171,33 @@ func renderBlockHTML(b *strings.Builder, blk mdBlock) {
 		}
 	case "toc":
 		// Generated client-side; skip in export.
+	// columnList is the OLD shape, from the paid package that used to provide
+	// columns: an outer block whose children are column blocks, each with its
+	// own children. Nothing writes it any more, and it stays because a page
+	// written before the change must not lose its layout.
 	case "columnList":
-		b.WriteString(`<div style="display:flex;gap:24px;flex-wrap:wrap">`)
+		b.WriteString(`<div class="cols">`)
 		for _, col := range blk.Children {
-			b.WriteString(`<div style="flex:1;min-width:200px">`)
+			b.WriteString(`<div>`)
 			renderBlocksHTML(b, col.Children)
+			b.WriteString("</div>")
+		}
+		b.WriteString("</div>")
+		return
+	// columns is ours: the block holds nothing, and its CHILDREN are the
+	// columns — one block each. Same shape the editor lays out, so what is on
+	// screen is what comes out of the printer.
+	case "columns":
+		n := 2
+		if v, ok := blk.Props["count"]; ok {
+			if f, ok := v.(float64); ok && int(f) == 3 {
+				n = 3
+			}
+		}
+		b.WriteString(`<div class="cols" data-count="` + strconv.Itoa(n) + `">`)
+		for _, col := range blk.Children {
+			b.WriteString(`<div>`)
+			renderBlocksHTML(b, []mdBlock{col})
 			b.WriteString("</div>")
 		}
 		b.WriteString("</div>")
@@ -320,6 +343,9 @@ body:not(.opt-icon) .doc-icon{display:none}
 .doc-icon-img{border-radius:.15em;object-fit:contain}
 body:not(.opt-comments) .doc-comments{display:none}
 body:not(.opt-ws) .cover-ws{display:none}
+.cols{display:grid;gap:24px;align-items:start;grid-template-columns:repeat(2,minmax(0,1fr))}
+.cols[data-count="3"]{grid-template-columns:repeat(3,minmax(0,1fr))}
+.cols>div>*:first-child{margin-top:0}
 .doc-comments{margin-top:2.2em;border-top:1px solid #e3e2df;padding-top:1em}
 .doc-comments h2{font-size:1.2em;margin:0 0 .6em}
 .doc-comment{margin:0 0 .8em;font-size:.95em}
@@ -739,10 +765,10 @@ document.addEventListener('DOMContentLoaded',function(){
 // "lucide:Rocket" or "/files/8c94….svg" where its icon belonged. Only emoji
 // happened to work, because an emoji IS its own text.
 //
-//   emoji            "🚀"                     text, sized by CSS
-//   Lucide           "lucide:Rocket[:#hex]"   inlined from the generated set
-//   MDI              "mdi:Rocket[:#hex]"      nothing — see below
-//   uploaded image   "/files/abc.png"         an <img>
+//	emoji            "🚀"                     text, sized by CSS
+//	Lucide           "lucide:Rocket[:#hex]"   inlined from the generated set
+//	MDI              "mdi:Rocket[:#hex]"      nothing — see below
+//	uploaded image   "/files/abc.png"         an <img>
 //
 // MDI is left out on purpose rather than guessed at: the app loads those paths
 // from a lazy browser chunk that the server has no copy of. Nothing is better

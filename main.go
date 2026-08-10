@@ -22,6 +22,13 @@ import (
 //go:embed all:web/dist
 var distFS embed.FS
 
+// The notices travel with the binary, not only with the repository. Somebody
+// who installs salt.md with one command never sees GitHub, and "the notice
+// accompanies what you ship" is the one duty almost every licence here imposes.
+//
+//go:embed THIRD-PARTY-NOTICES.md
+var noticesMD string
+
 func main() {
 	dataDir := server.EnvOr("DATA", "./data")
 
@@ -73,6 +80,9 @@ func main() {
 	}
 
 	srv, err := server.New(dataDir, dist)
+	if err == nil {
+		srv.SetNotices(noticesMD)
+	}
 	if err != nil {
 		log.Fatalf("startup: %v", err)
 	}

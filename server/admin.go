@@ -829,3 +829,20 @@ func (s *Server) handle2FAStatus(w http.ResponseWriter, r *http.Request) {
 	s.db.QueryRow(`SELECT totp_enabled FROM users WHERE id = ?`, requestUser(r).ID).Scan(&enabled)
 	writeJSON(w, map[string]bool{"enabled": enabled != 0})
 }
+
+// SetNotices hands the binary its third-party licence notices. Kept as a plain
+// string rather than read from disk: the file has to be present in the thing
+// people actually receive, and a self-hosted install is one binary.
+func (s *Server) SetNotices(md string) { s.notices = md }
+
+// handleLicenses serves them. Open to anyone who can reach the instance,
+// deliberately — a licence notice that needs a login is not a notice.
+func (s *Server) handleLicenses(w http.ResponseWriter, r *http.Request) {
+	if s.notices == "" {
+		httpError(w, 404, "no notices were built into this binary")
+		return
+	}
+	w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
+	w.Header().Set("X-Robots-Tag", "noindex")
+	w.Write([]byte(s.notices))
+}

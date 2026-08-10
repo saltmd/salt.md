@@ -9408,3 +9408,67 @@ body:has(.live-down) .update-banner {
   align-items: center;
   cursor: pointer;
 }
+
+/* Columns. The block itself is only a control strip; the COLUMNS are the
+   block's children, which BlockNote renders into the .bn-block-group beneath
+   it. Laying that group out as a grid is the whole feature — no container, no
+   nested editor, and every bit of nesting behaviour keeps working. */
+.bn-columns {
+  display: flex;
+  justify-content: flex-end;
+  padding: 2px 0;
+}
+.bn-columns-bar {
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.bn-block:hover > .bn-block-content > .bn-columns .bn-columns-bar,
+.bn-columns-bar:focus-within {
+  opacity: 1;
+}
+.bn-columns-n {
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border, #e3e2df);
+  background: transparent;
+  color: var(--muted, #8a8a85);
+}
+.bn-columns-n.is-on {
+  background: var(--accent-soft, #e8f2ec);
+  color: var(--accent, #2f7d4f);
+  border-color: transparent;
+}
+/* Two forms of the same rule, because BlockNote puts a wrapper between the
+   block and its content and the class on that wrapper is not ours to rely on.
+   The second form matches through any single wrapper; keeping both means an
+   upgrade that adds or drops one does not silently stack the columns. */
+.bn-block:has(> .bn-block-content[data-content-type='columns']) > .bn-block-group,
+.bn-block:has(> * > .bn-block-content[data-content-type='columns']) > .bn-block-group {
+  display: grid;
+  gap: 18px;
+  align-items: start;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+/* BlockNote draws a left border on a nested group to show indentation. Between
+   columns it reads as a quote bar, so it goes. */
+.bn-block:has(> .bn-block-content[data-content-type='columns']) > .bn-block-group > .bn-block-outer,
+.bn-block:has(> * > .bn-block-content[data-content-type='columns']) > .bn-block-group > .bn-block-outer {
+  border-left: none;
+}
+.bn-block:has(> .bn-block-content[data-content-type='columns']) > .bn-block-group,
+.bn-block:has(> * > .bn-block-content[data-content-type='columns']) > .bn-block-group {
+  border-left: none;
+}
+
+/* After the two-column rule, never before it: same specificity, so the last one
+   written wins and the count would otherwise never reach three. */
+.bn-block:has(> .bn-block-content[data-content-type='columns'][data-count='3']) > .bn-block-group,
+.bn-block:has(> * > .bn-block-content[data-content-type='columns'][data-count='3']) > .bn-block-group {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}

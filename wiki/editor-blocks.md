@@ -61,7 +61,7 @@ other text, the new block is inserted **after** it.
 | **Paragraph** | Basic blocks | `Mod-Alt-0` |
 | **Code Block** | Basic blocks | `Mod-Alt-c` |
 | **Divider** | Basic blocks | — |
-| **Two Columns**, **Three Columns** | Basic blocks | — |
+| **Columns** | Basic blocks | — |
 | **Callout** | Basic blocks | — |
 | **Embed a collection** | Basic blocks | — |
 | **Table of contents** | Basic blocks | — |
@@ -77,15 +77,26 @@ whether or not the menu is open — **except `Mod-Alt-c`**, which is printed
 beside **Code Block** but is bound to no key at all. One shortcut goes the other
 way and is advertised nowhere: `Mod-Alt-q` turns the current block into a quote.
 
-The four salt.md blocks carry a one-line description in the menu:
+The five salt.md blocks carry a one-line description in the menu:
 
+- **Columns** — *Two blocks side by side*
 - **Callout** — *A highlighted note with an emoji*
 - **Bookmark / Embed** — *A link card, or a YouTube/Vimeo player*
 - **Embed a collection** — *Show an existing collection inside the document*
 - **Table of contents** — *Auto-generated list of every heading*
 
+**Columns** is a block that holds nothing itself. Inserting it gives you two
+empty blocks side by side; the small **2 / 3** control at its right edge, which
+appears on hover, switches between two and three. A column is one block, and a
+block can be indented into it, so a column can hold more than one thing.
+
+It replaced a paid add-on. Two things it does not do, which that one did:
+dragging a block sideways to open a new column, and pulling the edges to change
+their widths. Both are worth having; neither was worth a component whose licence
+would have to be renegotiated the day any part of salt.md is closed.
+
 Their aliases are deliberately bilingual, so `datenbank`, `tabelle`, `hinweis`,
-`inhalt` and `warnung` find them as well as the English words.
+`inhalt`, `spalten` and `warnung` find them as well as the English words.
 
 ### Markdown shortcuts
 
