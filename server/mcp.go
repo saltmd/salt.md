@@ -1089,15 +1089,6 @@ func (s *Server) mcpCall(u *user, name string, rawArgs json.RawMessage, publicBa
 				switch clean {
 				case ".png", ".jpg", ".jpeg", ".gif", ".webp":
 					blockType = "image"
-				case ".excalidraw":
-					// A drawing, not an attachment. An agent that uploads one
-					// wants it SEEN — dropping it in as a download link would
-					// make the feature exist only for whoever clicks it.
-					//
-					// No picture is made here: the server cannot draw. The page
-					// renders it the first time somebody opens it, exactly like
-					// a diagram.
-					blockType = "excalidraw"
 				}
 				block := fmt.Sprintf(`{"type":%q,"props":{"url":%q,"name":%q}}`, blockType, url, args.FileName)
 				if err := s.appendBlockJSON(args.PageID, block); err != nil {

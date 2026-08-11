@@ -9538,25 +9538,3 @@ body:has(.live-down) .update-banner {
   font-size: 12px;
   color: var(--muted, #8a8a85);
 }
-
-/* A drawing read from a file. Same shape as a diagram; the file itself stays
-   reachable underneath, because the drawing is the derived thing and the file
-   is the original. */
-.bn-excalidraw,
-.bn-block-content[data-content-type='excalidraw'] {
-  width: 100%;
-}
-.bn-excalidraw {
-  margin: 0.4em 0;
-  text-align: center;
-}
-.bn-excalidraw img {
-  max-width: 100%;
-  height: auto;
-}
-.bn-excalidraw-file {
-  display: block;
-  margin-top: 4px;
-  font-size: 12px;
-  color: var(--muted, #8a8a85);
-}

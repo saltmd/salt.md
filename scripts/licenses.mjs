@@ -84,9 +84,8 @@ for (const d of all) {
   if (d.licence) {
     out.push('```\n' + d.licence + '\n```');
   } else if (d.id) {
-    // Some packages declare a licence and ship no text — @excalidraw/excalidraw
-    // is one. Naming it is worth more than a blank, and the reader can find the
-    // text by its SPDX id.
+    // Some packages declare a licence and ship no text. Naming it is worth
+    // more than a blank, and the reader can find the text by its SPDX id.
     out.push(`Declared as **${d.id}**. The package ships no licence text of its own;`);
     out.push(`the terms are those of the ${d.id} licence.`);
   } else {

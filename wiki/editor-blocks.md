@@ -97,17 +97,6 @@ dragging a block sideways to open a new column, and pulling the edges to change
 their widths. Both are worth having; neither was worth a component whose licence
 would have to be renegotiated the day any part of salt.md is closed.
 
-**A drawing** arrives as a file. Upload a `.excalidraw` — by hand or with
-`upload_file` from an agent — and salt.md draws it on the page instead of
-offering a download, with the file itself still reachable underneath. It is a
-reader, not an editor: the drawing is made in Excalidraw and looked at here.
-
-Its picture is kept on the block, like a diagram's and for the same reason, so
-it appears in a PDF. Before anybody has opened the page there is no picture yet,
-and the export names the file rather than printing nothing. The library that
-draws it is about 1.4 MB and is fetched only for a drawing that has no picture
-yet — every later reader gets the picture and loads nothing.
-
 **Diagram** is written, not drawn. The block holds
 [Mermaid](https://mermaid.js.org) source — `A --> B` rather than coordinates for
 every box — and draws it. Click the picture to get back to the text; leave the
