@@ -2329,6 +2329,88 @@ button {
   padding: 7px 10px;
   text-align: left;
   vertical-align: top;
+  /* A floor and a ceiling per column, and between them the browser still shares
+     the width out as it did.
+
+     The floor is what changed the table: a dozen columns used to divide the
+     page between them and each got a few characters, headings wrapped over
+     three lines, and the whole thing was on screen and readable nowhere. A
+     column may now refuse to go below this, at which point the table grows
+     past the page and scrolls sideways — which a table is allowed to do.
+
+     `width: 100%` above still holds wherever the minimums fit, so a table of
+     five columns fills the page exactly as before rather than being inflated to
+     its content. */
+  min-width: 84px;
+  max-width: 320px;
+}
+
+/* A row is ONE line. A relation cell holding 22 related rows drew 22 chips
+   under each other and made the row 500px tall; a table with rows of wildly
+   different heights cannot be scanned, which is the only thing a table is for.
+   The relation cell itself shows the first few and counts the rest (maxChips),
+   this is the backstop for every other multi-value cell. */
+.db-table td .prop-multi {
+  flex-wrap: nowrap;
+  overflow: hidden;
+  max-width: 100%;
+}
+
+.db-table td .relation-open {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+/* Chips in a table cell give way before the counter does: they shrink and
+   ellipsis, while "+19 more" keeps its full width. The other way round, three
+   long titles pushed the counter out of the cell and the row looked as if it
+   held exactly three. */
+.db-table td .relation-chip {
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The counted remainder. Deliberately quiet — it is a hint that there is more,
+   not a value in its own right. */
+.relation-more {
+  background: var(--sidebar-bg);
+  color: var(--muted);
+  white-space: nowrap;
+  flex: none;
+}
+
+/* A chip whose title has not arrived yet, and one whose row was not in the
+   answer at all. Both draw as a bar rather than as a name, because the honest
+   reply to "what is this row called" is "not known" — the word "Untitled" is a
+   claim about the row, and it was being made about rows that have perfectly
+   good names. */
+.relation-chip.is-pending,
+.relation-chip.is-unknown {
+  min-width: 64px;
+  height: 1.25em;
+  border-radius: 4px;
+  opacity: 0.45;
+}
+
+/* The one still loading breathes; the one that came back empty sits still. */
+.relation-chip.is-pending {
+  animation: chip-pending 1.1s ease-in-out infinite;
+}
+
+@keyframes chip-pending {
+  50% {
+    opacity: 0.2;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .relation-chip.is-pending {
+    animation: none;
+  }
 }
 
 .db-table th {
@@ -2336,6 +2418,43 @@ button {
   font-weight: 600;
   color: var(--muted);
   font-size: 12.5px;
+  position: relative;
+}
+
+/* The heading's own box, which is what the grip is positioned against — see
+   ColHead for why it cannot hang off the <th>. */
+.th-inner {
+  position: relative;
+  display: block;
+}
+
+/* The grip on a column's right edge. -10px is the cell's own horizontal padding,
+   so the grip ends exactly ON the border and every pixel of it lies INSIDE the
+   cell: anything hanging over the edge paints correctly and is not hit-testable,
+   which made half the target dead and the double-click a coin flip. 12px wide,
+   because a 1px target is a target nobody hits. */
+.col-resize {
+  position: absolute;
+  top: -7px;
+  right: -10px;
+  width: 12px;
+  height: calc(100% + 14px);
+  cursor: col-resize;
+  touch-action: none;
+  user-select: none;
+}
+
+.col-resize:hover,
+.col-resize:active {
+  background: var(--accent, #3b6fb5);
+  opacity: 0.5;
+}
+
+/* Held only while a column is being dragged. Without it the pointer sweeping
+   across the table selects every cell it passes. */
+body.is-col-resizing {
+  user-select: none;
+  cursor: col-resize;
 }
 
 /* Long text cells (e.g. Notion "Notizen") truncate to one line like Notion, so a
@@ -2348,8 +2467,12 @@ button {
   text-overflow: ellipsis;
 }
 
-.db-title-col {
+/* The identity column earns more room than the generic floor above gives it, and
+   needs the same specificity to say so — as a plain `.db-title-col` it lost to
+   `.db-table th, .db-table td` and titles started wrapping over two lines. */
+.db-table .db-title-col {
   min-width: 200px;
+  max-width: 420px;
 }
 
 .db-title-link {

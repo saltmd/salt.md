@@ -705,6 +705,8 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
           subItemProp={
             view.subItemProp && selfRelProps.some((p) => p.id === view.subItemProp) ? view.subItemProp : undefined
           }
+          colWidths={view.colWidths}
+          onSetColWidths={(colWidths) => updateView({ colWidths })}
           onNavigate={onNavigate}
           onSetProp={setRowProp}
           onSetOptions={setPropOptions}
@@ -1650,12 +1652,51 @@ function BoardView({
 
 // ---- Table ----
 
+/** A column heading with the grip that resizes it.
+ *
+ *  The grip hangs off an inner BLOCK, not off the <th> itself. In a table with
+ *  border-collapse: collapse the cell does not act as a containing block a
+ *  browser will hit-test against: the handle painted in exactly the right place,
+ *  the pointer went to the <th> underneath, and dragging did nothing at all
+ *  while looking entirely correct. */
+function ColHead({
+  label,
+  onResize,
+  onReset,
+}: {
+  label: string;
+  onResize: (e: React.PointerEvent<HTMLSpanElement>) => void;
+  onReset: () => void;
+}) {
+  return (
+    <span className="th-inner">
+      {label}
+      <span
+        className="col-resize"
+        title={t('Drag to resize, double-click to fit the content')}
+        onPointerDown={onResize}
+        onDoubleClick={onReset}
+      />
+    </span>
+  );
+}
+
+/** The name column's key in colWidths — the title is not a property, so it has
+ *  no id of its own. Nothing the interface generates can collide with it: prop
+ *  ids are slugged to [a-z0-9-] (see SchemaEditor). An agent writing a schema
+ *  over MCP could pick this exact string, since safePropID does allow '_', and
+ *  then the two columns would share one width. Cosmetic, and not worth a
+ *  guard that would have to be kept in step on both sides. */
+const TITLE_COL = '__title';
+
 function TableView({
   rows,
   schema,
   emptyLabel,
   tagColors,
   subItemProp,
+  colWidths,
+  onSetColWidths,
   onNavigate,
   onSetProp,
   onSetOptions,
@@ -1665,11 +1706,66 @@ function TableView({
   emptyLabel: string;
   tagColors: Record<string, string>;
   subItemProp?: string;
+  colWidths?: Record<string, number>;
+  onSetColWidths: (next: Record<string, number>) => void;
   onNavigate: (id: string) => void;
   onSetProp: (rowId: string, propId: string, value: unknown) => void;
   onSetOptions: (propId: string, options: PropOption[]) => void;
 }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  // The width being dragged right now. Kept out of the stored widths so the
+  // drag is local and instant: writing to the view on every pointermove would
+  // put one request per pixel on the wire and re-render the whole table.
+  const [drag, setDrag] = useState<{ key: string; px: number } | null>(null);
+
+  const widthOf = (key: string) =>
+    drag?.key === key ? drag.px : colWidths?.[key];
+
+  // A dragged column is pinned: width alone is a suggestion under auto layout,
+  // so the three together are what actually hold it.
+  const colStyle = (key: string): React.CSSProperties | undefined => {
+    const px = widthOf(key);
+    return px ? { width: px, minWidth: px, maxWidth: px } : undefined;
+  };
+
+  const startResize = (key: string) => (e: React.PointerEvent<HTMLSpanElement>) => {
+    e.stopPropagation();
+    // Deliberately NOT preventDefault: doing that on a pointerdown cancels the
+    // compatibility mouse events behind it, dblclick included — and the
+    // double-click that gives a column back to its content silently stopped
+    // happening. Text selection is held off with a body class instead.
+    const th = e.currentTarget.closest('th');
+    const from = th ? th.getBoundingClientRect().width : 160;
+    const x0 = e.clientX;
+    const widthAt = (clientX: number) => Math.max(64, Math.round(from + clientX - x0));
+    document.body.classList.add('is-col-resizing');
+    const move = (ev: PointerEvent) => setDrag({ key, px: widthAt(ev.clientX) });
+    const up = (ev: PointerEvent) => {
+      document.removeEventListener('pointermove', move);
+      document.removeEventListener('pointerup', up);
+      document.body.classList.remove('is-col-resizing');
+      const px = widthAt(ev.clientX);
+      setDrag(null);
+      // A click that moved nothing is not a resize. Without this the two clicks
+      // of a double-click each stored the unchanged width first, and the reset
+      // behind them had to undo two writes nobody asked for.
+      if (px !== colWidths?.[key] && !(px === Math.round(from) && !colWidths?.[key])) {
+        onSetColWidths({ ...(colWidths ?? {}), [key]: px });
+      }
+    };
+    document.addEventListener('pointermove', move);
+    document.addEventListener('pointerup', up);
+  };
+
+  // Double-click gives a column back to the content: the entry is REMOVED
+  // rather than set to some computed number, so it goes on adapting as rows
+  // change instead of freezing at whatever it happened to be that day.
+  const resetCol = (key: string) => () => {
+    if (!colWidths?.[key]) return;
+    const next = { ...colWidths };
+    delete next[key];
+    onSetColWidths(next);
+  };
   const toggleTree = (id: string) =>
     setCollapsed((prev) => {
       const next = new Set(prev);
@@ -1736,16 +1832,20 @@ function TableView({
       <table className="db-table">
         <thead>
           <tr>
-            <th className="db-title-col">{t('Name')}</th>
+            <th className="db-title-col" style={colStyle(TITLE_COL)}>
+              <ColHead label={t('Name')} onResize={startResize(TITLE_COL)} onReset={resetCol(TITLE_COL)} />
+            </th>
             {schema.map((p) => (
-              <th key={p.id}>{p.name}</th>
+              <th key={p.id} style={colStyle(p.id)}>
+                <ColHead label={p.name} onResize={startResize(p.id)} onReset={resetCol(p.id)} />
+              </th>
             ))}
           </tr>
         </thead>
         <tbody>
           {ordered.map(({ row: r, depth, hasKids }) => (
             <tr key={r.id}>
-              <td className="db-title-col">
+              <td className="db-title-col" style={colStyle(TITLE_COL)}>
                 <span className="db-title-inner" style={depth ? { paddingLeft: depth * 20 } : undefined}>
                   {subItemProp ? (
                     hasKids ? (
@@ -1779,12 +1879,13 @@ function TableView({
                 )}
               </td>
               {schema.map((p) => (
-                <td key={p.id}>
+                <td key={p.id} style={colStyle(p.id)}>
                   <PropertyValue
                     def={p}
                     value={r.props[p.id]}
                     onChange={(v) => onSetProp(r.id, p.id, v)}
                     onOptionsChange={(opts) => onSetOptions(p.id, opts)}
+                    maxChips={2}
                   />
                 </td>
               ))}

@@ -17,6 +17,11 @@ interface Props {
   onOptionsChange?: (options: PropOption[]) => void;
   readOnly?: boolean;
   compact?: boolean;
+  /** Table cells pass a cap: a cell holding 22 related rows drew 22 chips
+   *  under each other and made the row 500px tall, which is exactly what a
+   *  table is not for. The rest is summarised as "+N" and stays one click
+   *  away. Same reasoning as the one-line truncation of long text cells. */
+  maxChips?: number;
 }
 
 // idList reads a list-shaped value (relation, multiselect). A single id stored
@@ -644,16 +649,27 @@ export function loadRelationOptions(colId: string, force = false): Promise<RelOp
     const p = api
       .collectionRows(colId, { limit: 500 })
       .then((r) => r.rows.map((x) => ({ id: x.id, title: x.title, icon: x.icon })))
-      .catch(() => [] as RelOption[]);
+      .catch(() => {
+        // Forget the failure. Caching it meant one hiccup — a restart mid-load,
+        // a dropped connection — left every chip in every relation cell reading
+        // "Untitled" until the tab was reloaded, because the empty list stayed
+        // in the cache and nothing ever asked again.
+        if (relCache.get(colId) === p) relCache.delete(colId);
+        return [] as RelOption[];
+      });
     relCache.set(colId, p);
   }
   return relCache.get(colId)!;
 }
 
-function RelationValue({ def, value, onChange, readOnly, compact }: Props) {
+function RelationValue({ def, value, onChange, readOnly, compact, maxChips }: Props) {
   const targetId = def.relationCollection;
   const ids = idList(value);
   const [options, setOptions] = useState<RelOption[]>([]);
+  // Whether the titles have ARRIVED, which is a different question from whether
+  // there are any. It separates "still coming" from "asked, and this row was not
+  // in the answer" — two states that both used to render as the word "Untitled".
+  const [loaded, setLoaded] = useState(false);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const boxRef = useRef<HTMLDivElement>(null);
@@ -662,7 +678,11 @@ function RelationValue({ def, value, onChange, readOnly, compact }: Props) {
   useEffect(() => {
     if (!targetId) return;
     let alive = true;
-    void loadRelationOptions(targetId).then((o) => alive && setOptions(o));
+    void loadRelationOptions(targetId).then((o) => {
+      if (!alive) return;
+      setOptions(o);
+      setLoaded(true);
+    });
     return () => {
       alive = false;
     };
@@ -677,10 +697,31 @@ function RelationValue({ def, value, onChange, readOnly, compact }: Props) {
     return () => document.removeEventListener('pointerdown', onDown);
   }, [open]);
 
-  const titleOf = (id: string) => options.find((o) => o.id === id)?.title || 'Untitled';
+  // Three cases, and the middle one is the whole point:
+  //
+  //   in the list with a title   → the title
+  //   in the list with none      → "Untitled", which is then TRUE of that row
+  //   not in the list at all     → '' — we do not know, and say so
+  //
+  // The last case used to fall in with the second and read "Untitled", which is
+  // a statement about a row we have never seen. It covers more than the loading
+  // window: a target collection past the 500 rows fetched here, a row somebody
+  // may not read, a relation left pointing at something deleted. None of those
+  // is a row called Untitled.
+  const titleOf = (id: string) => {
+    const hit = options.find((o) => o.id === id);
+    if (!hit) return '';
+    return hit.title || t('Untitled');
+  };
   const iconOf = (id: string) => options.find((o) => o.id === id)?.icon || '';
 
   if (!targetId) return <span className="prop-empty">{t('No target')}</span>;
+
+  // A table cell shows the first few and counts the rest. Everything is still
+  // there — the picker below lists all of them, and the row itself holds the
+  // full column.
+  const shown = maxChips && ids.length > maxChips ? ids.slice(0, maxChips) : ids;
+  const hidden = ids.length - shown.length;
 
   // A row's icon is any of the four kinds a page icon can be, so it goes
   // through PageIcon like everywhere else. Printed raw, a Lucide or MDI icon
@@ -688,8 +729,15 @@ function RelationValue({ def, value, onChange, readOnly, compact }: Props) {
   // every row whose icon was not an emoji.
   const chips = (
     <span className="prop-multi">
-      {ids.map((id) => (
-        <span key={id} className="prop-chip relation-chip" style={{ background: '#3b6fb52e', color: '#3b6fb5' }}>
+      {shown.map((id) => (
+        <span
+          key={id}
+          className={
+            'prop-chip relation-chip' + (titleOf(id) ? '' : loaded ? ' is-unknown' : ' is-pending')
+          }
+          title={titleOf(id) || (loaded ? t('This row is not readable from here.') : undefined)}
+          style={{ background: '#3b6fb52e', color: '#3b6fb5' }}
+        >
           {iconOf(id) && (
             <span className="relation-icon">
               <PageIcon icon={iconOf(id)} size={14} />
@@ -698,6 +746,11 @@ function RelationValue({ def, value, onChange, readOnly, compact }: Props) {
           {titleOf(id)}
         </span>
       ))}
+      {hidden > 0 && (
+        <span className="prop-chip relation-more" title={ids.map(titleOf).filter(Boolean).join(', ')}>
+          {t('+{n} more', { n: hidden })}
+        </span>
+      )}
     </span>
   );
 
@@ -757,13 +810,30 @@ function RelationValue({ def, value, onChange, readOnly, compact }: Props) {
   );
 }
 
-export default function PropertyValue({ def, value, onChange, onOptionsChange, readOnly, compact }: Props) {
+export default function PropertyValue({
+  def,
+  value,
+  onChange,
+  onOptionsChange,
+  readOnly,
+  compact,
+  maxChips,
+}: Props) {
   const [editing, setEditing] = useState(false);
   const ro = readOnly || !onChange;
 
   switch (def.type) {
     case 'relation':
-      return <RelationValue def={def} value={value} onChange={onChange} readOnly={readOnly} compact={compact} />;
+      return (
+        <RelationValue
+          def={def}
+          value={value}
+          onChange={onChange}
+          readOnly={readOnly}
+          compact={compact}
+          maxChips={maxChips}
+        />
+      );
     // A backrelation IS a relation to read — same ids, same titles, same
     // chips. It is only computed rather than typed in, so it never takes an
     // onChange: editing happens on the side that owns the relation. Without
@@ -775,6 +845,7 @@ export default function PropertyValue({ def, value, onChange, onOptionsChange, r
           value={value}
           readOnly
           compact={compact}
+          maxChips={maxChips}
         />
       );
     case 'lastActivity': {

@@ -263,6 +263,11 @@ export interface ViewDef {
   formDesc?: string; // form view: description under the heading
   formSubmit?: string; // form view: submit-button label
   subItemProp?: string; // table view: a self-relation prop whose value = child rows (renders a tree)
+  // table view: pixel widths the reader dragged, by property id ('__title' for
+  // the name column). A column that is not in here sizes itself to its content;
+  // only the ones somebody deliberately set are pinned. Stored on the VIEW, so
+  // two views of the same database can be laid out for different jobs.
+  colWidths?: Record<string, number>;
 }
 
 export interface CollectionConfig {
