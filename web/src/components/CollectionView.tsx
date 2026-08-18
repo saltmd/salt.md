@@ -126,9 +126,37 @@ function isEmptyVal(v: unknown): boolean {
   return v === undefined || v === '' || v === null || v === false;
 }
 
+/** What a condition compares against: the set if there is one, else the single
+ *  value. Never both — the same rule the server applies (rowFilter.vals). */
+export function filterValues(f: Filter): string[] {
+  if (f.values?.length) return f.values;
+  return f.value === '' ? [] : [f.value];
+}
+
+/** Is this condition finished enough to mean anything? An unfinished one must
+ *  not filter: comparing against the empty string emptied the table the moment
+ *  somebody added "Date is …", before they had typed a thing, which is what
+ *  made the date filter look broken. `is_empty` is the deliberate version. */
+export function filterIsArmed(f: Filter): boolean {
+  const op = f.op ?? (f.value === '' ? 'is_not_empty' : 'is');
+  if (op === 'is_empty' || op === 'is_not_empty') return true;
+  if (op === 'between') return f.value !== '' && (f.value2 ?? '') !== '';
+  return filterValues(f).length > 0;
+}
+
 function matchesFilter(row: Row, f: Filter): boolean {
   const v = row.props[f.property];
   const op = f.op ?? (f.value === '' ? 'is_not_empty' : 'is');
+  if (!filterIsArmed(f)) return true;
+  const vals = filterValues(f);
+  // One value or several, the question is the same: does the cell hold any of
+  // them. A cell may itself be a list (multiselect, relation).
+  const holdsAny = () =>
+    Array.isArray(v)
+      ? vals.some((x) => v.includes(x))
+      : vals.some((x) =>
+          x === 'true' || x === 'false' ? String(v === true) === x : String(v ?? '') === x,
+        );
   switch (op) {
     case 'is_empty':
       return isEmptyVal(v);
@@ -146,18 +174,24 @@ function matchesFilter(row: Row, f: Filter): boolean {
       const cmp = !Number.isNaN(nv) && !Number.isNaN(nf) ? nv - nf : compare(String(v ?? ''), f.value);
       return op === 'gt' ? cmp > 0 : cmp < 0;
     }
+    case 'between': {
+      // Inclusive at both ends — a range named by two dates contains them.
+      // ISO dates compare correctly as text, so only numbers need Number().
+      const hi = f.value2 ?? '';
+      const nv = Number(v);
+      if (!Number.isNaN(nv) && !Number.isNaN(Number(f.value)) && !Number.isNaN(Number(hi))) {
+        return nv >= Number(f.value) && nv <= Number(hi);
+      }
+      const sv = String(v ?? '');
+      return sv !== '' && sv >= f.value && sv <= hi;
+    }
     case 'is_not':
-      if (Array.isArray(v)) return !v.includes(f.value);
-      if (f.value === 'true' || f.value === 'false') return String(v === true) !== f.value;
-      return String(v ?? '') !== f.value;
+      return !holdsAny();
     case 'is':
     default:
       // Checkbox filters compare against a boolean; a never-toggled box has no
       // stored value, which must count as "false" (unchecked), not "no match".
-      if (Array.isArray(v)) return v.includes(f.value);
-      if (f.value === 'true' || f.value === 'false') return String(v === true) === f.value;
-      if (typeof v === 'boolean') return String(v) === f.value;
-      return String(v ?? '') === f.value;
+      return holdsAny();
   }
 }
 
@@ -240,7 +274,11 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
   const view0 = config?.views.find((v) => v.id === viewId) ?? config?.views[0];
   // Server-side filter/sort (real Q25): the view's filters/sort become query
   // params so a 50k-row database is filtered in SQLite, not in the browser.
-  const serverFilters = (view0?.filters ?? []).map((f) => ({ property: f.property, op: f.op, value: f.value }));
+  // Only finished conditions travel. An unfinished one is not "match nothing",
+  // it is "not asked yet".
+  const serverFilters = (view0?.filters ?? [])
+    .filter(filterIsArmed)
+    .map((f) => ({ property: f.property, op: f.op, value: f.value, values: f.values, value2: f.value2 }));
   const serverSort = view0?.sort ?? null;
   const fsKey = JSON.stringify([serverFilters, serverSort]);
 
@@ -1031,7 +1069,10 @@ function FilterSortControls({
     if (vw <= 640) {
       setPos({ position: 'fixed', left: 8, right: 8, bottom: 8, maxHeight: vh * 0.72 });
     } else {
-      const width = 300;
+      // Wider than it was: a tick list of option names and a pair of date
+      // fields need the room, and the old 300 is what everything was being
+      // squeezed into.
+      const width = 340;
       const left = Math.max(8, Math.min(r.right - width, vw - width - 8));
       setPos({ position: 'fixed', left, width, top: r.bottom + 6, maxHeight: vh - r.bottom - 24 });
     }
@@ -1064,26 +1105,49 @@ function FilterSortControls({
     return [];
   };
 
-  // Operators offered per property type.
+  // Operators offered per property type. Built during render, never as a module
+  // constant: a list of labels resolved once at import keeps its language for
+  // the life of the tab. These read `is` / `is not` in a German interface for
+  // exactly that reason — they were plain strings, which the checks cannot see
+  // inside an object literal.
   const opsFor = (propId: string): { value: FilterOp; label: string }[] => {
     const prop = schema.find((p) => p.id === propId);
-    const t = prop?.type;
+    const ty = prop?.type;
+    const many = takesSeveral(propId);
     const base: { value: FilterOp; label: string }[] = [
-      { value: 'is', label: 'is' },
-      { value: 'is_not', label: 'is not' },
+      { value: 'is', label: many ? t('is any of') : t('is') },
+      { value: 'is_not', label: many ? t('is none of') : t('is not') },
     ];
-    if (t === 'number' || t === 'rollup' || t === 'formula') {
-      base.push({ value: 'gt', label: '>' }, { value: 'lt', label: '<' });
-    } else if (t === 'date') {
-      base.push({ value: 'gt', label: 'after' }, { value: 'lt', label: 'before' });
-    } else if (t === 'text' || t === 'person' || t === undefined) {
-      base.push({ value: 'contains', label: 'contains' });
+    if (ty === 'number' || ty === 'rollup' || ty === 'formula') {
+      base.push(
+        { value: 'gt', label: t('greater than') },
+        { value: 'lt', label: t('less than') },
+        { value: 'between', label: t('between') },
+      );
+    } else if (ty === 'date') {
+      base.push(
+        { value: 'gt', label: t('after') },
+        { value: 'lt', label: t('before') },
+        { value: 'between', label: t('between') },
+      );
+    } else if (ty === 'text' || ty === 'person' || ty === undefined) {
+      base.push({ value: 'contains', label: t('contains') });
     }
-    base.push({ value: 'is_empty', label: 'is empty' }, { value: 'is_not_empty', label: 'is not empty' });
+    base.push({ value: 'is_empty', label: t('is empty') }, { value: 'is_not_empty', label: t('is not empty') });
     return base;
   };
 
   const hasValueInput = (op: FilterOp | undefined) => op !== 'is_empty' && op !== 'is_not_empty';
+
+  /** Which properties can be asked about with SEVERAL values at once. Only the
+   *  ones whose values come from a fixed list — a free-text box has nothing to
+   *  tick, and a date uses a range instead. */
+  function takesSeveral(propId: string): boolean {
+    const ty = schema.find((p) => p.id === propId)?.type;
+    return (
+      ty === 'select' || ty === 'multiselect' || ty === 'relation' || ty === 'backrelation'
+    );
+  }
 
   return (
     <div className="fs-controls" ref={controlsRef}>
@@ -1126,47 +1190,111 @@ function FilterSortControls({
               next[i] = { ...f, ...u };
               onChange({ filters: next });
             };
+            const propType = schema.find((p) => p.id === f.property)?.type;
+            const isDate = propType === 'date';
+            const picked = filterValues(f);
+            const several = takesSeveral(f.property) && (op === 'is' || op === 'is_not');
+            // A tick list writes `values`, everything else writes `value` — the
+            // two never travel together, so switching between them clears the
+            // other rather than leaving a stale condition behind.
+            const toggleValue = (v: string) => {
+              const next = picked.includes(v) ? picked.filter((x) => x !== v) : [...picked, v];
+              patch({ values: next, value: '' });
+            };
             return (
-              <div key={i} className="fs-row">
-                <span className="fs-label">{propName(f.property)}</span>
-                <select
-                  className="prop-select"
-                  value={op}
-                  onChange={(e) => {
-                    const nextOp = e.target.value as FilterOp;
-                    patch({ op: nextOp, value: hasValueInput(nextOp) ? f.value : '' });
-                  }}
-                >
-                  {opsFor(f.property).map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-                {hasValueInput(op) &&
-                  (options.length > 0 ? (
-                    <select className="prop-select" value={f.value} onChange={(e) => patch({ value: e.target.value })}>
-                      <option value="">—</option>
-                      {options.map((o) => (
-                        <option key={o.value} value={o.value}>
-                          {o.label}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      className="prop-input"
-                      value={f.value}
-                      placeholder={t('value')}
-                      onChange={(e) => patch({ value: e.target.value })}
-                    />
-                  ))}
-                <button
-                  className="icon-btn danger"
-                  onClick={() => onChange({ filters: filters.filter((_, j) => j !== i) })}
-                >
-                  ✕
-                </button>
+              <div key={i} className="fs-filter">
+                <div className="fs-filter-head">
+                  <span className="fs-label">{propName(f.property)}</span>
+                  <select
+                    className="prop-select fs-op"
+                    value={op}
+                    onChange={(e) => {
+                      const nextOp = e.target.value as FilterOp;
+                      // Changing the operator keeps what still applies and drops
+                      // what does not: a range's second date is meaningless under
+                      // "after", a tick list under "contains".
+                      patch({
+                        op: nextOp,
+                        value: hasValueInput(nextOp) ? f.value : '',
+                        values: takesSeveral(f.property) && (nextOp === 'is' || nextOp === 'is_not') ? f.values : undefined,
+                        value2: nextOp === 'between' ? f.value2 : undefined,
+                      });
+                    }}
+                  >
+                    {opsFor(f.property).map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    className="icon-btn danger fs-remove"
+                    title={t('Remove filter')}
+                    onClick={() => onChange({ filters: filters.filter((_, j) => j !== i) })}
+                  >
+                    ✕
+                  </button>
+                </div>
+                {hasValueInput(op) && (
+                  <div className="fs-filter-value">
+                    {several && options.length > 0 ? (
+                      <div className="fs-checks">
+                        {options.map((o) => (
+                          <label key={o.value} className={'fs-check' + (picked.includes(o.value) ? ' on' : '')}>
+                            <input
+                              type="checkbox"
+                              checked={picked.includes(o.value)}
+                              onChange={() => toggleValue(o.value)}
+                            />
+                            {o.label}
+                          </label>
+                        ))}
+                      </div>
+                    ) : op === 'between' ? (
+                      <div className="fs-range">
+                        <input
+                          className="prop-input"
+                          type={isDate ? 'date' : 'number'}
+                          value={f.value}
+                          onChange={(e) => patch({ value: e.target.value })}
+                        />
+                        <span className="fs-range-sep">–</span>
+                        <input
+                          className="prop-input"
+                          type={isDate ? 'date' : 'number'}
+                          value={f.value2 ?? ''}
+                          onChange={(e) => patch({ value2: e.target.value })}
+                        />
+                      </div>
+                    ) : options.length > 0 ? (
+                      <select
+                        className="prop-select"
+                        value={f.value}
+                        onChange={(e) => patch({ value: e.target.value, values: undefined })}
+                      >
+                        <option value="">—</option>
+                        {options.map((o) => (
+                          <option key={o.value} value={o.value}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        className="prop-input"
+                        // A date needs a picker, not a box you have to spell
+                        // 2026-08-18 into by hand. That, plus the empty
+                        // condition emptying the table, was the whole of
+                        // "date filtering does not work".
+                        type={isDate ? 'date' : propType === 'number' ? 'number' : 'text'}
+                        value={f.value}
+                        placeholder={t('value')}
+                        onChange={(e) => patch({ value: e.target.value, values: undefined })}
+                      />
+                    )}
+                  </div>
+                )}
+                {!filterIsArmed(f) && <div className="fs-hint">{t('Not filtering yet — pick a value.')}</div>}
               </div>
             );
           })}

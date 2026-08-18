@@ -328,9 +328,10 @@ and the labels change to suit it:
 
 | Property type | Operators offered |
 | --- | --- |
-| number, rollup, formula | is · is not · **>** · **<** · is empty · is not empty |
-| date | is · is not · **after** · **before** · is empty · is not empty |
+| number, rollup, formula | is · is not · **greater than** · **less than** · **between** · is empty · is not empty |
+| date | is · is not · **after** · **before** · **between** · is empty · is not empty |
 | text, person | is · is not · **contains** · is empty · is not empty |
+| select, multi-select, relation | **is any of** · **is none of** · is empty · is not empty |
 | everything else | is · is not · is empty · is not empty |
 
 What they mean:
@@ -344,6 +345,18 @@ What they mean:
 | `contains` | the value as a substring, also inside a list |
 | `gt` | greater than. Numeric as soon as the value you type is a number — a cell holding text then counts as 0. Otherwise both sides are compared as text, which is what makes **after** work on dates. |
 | `lt` | less than, same rule |
+| `between` | inside a range, **inclusive at both ends** — a range named by two dates contains the days it is named after. Takes two values, and does nothing until both are set. |
+
+Where the values come from a fixed list — a select, a multi-select, a relation —
+`is` and `is_not` take **several** values at once and read *is any of* and *is
+none of*. That is one condition with two boxes ticked, not two conditions that
+happen to be about the same column: "class is none of A, H" is a single thing to
+read and a single thing to change.
+
+**A condition with nothing filled in does not filter.** It waits, and says so.
+It used to compare against the empty string and therefore match nothing, so the
+table went blank the moment you added a condition — before you had typed
+anything. If you want the rows that really have no value, that is `is empty`.
 
 Three behaviours that surprise people:
 

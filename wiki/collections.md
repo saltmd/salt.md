@@ -420,8 +420,10 @@ Two of them behave in a way worth knowing before the first call:
 
 - **`query_rows` filters, sorts and paginates on the server** — the same
   conditions the toolbar offers (`is`, `is_not`, `contains`, `gt`, `lt`,
-  `is_empty`, `is_not_empty`), ANDed, with `sort` spelled `propertyId:asc`. A
-  filter value may be given as an option **name** instead of its id. It returns
+  `between`, `is_empty`, `is_not_empty`), ANDed, with `sort` spelled
+  `propertyId:asc`. `is` / `is_not` take a set through `values`, `between` takes
+  `value` and `value2`. A filter value may be given as an option **name**
+  instead of its id. It returns
   50 rows by default and at most 500 per call, so walk a large database with
   `offset`.
 - **`set_properties` merges field by field.** Only the keys you send are

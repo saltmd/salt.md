@@ -235,6 +235,7 @@ export type FilterOp =
   | 'contains'
   | 'gt'
   | 'lt'
+  | 'between'
   | 'is_empty'
   | 'is_not_empty';
 
@@ -242,6 +243,12 @@ export interface Filter {
   property: string;
   op?: FilterOp; // default 'is'; legacy empty value = is_not_empty
   value: string;
+  /** Several values for is/is_not — "class is none of A, H" as ONE condition
+   *  rather than two rows that happen to sit next to each other. When present it
+   *  replaces `value`; a filter never carries both. */
+  values?: string[];
+  /** Upper bound of `between`, inclusive. A range is value…value2. */
+  value2?: string;
 }
 
 export interface Sort {

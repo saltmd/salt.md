@@ -280,7 +280,7 @@
         }
       ],
       "takenAt": {
-        "web/src/components/CollectionView.tsx": "f92157aff38f"
+        "web/src/components/CollectionView.tsx": "a0eca2059205"
       }
     },
     {
@@ -312,7 +312,7 @@
         }
       ],
       "takenAt": {
-        "web/src/components/CollectionView.tsx": "f92157aff38f",
+        "web/src/components/CollectionView.tsx": "a0eca2059205",
         "web/src/cardLayout.ts": "eb7f92584275"
       }
     },
@@ -344,7 +344,7 @@
         }
       ],
       "takenAt": {
-        "web/src/components/CollectionView.tsx": "f92157aff38f"
+        "web/src/components/CollectionView.tsx": "a0eca2059205"
       }
     },
     {
@@ -548,7 +548,7 @@
       ],
       "takenAt": {
         "web/src/components/AgentConnect.tsx": "048c1dc5ffa2",
-        "server/mcp.go": "29896e51a648"
+        "server/mcp.go": "2d5082cb3a61"
       },
       "element": ".dialog"
     },

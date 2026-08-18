@@ -118,10 +118,34 @@ func safePropID(id string) bool {
 	return true
 }
 
-// rowFilter is one condition on a property. Op is one of is|is_not|contains|
-// gt|lt|is_empty|is_not_empty; empty Op defaults to is (or is_not_empty when
-// Value is also empty, for backward compatibility).
-type rowFilter struct{ Prop, Op, Value string }
+// rowFilter is one condition on a property. Op is one of
+// is|is_not|contains|gt|lt|between|is_empty|is_not_empty; empty Op defaults to
+// is (or is_not_empty when Value is also empty, for backward compatibility).
+//
+// Values carries a SET for is/is_not — "class is none of A, H" as one condition
+// instead of two rows that happen to sit next to each other. Value stays for the
+// single-value case and every other operator.
+//
+// Value2 is the upper bound of `between`. A date range was the one thing people
+// asked for that could not be said at all: "after X" and "before Y" as two
+// conditions works, but nobody finds it.
+type rowFilter struct {
+	Prop, Op, Value string
+	Values          []string
+	Value2          string
+}
+
+// vals is what the condition actually compares against: the set if there is one,
+// otherwise the single value. Never both.
+func (f rowFilter) vals() []string {
+	if len(f.Values) > 0 {
+		return f.Values
+	}
+	if f.Value == "" {
+		return nil
+	}
+	return []string{f.Value}
+}
 
 func isNumeric(s string) bool {
 	_, err := strconv.ParseFloat(strings.TrimSpace(s), 64)
@@ -153,7 +177,6 @@ func (s *Server) collectionRowsQuery(u *user, colID string, filters []rowFilter,
 			continue
 		}
 		ex := "json_extract(props, '$." + f.Prop + "')"
-		each := "EXISTS (SELECT 1 FROM json_each(props, '$." + f.Prop + "') WHERE value = ?)"
 		op := f.Op
 		if op == "" {
 			if f.Value == "" {
@@ -162,6 +185,27 @@ func (s *Server) collectionRowsQuery(u *user, colID string, filters []rowFilter,
 				op = "is"
 			}
 		}
+		vals := f.vals()
+		// A condition with nothing to compare against does not filter. It used
+		// to compare with the empty string and therefore match nothing, so the
+		// moment you added "Date is …" the table went blank before you had
+		// typed anything — which read as the date filter being broken. The
+		// deliberate version of that question is is_empty.
+		if op != "is_empty" && op != "is_not_empty" && len(vals) == 0 {
+			continue
+		}
+		if op == "between" && f.Value2 == "" {
+			continue
+		}
+		// One placeholder per value, for `IN (?, ?, …)`.
+		holders := strings.TrimSuffix(strings.Repeat("?, ", len(vals)), ", ")
+		anyOf := make([]any, len(vals))
+		for i, v := range vals {
+			anyOf[i] = v
+		}
+		// The value may be stored as a scalar or inside a list (multiselect, a
+		// relation): both spellings have to answer the same question.
+		inList := "EXISTS (SELECT 1 FROM json_each(props, '$." + f.Prop + "') WHERE value IN (" + holders + "))"
 		set := "(" + ex + " IS NOT NULL AND " + ex + " != '' AND " + ex + " != json('[]'))"
 		switch op {
 		case "is_empty":
@@ -169,12 +213,15 @@ func (s *Server) collectionRowsQuery(u *user, colID string, filters []rowFilter,
 		case "is_not_empty":
 			where = append(where, set)
 		case "is":
-			where = append(where, "("+ex+" = ? OR "+each+")")
-			args = append(args, f.Value, f.Value)
+			where = append(where, "("+ex+" IN ("+holders+") OR "+inList+")")
+			args = append(args, anyOf...)
+			args = append(args, anyOf...)
 		case "is_not":
-			// A missing/empty value counts as "is not X".
-			where = append(where, "("+ex+" IS NULL OR ("+ex+" != ? AND NOT "+each+"))")
-			args = append(args, f.Value, f.Value)
+			// A missing/empty value counts as "is not X" — and with a set, as
+			// "is none of them".
+			where = append(where, "("+ex+" IS NULL OR ("+ex+" NOT IN ("+holders+") AND NOT "+inList+"))")
+			args = append(args, anyOf...)
+			args = append(args, anyOf...)
 		case "contains":
 			like := "%" + f.Value + "%"
 			where = append(where, "("+ex+" LIKE ? OR EXISTS (SELECT 1 FROM json_each(props, '$."+f.Prop+"') WHERE value LIKE ?))")
@@ -190,6 +237,16 @@ func (s *Server) collectionRowsQuery(u *user, colID string, filters []rowFilter,
 				where = append(where, ex+" "+cmp+" ?")
 			}
 			args = append(args, f.Value)
+		case "between":
+			// Inclusive at both ends: a range named by two dates includes the
+			// days it is named after. ISO dates compare correctly as text, so
+			// only numbers need the cast.
+			if isNumeric(f.Value) && isNumeric(f.Value2) {
+				where = append(where, "(CAST("+ex+" AS REAL) >= CAST(? AS REAL) AND CAST("+ex+" AS REAL) <= CAST(? AS REAL))")
+			} else {
+				where = append(where, "("+ex+" >= ? AND "+ex+" <= ?)")
+			}
+			args = append(args, f.Value, f.Value2)
 		}
 	}
 	whereSQL := strings.Join(where, " AND ")
@@ -266,6 +323,27 @@ func (s *Server) handleCollectionRows(w http.ResponseWriter, r *http.Request) {
 	}
 	var filters []rowFilter
 	for _, f := range q["filter"] {
+		// Two spellings, and both stay. `prop:op:value` is what curl, a
+		// bookmarked URL and everything written before today sends; the JSON
+		// object is what the interface sends, because a set of values and a
+		// range have no place in a colon-separated string. Anything starting
+		// with '{' is the second kind.
+		if strings.HasPrefix(strings.TrimSpace(f), "{") {
+			var jf struct {
+				Property string   `json:"property"`
+				Op       string   `json:"op"`
+				Value    string   `json:"value"`
+				Values   []string `json:"values"`
+				Value2   string   `json:"value2"`
+			}
+			if json.Unmarshal([]byte(f), &jf) == nil && jf.Property != "" {
+				filters = append(filters, rowFilter{
+					Prop: jf.Property, Op: jf.Op, Value: jf.Value,
+					Values: jf.Values, Value2: jf.Value2,
+				})
+			}
+			continue
+		}
 		// Format: prop:op:value (op/value may be empty). Legacy prop:value still
 		// works — a 2-part filter is treated as an equality/is-set condition.
 		propID, rest, ok := strings.Cut(f, ":")

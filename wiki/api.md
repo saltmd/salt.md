@@ -348,9 +348,23 @@ GET /api/collections/{id}/rows?filter=status:is:done&sort=due:asc&limit=50
 ```
 
 `filter` is repeatable and reads `prop:op:value`. The operators are `is`,
-`is_not`, `contains`, `gt`, `lt`, `is_empty` and `is_not_empty`; an omitted
-operator means `is`, or `is_not_empty` when the value is empty too. `is` matches
-a plain value **or** one element of a multi-value property. `sort` is
+`is_not`, `contains`, `gt`, `lt`, `between`, `is_empty` and `is_not_empty`; an
+omitted operator means `is`, or `is_not_empty` when the value is empty too. `is`
+matches a plain value **or** one element of a multi-value property. A condition
+whose value is missing is ignored rather than matching nothing.
+
+A set of values and a range do not fit in a colon-separated string, so one
+`filter` may also be a JSON object — anything starting with `{`. Both spellings
+work, and the short one is not going anywhere:
+
+```
+GET /api/collections/{id}/rows?filter={"property":"klasse","op":"is_not","values":["a","h"]}
+GET /api/collections/{id}/rows?filter={"property":"due","op":"between","value":"2026-03-01","value2":"2026-05-31"}
+```
+
+`values` replaces `value` for `is` / `is_not` and means *any of* / *none of*.
+`value2` is the upper bound of `between`, inclusive; without it the condition
+does nothing. `sort` is
 `prop:asc` or `prop:desc`. The answer is
 `{"rows": […], "total": n, "offset": …, "limit": …}`, where `total` counts the
 whole filtered set, not the page. Rollups, formulas and backrelations are filled

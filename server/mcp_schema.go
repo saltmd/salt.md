@@ -817,10 +817,24 @@ func (s *Server) resolveFilterValues(collectionID string, filters []rowFilter) [
 	out := make([]rowFilter, len(filters))
 	copy(out, filters)
 	for i, f := range out {
-		if m, ok := byProp[f.Prop]; ok {
-			if id, hit := m[strings.ToLower(f.Value)]; hit {
-				out[i].Value = id
+		m, ok := byProp[f.Prop]
+		if !ok {
+			continue
+		}
+		if id, hit := m[strings.ToLower(f.Value)]; hit {
+			out[i].Value = id
+		}
+		// The same courtesy for a set: an agent writing ["Open", "Waiting"]
+		// means the options with those names, and had no way to know their ids.
+		if len(f.Values) > 0 {
+			vs := make([]string, len(f.Values))
+			copy(vs, f.Values)
+			for j, v := range vs {
+				if id, hit := m[strings.ToLower(v)]; hit {
+					vs[j] = id
+				}
 			}
+			out[i].Values = vs
 		}
 	}
 	return out

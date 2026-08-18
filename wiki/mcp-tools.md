@@ -701,8 +701,17 @@ filter titles with `search` instead. Operators:
 | `is_not` | not equal; a missing value counts as not equal |
 | `contains` | substring, also inside list values |
 | `gt`, `lt` | greater / less than; numeric only when **the value you pass** parses as a number, otherwise a text comparison |
+| `between` | inside `value`…`value2`, inclusive at both ends. Does nothing until both are set |
 | `is_empty` | unset, empty string, or an empty list |
 | `is_not_empty` | anything else — and the default when `op` and `value` are both left out |
+
+`is` and `is_not` also take a **set**: pass `values` instead of `value` and they
+read *any of* / *none of*. `{"property":"klasse","op":"is_not","values":["a","h"]}`
+is one condition, not two — and option NAMES resolve to their ids there too, so
+`["Open","Waiting"]` works without looking anything up.
+
+A condition with neither `value` nor `values` is ignored rather than matching
+nothing, so a half-built filter never silently empties a result.
 
 Two of those defaults deserve a second look. Omitting `op` does not always mean
 `is`: with an empty `value` it means `is_not_empty`, so

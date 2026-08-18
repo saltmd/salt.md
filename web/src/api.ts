@@ -380,14 +380,21 @@ export const api = {
     opts: {
       limit?: number;
       offset?: number;
-      filters?: { property: string; op?: string; value: string }[];
+      filters?: { property: string; op?: string; value: string; values?: string[]; value2?: string }[];
       sort?: { property: string; dir: 'asc' | 'desc' } | null;
     } = {},
   ) => {
     const p = new URLSearchParams();
     if (opts.limit) p.set('limit', String(opts.limit));
     if (opts.offset) p.set('offset', String(opts.offset));
-    for (const f of opts.filters ?? []) p.append('filter', `${f.property}:${f.op ?? ''}:${f.value}`);
+    for (const f of opts.filters ?? []) {
+      // A set of values and a range do not fit in a colon-separated string, so
+      // anything beyond the simple case travels as JSON. The server reads both
+      // — the short form is what curl, a bookmarked URL and every older client
+      // sends, and it keeps working unchanged.
+      if (f.values?.length || f.value2) p.append('filter', JSON.stringify(f));
+      else p.append('filter', `${f.property}:${f.op ?? ''}:${f.value}`);
+    }
     if (opts.sort) p.set('sort', `${opts.sort.property}:${opts.sort.dir}`);
     return req<{
       rows: {

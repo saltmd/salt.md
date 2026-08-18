@@ -179,8 +179,10 @@ var mcpTools = []map[string]any{
 				"filter": map[string]any{"type": "array", "description": "Filters, ANDed together. Each needs a property id from get_collection — note that the row TITLE is not a property; filter titles with the search tool instead.",
 					"items": map[string]any{"type": "object", "properties": map[string]any{
 						"property": map[string]any{"type": "string", "description": "Property id from get_collection"},
-						"op":       map[string]any{"type": "string", "description": "is (default) | is_not | contains | gt | lt | is_empty | is_not_empty"},
-						"value":    map[string]any{"type": "string", "description": "Compared value; ignored for is_empty/is_not_empty"}}}},
+						"op":       map[string]any{"type": "string", "description": "is (default) | is_not | contains | gt | lt | between | is_empty | is_not_empty"},
+						"value":    map[string]any{"type": "string", "description": "Compared value; ignored for is_empty/is_not_empty. For between, the LOWER bound."},
+						"values":   map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Several values for is/is_not — \"status is any of open, waiting\" as ONE condition. Use instead of value, not beside it."},
+						"value2":   map[string]any{"type": "string", "description": "Upper bound of between, inclusive. A date range is value..value2."}}}},
 				"sort":   map[string]any{"type": "string", "description": "propertyId:asc or propertyId:desc"},
 				"limit":  map[string]any{"type": "integer", "description": "Max rows (default 50, max 500)"},
 				"offset": map[string]any{"type": "integer"},
@@ -641,7 +643,11 @@ func (s *Server) mcpCall(u *user, name string, rawArgs json.RawMessage, publicBa
 		DataBase64     string  `json:"data_base64"`
 		IdempotencyKey string  `json:"idempotency_key"`
 		// Database tools (Welle 9).
-		Filter     []struct{ Property, Op, Value string } `json:"filter"`
+		Filter     []struct {
+			Property, Op, Value string
+			Values              []string `json:"values"`
+			Value2              string   `json:"value2"`
+		} `json:"filter"`
 		Sort       *string                                `json:"sort"`
 		Limit      int                                    `json:"limit"`
 		Offset     int                                    `json:"offset"`
@@ -1107,7 +1113,7 @@ func (s *Server) mcpCall(u *user, name string, rawArgs json.RawMessage, publicBa
 		case "query_rows":
 			filters := make([]rowFilter, 0, len(args.Filter))
 			for _, f := range args.Filter {
-				filters = append(filters, rowFilter{Prop: f.Property, Op: f.Op, Value: f.Value})
+				filters = append(filters, rowFilter{Prop: f.Property, Op: f.Op, Value: f.Value, Values: f.Values, Value2: f.Value2})
 			}
 			sort := ""
 			if args.Sort != nil {
