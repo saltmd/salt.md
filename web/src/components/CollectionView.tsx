@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api';
+import { onRefresh } from '../pwa';
 import Portal from './Portal';
 import { useBoardDrag } from '../boardDrag';
 import { tagColorClass } from '../tags';
@@ -341,9 +342,16 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
       timer = window.setTimeout(() => void loadRows(), 400);
     };
     window.addEventListener('salt:rows', onRows);
+    // Somebody pulled down, or pressed sync. Not debounced and not conditional:
+    // they asked for THIS table, now.
+    const stopRefresh = onRefresh(() => {
+      void loadRows();
+      loadConfig();
+    });
     return () => {
       window.clearTimeout(timer);
       window.removeEventListener('salt:rows', onRows);
+      stopRefresh();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [collectionId, fsKey]);

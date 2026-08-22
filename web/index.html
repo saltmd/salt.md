@@ -6,9 +6,21 @@
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="alternate icon" href="/icon-192.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <meta name="theme-color" content="#2f7d4f" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <!-- The bar above the app in an installed window. One colour for both
+         themes meant a green stripe over a dark app; matching the sidebar makes
+         the chrome look like part of the app instead of a browser leftover. -->
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f7f6f3" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#202020" />
+    <!-- The prefixed one is Apple's and still the one iOS reads; the unprefixed
+         one is the standard everybody else moved to. Both, or one of the two
+         platforms opens the app in a browser tab. -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <!-- NOT black-translucent. That hands the app the whole screen including
+         the status bar and paints the clock white — which disappears against a
+         light document. `default` follows the theme-color above and is legible
+         in both. -->
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="salt.md" />
     <title>salt.md</title>

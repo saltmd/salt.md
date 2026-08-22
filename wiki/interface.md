@@ -456,6 +456,38 @@ leave the element they stay stuck after a tap and look like a fault.
 If you have asked your system to reduce motion, every transition and animation
 is effectively switched off.
 
+## Installed as an app
+
+Add salt.md to a home screen or install it from the browser's address bar and it
+opens in its own window: no address bar, no tabs, its own icon in the dock or on
+the home screen. Everything works exactly as it does in a tab — with one thing
+to know about, and two things added for it.
+
+**Nothing is stored on the device except the app itself.** The pages, the
+databases and the files are fetched from your instance every time, the same as in
+a browser. Offline you get the shell of the app and nothing to put in it.
+
+**The thing to know about is refreshing.** An installed window has no reload
+button, and while the app is open it does not need one: it holds a live
+connection and changes made by other people — or by an agent — appear on their
+own. What breaks that is a phone going to sleep. The connection dies with it, and
+a dead connection does not announce itself: the app looks current and has quietly
+stopped listening. So:
+
+| Where | How to refresh |
+| --- | --- |
+| Phone or tablet | pull down from the top of the page |
+| Desktop | the ↻ button next to the theme switch, bottom of the sidebar |
+
+Both do the same two things: fetch what is on screen again, and throw the live
+connection away and open a new one. Neither reloads the window, so your open
+tabs, your place on the page and anything half-typed survive.
+
+The pull gesture only listens when the page is already scrolled to the top, and
+only for a clearly downward pull — a sideways swipe across a wide table is a
+sideways swipe. In an ordinary browser tab neither appears: the browser's own
+gesture and its own reload button are already there.
+
 ## Messages and overlays
 
 **Toasts** appear centred at the bottom of the window and disappear after four

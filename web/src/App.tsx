@@ -19,6 +19,8 @@ import Toaster from './components/Toaster';
 import { DialogHost, confirm, promptText } from './dialog';
 import { announceModal } from './modal';
 import { toast } from './toast';
+import { onRefresh } from './pwa';
+import PullToRefresh from './components/PullToRefresh';
 import Logo from './Logo';
 import ThemeSwitch, { type ThemePref } from './ThemeSwitch';
 import { applyPrefs, plural, t } from './i18n';
@@ -411,6 +413,34 @@ export default function App() {
   // stream has gone silent — a stalled connection never errors, so closing and
   // reopening is the only way back.
   const [liveNonce, setLiveNonce] = useState(0);
+
+  // The home-screen shortcut (long-press the icon) starts the app at
+  // /?action=search. Wired here rather than left in the manifest as decoration:
+  // a shortcut that opens the app and then does nothing is worse than no
+  // shortcut. The parameter is cleared straight away so a reload does not
+  // re-open the search box.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('action') !== 'search') return;
+    setSearchOpen(true);
+    const url = window.location.pathname + window.location.hash;
+    window.history.replaceState(window.history.state, '', url || '/');
+  }, []);
+
+  // Pull-to-refresh and the sync button land here. Both halves matter: fetch
+  // the tree again, AND throw the live stream away and open a new one. After a
+  // phone has slept the stream is often gone without having errored, so a
+  // refresh that only refetched once would leave the app looking current and
+  // then quietly stop updating — which is the state people describe as "it
+  // does not sync".
+  useEffect(
+    () =>
+      onRefresh(() => {
+        void loadPages();
+        setLiveNonce((n) => n + 1);
+      }),
+    [loadPages],
+  );
+
   useEffect(() => {
     if (!me?.authenticated) return;
     const es = new EventSource('/api/events');
@@ -1113,6 +1143,7 @@ export default function App() {
       <DialogHost />
       <UploadBar />
       <ImageLightbox />
+      <PullToRefresh />
     </div>
   );
 }

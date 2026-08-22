@@ -24,6 +24,7 @@ import { Sun, Moon, Search, Library, Plus, Table2, FileText, Trash2, LayoutTempl
 import { AgentDot } from './AgentBadge';
 import { tagColorClass } from '../tags';
 import { childrenForSection, topLevelForDocs } from '../treeMode';
+import SyncButton from './SyncButton';
 import ThemeSwitch, { type ThemePref } from '../ThemeSwitch';
 
 interface Props {
@@ -1462,6 +1463,7 @@ export default function Sidebar({
             fontPref={fontPref}
             onSetFont={onSetFont}
           />
+          <SyncButton />
           <ThemeSwitch value={themePref} onChange={onSetTheme} />
         </div>
         {membersOpen && currentWs && (
