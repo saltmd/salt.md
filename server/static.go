@@ -29,6 +29,20 @@ func spaHandler(dist fs.FS) http.Handler {
 				if p == "sw.js" {
 					w.Header().Set("Cache-Control", "no-cache")
 				}
+				// The app's identity: the manifest and the home-screen icons.
+				// Same trap as the HTML document below, one step further out.
+				// These carry no content hash — the name is fixed forever — and
+				// they DO change with a release, so nothing may keep them.
+				//
+				// Left unset, they went out with no Cache-Control at all, and a
+				// CDN in front then invents one: Cloudflare's default for an
+				// image is four hours. A new icon was deployed, verified on the
+				// box, and still arrived green through the tunnel — because the
+				// tunnel was answering from its own copy and the origin was
+				// never asked. `cf-cache-status: HIT`, `age: 1151`.
+				if isAppIdentity(p) {
+					w.Header().Set("Cache-Control", "no-cache")
+				}
 				// The HTML document is the one file that must NOT be cached: it
 				// is what names the hashed assets, so a stale copy points a
 				// browser at the previous build's file names and the whole
@@ -73,6 +87,28 @@ var staticFileExts = []string{
 	".ico", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".avif",
 	".css", ".js", ".mjs", ".map", ".json", ".webmanifest",
 	".woff", ".woff2", ".ttf", ".otf", ".txt", ".xml",
+}
+
+// appIdentityFiles are the files that say what the app IS — its manifest and
+// the icons a phone puts on a home screen. Fixed names, contents that change
+// with a release: the one combination that must never be cached.
+var appIdentityFiles = []string{
+	"manifest.webmanifest",
+	"apple-touch-icon.png",
+	"icon-192.png",
+	"icon-512.png",
+	"icon-maskable-512.png",
+	"favicon.svg",
+	"favicon.ico",
+}
+
+func isAppIdentity(p string) bool {
+	for _, f := range appIdentityFiles {
+		if p == f {
+			return true
+		}
+	}
+	return false
 }
 
 func isStaticFileName(p string) bool {

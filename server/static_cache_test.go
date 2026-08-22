@@ -33,6 +33,40 @@ func TestTheHTMLDocumentIsNeverCachedButItsAssetsAlwaysAre(t *testing.T) {
 
 }
 
+// The same trap, one step further out — and this one really happened.
+//
+// The manifest and the home-screen icons carry no content hash: their names are
+// fixed forever and their contents change with a release. They went out with no
+// Cache-Control at all, which a browser handles by guessing and a CDN handles by
+// deciding. Cloudflare's default for an image is four hours: a new icon was
+// built, deployed, and verified on the box, and the phone went on showing the
+// old one, because the tunnel answered from its own copy and never asked the
+// origin.
+//
+// The header has to come from HERE. Nothing downstream can know that a file
+// called apple-touch-icon.png means something different today than yesterday.
+func TestTheAppsIdentityFilesAreNeverCached(t *testing.T) {
+	s := testServer(t)
+	for _, path := range []string{
+		"/manifest.webmanifest",
+		"/apple-touch-icon.png",
+		"/icon-192.png",
+		"/icon-512.png",
+		"/icon-maskable-512.png",
+		"/favicon.svg",
+	} {
+		rec := httptest.NewRecorder()
+		s.ServeHTTP(rec, httptest.NewRequest("GET", path, nil))
+		if rec.Code == http.StatusNotFound {
+			continue // not embedded in the test fixture
+		}
+		cc := rec.Header().Get("Cache-Control")
+		if !strings.Contains(cc, "no-cache") && !strings.Contains(cc, "no-store") {
+			t.Errorf("%s went out with Cache-Control %q — a CDN in front will invent one, and the icon on a home screen stops matching the app", path, cc)
+		}
+	}
+}
+
 // The other half of the pairing, checked against a real build rather than the
 // test fixture: the hashed files keep their long life, or every page load
 // re-fetches the whole app. Skipped where no assets are embedded.
