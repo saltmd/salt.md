@@ -367,9 +367,11 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
   };
 
   const addRow = async (presetProps?: Record<string, unknown>) => {
-    const p = await api.createPage(collectionId, 'Untitled', 'doc', presetProps);
+    // Deliberately does NOT onNavigate() into the new row: creating an item
+    // from a collection view should keep you looking at the collection, same
+    // as Notion. Opening it is the same click as any other existing row.
+    await api.createPage(collectionId, 'Untitled', 'doc', presetProps);
     onPagesChanged();
-    onNavigate(p.id);
   };
 
   // Persist an inline change to a select/multiselect property's options (create,
@@ -1622,10 +1624,15 @@ function BoardView({
           style={col.id !== UNSET ? ({ '--col-c': col.color } as React.CSSProperties) : undefined}
         >
           <div className="board-col-head">
-            <span className="board-chip" style={{ background: col.color + '33', color: col.color }}>
-              {col.name}
+            <span className="board-col-head-left">
+              <span className="board-chip" style={{ background: col.color + '33', color: col.color }}>
+                {col.name}
+              </span>
+              <span className="board-count">{rowsFor(col.id).length}</span>
             </span>
-            <span className="board-count">{rowsFor(col.id).length}</span>
+            <button className="board-add" title={t('New')} onClick={() => onAddInColumn(groupBy, col.id)}>
+              <Plus size={14} />
+            </button>
           </div>
           <div className="board-cards">
             {rowsFor(col.id).map((r) => (
@@ -1762,12 +1769,6 @@ function BoardView({
               </div>
             ))}
           </div>
-          {/* Outside .board-cards: the button stays at the end of the column
-              stehen, statt mit den Karten wegzuscrollen — bei 100 Karten
-              waere er sonst unerreichbar weit unten. */}
-          <button className="board-add" onClick={() => onAddInColumn(groupBy, col.id)}>
-            ＋ New
-          </button>
         </div>
       ))}
 
