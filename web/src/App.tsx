@@ -24,6 +24,9 @@ import PullToRefresh from './components/PullToRefresh';
 import Logo from './Logo';
 import ThemeSwitch, { type ThemePref } from './ThemeSwitch';
 import { applyPrefs, plural, t } from './i18n';
+import { useShortcut } from './keys';
+import { focusKey, useNavEntry } from './nav';
+import ShortcutSheet from './components/ShortcutSheet';
 import { guardDrops } from './dropFiles';
 
 /** Injected by the build; false everywhere except the website's framed demo. */
@@ -147,6 +150,7 @@ export default function App() {
     }
   }, [openTabs]);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [indexOpen, setIndexOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   // Desktop-only: collapse the sidebar entirely (mobile uses the drawer). The
@@ -178,6 +182,22 @@ export default function App() {
     setSidebarOpen(true);
     setSidebarCollapsed(false);
   };
+  // One button for both worlds: on mobile the sidebar is a drawer, and
+  // "collapse" there simply means closed. On the desktop it becomes a hover
+  // overlay — the collapsed state applies only there, or it would linger
+  // after a phone tap as an invisible side effect. Shared by the sidebar's
+  // own button and the '[' shortcut below, so the two can't drift apart.
+  const collapseSidebar = useCallback(() => {
+    setSidebarOpen(false);
+    if (window.matchMedia('(min-width: 769px)').matches) {
+      setSidebarCollapsed(true);
+      setHoverLock(true);
+    }
+  }, []);
+  const expandSidebar = useCallback(() => {
+    setSidebarCollapsed(false);
+    setHoverLock(false);
+  }, []);
   // What is stored is the CHOICE ('auto' included); what is applied is the
   // theme derived from it. Anyone who had already stored 'light'/'dark' before
   // this change keeps it — that was a deliberate setting, not something to
@@ -373,28 +393,79 @@ export default function App() {
     };
   }, []);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        setSearchOpen((v) => !v);
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  // Both mod+K and ctrl+K: ⌃K has always worked on a Mac here, and taking it
+  // away from a hand that has learnt it would be a regression dressed up as a
+  // cleanup.
+  useShortcut({
+    id: 'search.open',
+    keys: ['mod+k', 'ctrl+k'],
+    // Has to work mid-sentence: looking something up is what interrupts it.
+    whileTyping: true,
+    label: () => t('Search'),
+    group: () => t('General'),
+    run: () => setSearchOpen((v) => !v),
+  });
+
+  // `?`, and deliberately WITHOUT whileTyping: a question mark is a character
+  // before it is a shortcut.
+  //
+  // Three spellings, because punctuation is the one case where neither e.key nor
+  // e.code suffices. '?' sits on a different physical key per layout: Shift+/ on
+  // QWERTY, Shift+, on AZERTY, Shift+ß on QWERTZ. // i18n-ok: naming a German
+  // keycap is the point of the line
+  //
+  // So e.code cannot name the key, while e.key reports the composed character
+  // only when the browser composed one — which a synthetic keypress may not.
+  useShortcut({
+    id: 'help.shortcuts',
+    keys: ['shift+?', '?', 'shift+/'],
+    label: () => t('Keyboard shortcuts'),
+    group: () => t('General'),
+    run: () => setHelpOpen((v) => !v),
+  });
 
   // ⌥N = new note (⌘N is reserved by browsers and can't be intercepted).
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.altKey && !e.metaKey && !e.ctrlKey && e.code === 'KeyN') {
-        e.preventDefault();
-        void createPageRef.current?.(null);
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  //
+  // whileTyping, because the moment you want a new note is almost always
+  // mid-sentence in the one you are writing. What makes that safe is testing
+  // what the keystroke PRODUCES rather than where the caret is: on a US Mac
+  // layout ⌥N is the DEAD KEY for ˜, so creating a note and typing ñ are the
+  // same chord. 'Dead' is what such a key reports; a single character that is
+  // not the letter itself catches the layouts that compose something else.
+  useShortcut({
+    id: 'page.new',
+    keys: ['alt+n'],
+    whileTyping: true,
+    label: () => t('New note'),
+    group: () => t('General'),
+    run: (e) => {
+      if (e.key === 'Dead' || (e.key.length === 1 && e.key.toLowerCase() !== 'n')) return false;
+      void createPageRef.current?.(null);
+    },
+  });
+
+  // '[', to match the bracket printed on the sidebar's own collapse/pin
+  // button. Not whileTyping: '[' is an ordinary character (and the first half
+  // of a wiki-link), so this only fires when the caret isn't in a text field.
+  useShortcut({
+    id: 'sidebar.toggle',
+    keys: ['['],
+    label: () => t('Toggle sidebar'),
+    group: () => t('General'),
+    run: () => (sidebarCollapsed ? expandSidebar() : collapseSidebar()),
+  });
+
+  // The arrows, from outside every region: the regions bind them only once you
+  // are already in one, so without this the keyboard cannot get in at all
+  // without the mouse. The wording lives here, not in nav.ts, because it names
+  // THESE two regions and check-i18n wants a literal t('…') at the call site.
+  useNavEntry({
+    labels: {
+      group: () => t('Navigation'),
+      prev: () => t('Focus the sidebar'),
+      next: () => t('Focus the page'),
+    },
+  });
 
   // A file dropped anywhere the application does not handle itself would be
   // NAVIGATED TO by the browser — the whole app replaced by a PDF viewer, with
@@ -622,24 +693,34 @@ export default function App() {
     }
   }, []);
 
-  // Ctrl+Alt+←/→ cycles open tabs. metaKey is intentionally excluded: Cmd+Alt+←/→
-  // is the macOS browser tab-switch shortcut. Ignored while typing.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.ctrlKey && !e.metaKey && e.altKey && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
-        const el = document.activeElement as HTMLElement | null;
-        if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return;
-        const tabs = tabsRef.current;
-        if (tabs.length < 2) return;
-        e.preventDefault();
-        const i = activeRef.current ? tabs.indexOf(activeRef.current) : -1;
-        const d = e.key === 'ArrowRight' ? 1 : -1;
-        navigate(tabs[(i + d + tabs.length) % tabs.length]);
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [navigate]);
+  // Ctrl+Alt+←/→ cycles open tabs. `ctrl` literally rather than `mod`: on macOS
+  // ⌘⌥←/→ is the browser's own tab switch and has to stay the browser's.
+  const cycleTab = useCallback(
+    (d: 1 | -1) => {
+      const tabs = tabsRef.current;
+      // Nothing to cycle through: let the keystroke go where it was headed.
+      if (tabs.length < 2) return false;
+      const i = activeRef.current ? tabs.indexOf(activeRef.current) : -1;
+      navigate(tabs[(i + d + tabs.length) % tabs.length]);
+    },
+    [navigate],
+  );
+
+  useShortcut({
+    id: 'tabs.next',
+    keys: ['ctrl+alt+arrowright'],
+    label: () => t('Next tab'),
+    group: () => t('Tabs'),
+    run: () => cycleTab(1),
+  });
+
+  useShortcut({
+    id: 'tabs.prev',
+    keys: ['ctrl+alt+arrowleft'],
+    label: () => t('Previous tab'),
+    group: () => t('Tabs'),
+    run: () => cycleTab(-1),
+  });
 
   // Pick a landing page when nothing is selected, and bounce away from a page
   // that was trashed. IMPORTANT: a selected id that is simply absent from the
@@ -696,6 +777,22 @@ export default function App() {
       const p = await api.createPage(parentId, '', type, undefined, parentId ? undefined : currentWs);
       setPages((prev) => (prev ? [...prev, p] : [p]));
       navigate(p.id);
+      // Land in the title: a new page is created to be named, and from ⌥N there
+      // was no pointer involved to leave anywhere useful. Across frames rather
+      // than immediately — the editor mounts on a later render (see focusKey).
+      //
+      // 30 tries (~0.5s of rAF) was tuned for "React hasn't committed yet", but
+      // this call sits behind TWO network round trips first — the create above,
+      // then Editor's own api.getPage once `navigate` swaps the current page —
+      // and `page` is null (so 'content' isn't even registered) for all of it.
+      // On anything slower than localhost that budget ran out before the page
+      // existed to focus, and the retry gave up silently.
+      //
+      // The guard matters just as much as the count: right after `navigate`,
+      // the OUTGOING page's Editor is still what's mounted in 'content' for at
+      // least this tick, title and all — so an unguarded retry succeeds
+      // immediately against the wrong page's title and never waits for `p`'s.
+      focusKey('content', 'title', 180, (root) => root.dataset.pageId === p.id);
     },
     [navigate, currentWs],
   );
@@ -929,22 +1026,9 @@ export default function App() {
         user={me.user}
         currentId={currentId}
         open={sidebarOpen}
-        onCollapse={() => {
-          // One button for both worlds: on mobile the sidebar is a drawer, and
-          // "collapse" there simply means closed. On the desktop it becomes a
-          // hover overlay — the collapsed state applies only there, or it would
-          // linger after a phone tap as an invisible side effect.
-          setSidebarOpen(false);
-          if (window.matchMedia('(min-width: 769px)').matches) {
-            setSidebarCollapsed(true);
-            setHoverLock(true);
-          }
-        }}
+        onCollapse={collapseSidebar}
         collapsed={sidebarCollapsed}
-        onExpand={() => {
-          setSidebarCollapsed(false);
-          setHoverLock(false);
-        }}
+        onExpand={expandSidebar}
         onNavigate={navigate}
         onOpenInNewTab={openInNewTab}
         onCreate={createPage}
@@ -1101,6 +1185,7 @@ export default function App() {
           </div>
         )}
       </main>
+      {helpOpen && <ShortcutSheet onClose={() => setHelpOpen(false)} />}
       {searchOpen && (
         <SearchModal
           recent={(() => {

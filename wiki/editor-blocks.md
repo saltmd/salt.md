@@ -369,8 +369,7 @@ thing an agent gets with `embed_database`.
 Two triggers, one menu:
 
 - **`@`** — mention a page.
-- **`[[`** — the same menu, for wiki-link habits. The trigger is really the
-  first `[`; a second one, and closing brackets, are ignored when matching.
+- **`[[`** — the same menu, for wiki-link habits.
 
 The menu lists up to **twelve** pages whose titles contain what you typed, each
 marked *Page* or *Database*, excluding the page you are on and anything in the

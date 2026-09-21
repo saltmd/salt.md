@@ -17,6 +17,8 @@ import { saltSchema } from '../pageLink';
 import IconPicker from './IconPicker';
 import { PageIcon } from '../pageIcon';
 import { BlockContext } from '../blockContext';
+import { exitsDown, exitsStart, focusedKey, focusItem, focusKey, navItem, nothingBefore, useNavRegion } from '../nav';
+import { useShortcut } from '../keys';
 import CollectionView from './CollectionView';
 import { HistoryModal } from './PageHistory';
 import CommentsPanel, {
@@ -480,6 +482,42 @@ function PageHeader({
   const pendingMeta = useRef<{ title?: string; icon?: string; cover?: string; tags?: string[]; description?: string }>({});
   const bodyRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLTextAreaElement>(null);
+
+  // The document as one region of two items, its title and its text — rendered
+  // by two sibling components that share no state, which is exactly why this
+  // belongs to nav.ts: it moves focus by document order and needs neither of
+  // them to know about the other.
+  //
+  // whileTyping, because both items ARE text surfaces and the arrows would
+  // otherwise never fire here. canLeave is what makes that survivable: the
+  // keystroke goes back to the browser unless the caret sits at the very edge
+  // it is trying to cross.
+  useNavRegion({
+    id: 'content',
+    ref: bodyRef,
+    scope: 'editor',
+    prev: 'sidebar.tree',
+    whileTyping: true,
+    canLeave: (el, dir) => {
+      if (el === titleRef.current) {
+        const ta = titleRef.current;
+        const s = { start: ta.selectionStart, end: ta.selectionEnd, length: ta.value.length };
+        if (dir === 'down') return exitsDown(s);
+        // ← at the start of the title is how you get back to the sidebar,
+        // without a mode or an Escape that would fight the editor's menus.
+        if (dir === 'left') return exitsStart(s);
+        return false;
+      }
+      if (el.dataset.navKey === 'body') {
+        const surface = el.querySelector('[contenteditable="true"]');
+        // Up and left leave by the same edge, the top of the text. Asking the
+        // selection rather than the block model keeps this true inside tables,
+        // columns and nested lists.
+        return !!surface && (dir === 'up' || dir === 'left') && nothingBefore(surface);
+      }
+      return false;
+    },
+  });
 
   // Grow the title to fit its text (any length wraps to as many lines as needed,
   // like Notion) — on every edit and whenever the page (and thus title) changes.
@@ -971,7 +1009,7 @@ function PageHeader({
           cover, icon, title, tags and the content leave the screen together —
           only the slim topbar stays. Crucial on mobile, where a static header
           left just a tiny scrolling window. */}
-      <div className={'page-body' + (cover ? ' has-cover' : '')} ref={bodyRef}>
+      <div className={'page-body' + (cover ? ' has-cover' : '')} ref={bodyRef} data-page-id={pageId}>
       {cover && (
         <div className="page-cover" style={coverStyle(cover)}>
           <div className="page-cover-actions">
@@ -1034,6 +1072,7 @@ function PageHeader({
       <div className={'page-head' + (cover ? ' with-cover' : '') + (page.type === 'collection' ? ' page-head--db' : '')}>
         <textarea
           ref={titleRef}
+          {...navItem('title', { keepTabOrder: true })}
           className="page-title"
           value={title}
           placeholder={t('Untitled')}
@@ -1047,7 +1086,9 @@ function PageHeader({
             // (it jumps into the body instead of breaking the title).
             if (e.key === 'Enter') {
               e.preventDefault();
-              bodyRef.current?.querySelector<HTMLElement>('[contenteditable="true"]')?.focus();
+              // The region knows how to focus its own items, including the one
+              // that wraps a ProseMirror rather than being an input.
+              focusKey('content', 'body');
             }
           }}
         />
@@ -1414,6 +1455,64 @@ function BlockContent({
     dictionary: coreEn,
   });
 
+  // Ctrl+Enter, kept literal (not `mod`) on every platform — ⌘↩ already means
+  // something to plenty of hands from other editors, and borrowing it here
+  // would fight that. Ticks whatever checklist line the cursor is CURRENTLY
+  // inside: BlockNote hands back the whole block, not the run of text under
+  // the caret, so this works from anywhere on the line. With a range selected
+  // across several lines, getSelection() answers instead of the cursor — every
+  // checklist line it touches flips on its own, so a selection with two boxes
+  // ticked and three not does not collapse into one state, it just keeps
+  // flipping each. `when` limits it to the document actually holding focus —
+  // the region has exactly one item ('body') below the title — and `run`
+  // returns false when nothing in reach is a checklist line, so the chord
+  // falls through untouched everywhere else.
+  useShortcut({
+    id: 'checkbox.toggle',
+    keys: ['ctrl+enter'],
+    scope: 'editor',
+    whileTyping: true,
+    when: () => canEdit && focusedKey('content') === 'body',
+    label: () => t('Tick/untick the checkbox'),
+    group: () => t('Page'),
+    run: () => {
+      const selection = editor.getSelection();
+      const blocks = selection ? selection.blocks : [editor.getTextCursorPosition().block];
+      let touched = false;
+      for (const b of blocks) {
+        if (b.type !== 'checkListItem') continue;
+        editor.updateBlock(b, { props: { checked: !b.props.checked } } as never);
+        touched = true;
+      }
+      if (!touched) return false;
+    },
+  });
+
+  // Alt+↑/↓, not Mod+Shift+↑/↓ (BlockNote's own default for the same move —
+  // still there underneath, just not what anyone's hand reaches for first).
+  // moveBlocksUp/Down act on the selection when there is one and the cursor's
+  // own block otherwise, so this needs no lookup of its own.
+  useShortcut({
+    id: 'block.moveUp',
+    keys: ['alt+arrowup'],
+    scope: 'editor',
+    whileTyping: true,
+    when: () => canEdit && focusedKey('content') === 'body',
+    label: () => t('Move block up'),
+    group: () => t('Page'),
+    run: () => editor.moveBlocksUp(),
+  });
+  useShortcut({
+    id: 'block.moveDown',
+    keys: ['alt+arrowdown'],
+    scope: 'editor',
+    whileTyping: true,
+    when: () => canEdit && focusedKey('content') === 'body',
+    label: () => t('Move block down'),
+    group: () => t('Page'),
+    run: () => editor.moveBlocksDown(),
+  });
+
   const [preview, setPreview] = useState<{ name: string; url: string } | null>(null);
 
   // Slash menu: default items + column layout + our custom blocks.
@@ -1531,10 +1630,37 @@ function BlockContent({
   };
 
   const getMentionItems = (query: string) => buildLinkItems(query);
-  // Wiki-links: the trigger is "[" (BlockNote uses single-char triggers), so the
-  // text after it starts with a second "[" when the user types "[[". We strip
-  // stray brackets ("[[Page]]") before matching.
-  const getWikiItems = (raw: string) => buildLinkItems(raw.replace(/^\[+/, '').replace(/\]+$/, ''));
+  // Wiki-links: the trigger is "[", and BlockNote has no real concept of a
+  // two-character one — passing it "[[" never fires on ordinary typing,
+  // since its match compares the WHOLE trigger string against (n trailing
+  // characters already in the doc) + (the character just typed), which is
+  // always one character too long to equal an n-character trigger.
+  //
+  // So "[[" is two separate triggers of the same one-character kind. The
+  // first opens a menu with an empty query; typing the second "[" re-matches
+  // the same trigger, and BlockNote's reaction to a trigger firing while one
+  // is already open is to close the old menu and start a completely fresh
+  // one anchored right after this new "[" — it does not extend the query
+  // with the character, so the menu's query is only ever what comes after
+  // the LAST "[" typed. Selecting an item then deletes just that: the second
+  // "[" and the query text, leaving the first "[" sitting untouched right
+  // before wherever the item's own onItemClick inserts things.
+  //
+  // Deleting it here — once, before the item does its own thing — is
+  // cheaper than fighting the plugin for a query that spans both brackets.
+  const getWikiItems = async (raw: string) => {
+    const items = await buildLinkItems(raw);
+    return items.map((item) => ({
+      ...item,
+      onItemClick: () => {
+        editor.transact((tr) => {
+          const pos = tr.selection.from;
+          if (pos > 0 && tr.doc.textBetween(pos - 1, pos) === '[') tr.delete(pos - 1, pos);
+        });
+        item.onItemClick();
+      },
+    }));
+  };
 
   // Seed initial content into an empty shared doc exactly once. If seeding
   // throws (e.g. a block shape BlockNote rejects), we must NOT enter the
@@ -1721,7 +1847,7 @@ function BlockContent({
   }, [dropping]);
 
   return (
-    <div className="editor-scroll" ref={scrollRef}>
+    <div className="editor-scroll" ref={scrollRef} {...navItem('body', { keepTabOrder: true })}>
       {dropping && (
         <div className="drop-hint" aria-hidden>
           <FilePlus2 size={18} />

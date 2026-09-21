@@ -424,6 +424,23 @@ button {
   flex: none;
 }
 
+/* A shortcut shown next to the action it performs. Pushed to the right edge and
+   quiet: it is a reminder for the next time, not a second label competing with
+   the first. Empty when the action is not bound here, and an empty <kbd> must
+   take no room — hence the :empty rule. */
+.menu-chord {
+  margin-left: auto;
+  padding-left: 12px;
+  font-family: inherit;
+  font-size: 11.5px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.menu-chord:empty {
+  display: none;
+}
+
 /* ---- Page tags (Welle 25/28) ---- */
 .page-tags {
   display: flex;
@@ -3142,6 +3159,19 @@ body.is-col-resizing {
   .calendar-event {
     font-size: 10.5px;
   }
+}
+
+/* Keyboard navigation (nav.ts): the focused row.
+   An inset outline rather than the offset one below — a row is as wide as the
+   sidebar, so a ring drawn 2px OUTSIDE it is clipped on both sides and reads as
+   two vertical bars. `:focus-visible`, not `:focus`: these rows carry a
+   tabindex now, so a plain click focuses them too, and nobody wants a ring
+   round something they just clicked. */
+
+.tree-item:focus-visible,
+.tree-db-row:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 /* Accessibility: visible keyboard focus (many controls set outline:none) */
@@ -9826,4 +9856,76 @@ body:has(.live-down) .update-banner {
 .sync-btn:disabled {
   opacity: 1; /* it is working, not unavailable */
   color: var(--accent);
+}
+
+/* ---- The shortcut sheet (?) ----
+ *
+ * Two columns, label left and chord right, because the eye scans one column at
+ * a time: looking for "what cuts a row" reads the labels, looking up "what does
+ * ⌘K do" reads the chords. A single run-on line makes both searches slower.
+ */
+.shortcut-sheet {
+  width: min(520px, 92vw);
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 20px 22px 24px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+}
+
+.shortcut-sheet-head h2 {
+  margin: 0 0 4px;
+  font-size: 16px;
+}
+
+.shortcut-sheet-empty {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.shortcut-group {
+  margin-top: 18px;
+}
+
+.shortcut-group h3 {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.shortcut-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.shortcut-row:last-child {
+  border-bottom: none;
+}
+
+.shortcut-label {
+  font-size: 14px;
+}
+
+/* A chord is a fixed-width thing: proportional digits and letters make ⌃⌥→ and
+ * Ctrl+Alt+→ jitter against each other down the column. */
+.shortcut-keys {
+  flex: none;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px 7px;
+  white-space: nowrap;
 }

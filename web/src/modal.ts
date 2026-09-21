@@ -56,3 +56,21 @@ export function useMenuDismiss(
     };
   }, [open, ref]);
 }
+
+/** True while something modal is covering the app.
+ *
+ *  Read off the DOM rather than kept in a counter, and on purpose: every modal
+ *  in this codebase renders a `.modal-overlay` (most also mark the panel
+ *  inside it `aria-modal`), including the confirm/prompt dialogs that
+ *  deliberately stay out of the coordinator above. A counter would have to be
+ *  opted into one modal at a time, and the one that forgot would be the one
+ *  that misbehaves — whereas a query is right for every modal that already
+ *  looks like a modal, including the next one somebody writes.
+ *
+ *  What it is for: shortcuts that MOVE FOCUS in the application behind the
+ *  modal (the arrow keys entering the sidebar) must do nothing while a modal
+ *  owns the screen. */
+export function modalOpen(): boolean {
+  if (typeof document === 'undefined') return false;
+  return !!document.querySelector('.modal-overlay, [aria-modal="true"]');
+}
