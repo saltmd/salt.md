@@ -4,7 +4,7 @@ import type { CollectionConfig, PropDef, PropType, ViewDef } from '../types';
 import Portal from './Portal';
 import { useExclusiveModal } from '../modal';
 import { OPTION_HEXES, optionPalette } from '../selectOptions';
-import { Check } from 'lucide-react';
+import { GripVertical, Check } from 'lucide-react';
 import { t } from '../i18n';
 
 const TYPES: { value: PropType; label: string }[] = [
@@ -71,6 +71,8 @@ export default function SchemaEditor({
   onClose: () => void;
 }) {
   const [schema, setSchema] = useState<PropDef[]>(config.schema);
+  const [dragProperty, setDragProperty] = useState<string | null>(null);
+  const [dropProperty, setDropProperty] = useState<{ id: string; after: boolean } | null>(null);
   const [views, setViews] = useState<ViewDef[]>(config.views);
   useExclusiveModal(onClose);
   const [newName, setNewName] = useState('');
@@ -162,6 +164,23 @@ export default function SchemaEditor({
         };
       }),
     );
+  };
+
+  const moveProperty = (id: string, targetId: string, after: boolean) => {
+    setSchema((previous) => {
+      const source = previous.findIndex((property) => property.id === id);
+      const target = previous.findIndex((property) => property.id === targetId);
+      if (source < 0 || target < 0 || source === target) return previous;
+      const next = [...previous];
+      const [property] = next.splice(source, 1);
+      next.splice(target - (source < target ? 1 : 0) + Number(after), 0, property);
+      return next;
+    });
+  };
+
+  const endPropertyDrag = () => {
+    setDragProperty(null);
+    setDropProperty(null);
   };
 
   const removeProp = (id: string) => setSchema((prev) => prev.filter((p) => p.id !== id));
@@ -447,8 +466,47 @@ export default function SchemaEditor({
         <h2>{t('Collection properties')}</h2>
         <div className="schema-list">
           {schema.map((p) => (
-            <div key={p.id} className="schema-item">
+            <div
+              key={p.id}
+              className={'schema-item' +
+                (dragProperty === p.id ? ' schema-dragging' : '') +
+                (dropProperty?.id === p.id ? (dropProperty.after ? ' schema-drop-after' : ' schema-drop-before') : '')}
+              onDragOver={(e) => {
+                if (!dragProperty) return;
+                e.preventDefault();
+                e.stopPropagation();
+                e.dataTransfer.dropEffect = 'move';
+                const bounds = e.currentTarget.getBoundingClientRect();
+                setDropProperty(dragProperty === p.id ? null : {
+                  id: p.id, after: e.clientY > bounds.top + bounds.height / 2,
+                });
+              }}
+              onDragLeave={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropProperty(null);
+              }}
+              onDrop={(e) => {
+                if (!dragProperty) return;
+                e.preventDefault();
+                e.stopPropagation();
+                const bounds = e.currentTarget.getBoundingClientRect();
+                moveProperty(dragProperty, p.id, e.clientY > bounds.top + bounds.height / 2);
+                endPropertyDrag();
+              }}
+            >
               <div className="schema-row">
+                <span
+                  className="schema-drag-handle"
+                  draggable
+                  title={t('Drag to reorder property')}
+                  onDragStart={(e) => {
+                    e.stopPropagation();
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', p.id);
+                    setColorPick(null);
+                    setDragProperty(p.id);
+                  }}
+                  onDragEnd={endPropertyDrag}
+                ><GripVertical size={16} aria-hidden="true" /></span>
                 <input
                   className="prop-input"
                   value={p.name}

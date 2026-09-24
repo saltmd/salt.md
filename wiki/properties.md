@@ -607,3 +607,11 @@ Options may be written the short way, `["To do", "Done"]`, or with colours,
 A type an agent invents is refused with the list of the thirteen, and a
 backrelation missing either of its two coordinates is refused as well. See
 [Agents](agents.md) and [MCP tools](mcp-tools.md).
+
+## Reordering properties
+
+In **Collection properties**, drag a property's grip above or below another
+property, then choose **Save**. **Cancel** discards the new order. This order is
+shared by the collection's views, while each view keeps its hidden fields,
+filters, and sorting. Reordering does not change property IDs, options, or row
+values.

@@ -9950,3 +9950,27 @@ body:has(.live-down) .update-banner {
   opacity: 1; /* it is working, not unavailable */
   color: var(--accent);
 }
+
+.schema-drag-handle {
+  display: flex;
+  flex-shrink: 0;
+  padding: 4px;
+  cursor: grab;
+  color: var(--muted);
+}
+
+.schema-drag-handle:active { cursor: grabbing; }
+.schema-dragging { opacity: 0.5; }
+.schema-drop-before { box-shadow: 0 -2px 0 var(--accent); }
+.schema-drop-after { box-shadow: 0 2px 0 var(--accent); }
+.schema-row > .prop-input { min-width: 0; }
+
+@media (max-width: 480px) {
+  .schema-item .schema-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) 24px;
+  }
+  .schema-item .schema-row > .prop-input { grid-column: 2 / -1; }
+  .schema-item .schema-type-select { grid-column: 2; width: 100%; }
+  .schema-item .schema-row > .danger { grid-column: 3; }
+}
