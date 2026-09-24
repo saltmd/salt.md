@@ -114,19 +114,39 @@ thrown away from a board is an entry of its own and can be restored here — thi
 is the only place a board card has a way back.
 
 Open the section and each entry shows its icon, its title with a line through
-it, and two buttons:
+it, a line saying who threw it away and when, and two buttons:
 
 - **Restore** (the arrow) — puts it back, no confirmation.
 - **Delete forever** (the cross) — asks first, then it is gone.
 
-The order is neither alphabetical nor by when things were thrown away: entries
-arrive in the order the sidebar list itself is sorted, by the position number a
-page carries among its siblings. A former sub-page can therefore sit above a
-former top-level page. There is no "empty the trash" button, no search of the
-trash, and no view of what is inside an entry — you restore it to see it.
+**Newest first.** What went a minute ago is at the top.
+
+**Who and when.** The line under the title reads *Deleted by Anna · 2 hours
+ago*: a relative time within the last week, a date after that, the exact moment
+on hover. When an agent did it, a robot stands in front, and the name is the one
+the [activity log](history-and-audit.md#the-activity-log) records for it — the
+account's, with *(MCP)* after it. The name is read from that log rather than
+stored on the page, so it is there for pages thrown away before the line
+existed, too. Where the log cannot place the trashing the line names nobody and
+says only *Deleted · …*. That happens to a sub-page left behind when its parent
+is restored on its own over MCP: the log names the page somebody acted on, not
+every page that went along with it, and a wrong name would be worse than none.
+
+**Search.** The field at the top of the open section filters as you type. It
+looks at the title and the opening text of every entry, and of every page inside
+one, ignoring case and accents — so an entry is found by a sub-page it carries.
+
+**Look inside.** Click an entry, not its buttons, to see it without restoring
+it. The preview shows the page as a plain document — title, description and
+body — says how many sub-pages it carries, and offers **Delete forever** and
+**Restore** beneath it. Nothing in it can be edited and nothing in it runs. A
+database shows its own page, not its rows; restore it to see those.
+
+There is no "empty the trash" button.
 
 A **viewer** sees the section and both buttons like everybody else. Neither one
-works: the server refuses, and nothing visible happens.
+works: the server refuses, and nothing visible happens. The search and the
+preview do work for a viewer, because both only read.
 
 ## Restoring
 
@@ -269,6 +289,14 @@ Trashing over MCP is recorded in the audit log like any other agent write. See
 same request deletes it and its subtree outright, whether or not it was in the
 trash first. `/api/pages/{id}/restore` is the way back. A read-only API token is
 refused on all three.
+
+`/api/pages/{id}/preview` answers with the page as a plain HTML document, which
+is what the trash's preview shows. It works for any page you may read, in the
+trash or not, and a read-only token may use it. The document carries no script,
+and the response forbids scripts as well.
+
+In the page list (`/api/pages`) a page in the trash carries `trashedAt`, and —
+where the activity log can place it — `trashedBy` and `trashedByAgent`.
 
 Two routes ignore the trash, and both are worth knowing because they have no
 equivalent in the browser:

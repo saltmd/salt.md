@@ -19,6 +19,11 @@ export interface PageMeta {
   description: string;
   snippet: string; // plain-text preview for the notes list (derived server-side)
   thumb: string; // first image URL, '' if none
+  /** Only on a page in the trash: when it went, and — when the activity log can
+   *  say — who sent it there, and whether that was an agent. */
+  trashedAt?: string;
+  trashedBy?: string;
+  trashedByAgent?: boolean;
 }
 
 export interface Workspace {

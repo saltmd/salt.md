@@ -11,6 +11,7 @@ import { toast } from '../toast';
 import Portal from './Portal';
 import IconPicker from './IconPicker';
 import { PageIcon } from '../pageIcon';
+import TrashSection from './TrashSection';
 import { compare } from '../format';
 import { plural, t } from '../i18n';
 import AgentConnectModal from './AgentConnect';
@@ -20,7 +21,7 @@ import BlueprintLibrary from './BlueprintLibrary';
 import WorkspaceSettings from './WorkspaceSettings';
 import StrandedWorkspaces from './StrandedWorkspaces';
 import { useExclusiveModal, useMenuDismiss } from '../modal';
-import { Sun, Moon, Search, Library, Plus, Table2, FileText, Trash2, LayoutTemplate, Tag, ChevronRight, ChevronDown, Users, Check, Download, Upload, Image, PanelLeftClose, PanelLeftOpen, Pencil, Star, ShieldAlert, ScrollText, Paperclip, SquareArrowOutUpRight, Copy, CornerUpRight, CornerLeftUp, Undo2, X, MoreHorizontal, Settings2 } from 'lucide-react';
+import { Sun, Moon, Search, Library, Plus, Table2, FileText, Trash2, LayoutTemplate, Tag, ChevronRight, ChevronDown, Users, Check, Download, Upload, Image, PanelLeftClose, PanelLeftOpen, Pencil, Star, ShieldAlert, ScrollText, Paperclip, SquareArrowOutUpRight, Copy, CornerUpRight, CornerLeftUp, MoreHorizontal, Settings2 } from 'lucide-react';
 import { AgentDot } from './AgentBadge';
 import { tagColorClass } from '../tags';
 import { childrenForSection, topLevelForDocs } from '../treeMode';
@@ -727,7 +728,6 @@ export default function Sidebar({
   onExpand,
 }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
-  const [trashOpen, setTrashOpen] = useState(false);
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [addFor, setAddFor] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
@@ -1428,28 +1428,7 @@ export default function Sidebar({
         </SidebarSection>
       )}
       {trashRoots.length > 0 && (
-        <div className="trash-section">
-          <button className="trash-toggle" onClick={() => setTrashOpen(!trashOpen)}>
-            <span className="sidebar-item-label"><Trash2 size={15} /> {t('Trash')}</span> <span className="trash-count">{trashRoots.length}</span>
-          </button>
-          {trashOpen &&
-            trashRoots.map((p) => (
-              <div key={p.id} className="trash-item">
-                <span className="tree-icon"><PageIcon icon={p.icon} size={15} fallback={<FileText size={15} />} /></span>
-                <span className="tree-title">{p.title || 'Untitled'}</span>
-                <button title={t('Restore')} onClick={() => onRestore(p.id)}>
-                  <Undo2 size={14} />
-                </button>
-                <button
-                  title={t('Delete forever')}
-                  className="danger"
-                  onClick={() => onDeleteForever(p.id)}
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            ))}
-        </div>
+        <TrashSection roots={trashRoots} pages={pages} onRestore={onRestore} onDeleteForever={onDeleteForever} />
       )}
       <div className="sidebar-footer">
         <div className="sidebar-footer-row">

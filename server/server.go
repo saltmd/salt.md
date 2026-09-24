@@ -239,6 +239,7 @@ func New(dataDir string, dist fs.FS) (*Server, error) {
 	m.HandleFunc("POST /api/pages/{id}/restore", s.auth(s.handleRestorePage))
 	m.HandleFunc("POST /api/reindex-siblings", s.auth(s.handleReindexSiblings))
 	m.HandleFunc("GET /api/pages/{id}/backlinks", s.auth(s.handleBacklinks))
+	m.HandleFunc("GET /api/pages/{id}/preview", s.auth(s.handlePreviewPage))
 	m.HandleFunc("GET /api/graph", s.auth(s.handleGraph))
 	m.HandleFunc("GET /api/tags", s.auth(s.handleListTags))
 	m.HandleFunc("GET /api/comment-counts", s.auth(s.handleCommentCounts))

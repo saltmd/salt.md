@@ -678,6 +678,119 @@ button {
   color: var(--danger);
 }
 
+/* Open, the trash has a search field and two lines per entry; at the closed
+   height only three entries would fit. */
+.trash-section.open {
+  max-height: 340px;
+}
+
+.trash-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 4px 6px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--muted);
+}
+
+.trash-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--fg);
+  outline: none;
+}
+
+/* The entry itself opens the preview. It is a button like the two beside it,
+   so it has to shed their 20px square. */
+.trash-item .trash-peek {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  height: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  text-align: left;
+  color: inherit;
+  background: none;
+}
+
+.trash-item .trash-peek:hover {
+  background: none;
+}
+
+.trash-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.trash-text .tree-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trash-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.trash-empty {
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.trash-preview-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.trash-preview-head .dialog-hint {
+  margin: 0;
+}
+
+.trash-preview-head h2 {
+  margin: 2px 0 4px;
+}
+
+.trash-preview-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* White in either theme: the page is shown as a sheet of paper, the way its
+   export and its print view show it. */
+.trash-preview-frame {
+  display: block;
+  width: 100%;
+  height: min(60vh, 560px);
+  margin-top: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+}
+
 .sidebar-footer {
   border-top: 1px solid var(--border);
   padding: 8px;
