@@ -832,6 +832,26 @@ export default function App() {
     return role !== 'viewer';
   }, [currentId, pagesById, workspaces]);
 
+  // Switching workspaces must not leave the editor (and the URL) pointing at a
+  // document that belonged to the workspace you just left — the picker used
+  // to be wired straight to setCurrentWs, so `currentId` never changed and
+  // the previous workspace's content (and its /p/<id> URL) just sat there.
+  // Land on the new workspace's first page instead, the same "pick a page"
+  // fallback already used when the active page is trashed — or the empty
+  // state if the workspace has none yet. If the page you're already on
+  // happens to live in the target workspace, leave it alone.
+  const switchWorkspace = useCallback(
+    (id: string) => {
+      setCurrentWs(id);
+      const cur = currentId ? pagesById.get(currentId) : undefined;
+      if (cur && cur.workspaceId === id) return;
+      const inWs = (p: PageMeta) => !p.trashed && p.workspaceId === id;
+      const first = pages?.find((p) => inWs(p) && !p.parentId) ?? pages?.find(inWs);
+      navigate(first ? first.id : null);
+    },
+    [currentId, pages, pagesById, navigate],
+  );
+
   const onAuthed = useCallback(
     (user: User) => {
       setMe({ setupRequired: false, authenticated: true, user, version: BUILD_VERSION });
@@ -924,7 +944,7 @@ export default function App() {
         workspaces={workspaces}
         currentWs={currentWs}
         tagColors={tagColors}
-        onSwitchWorkspace={setCurrentWs}
+        onSwitchWorkspace={switchWorkspace}
         onWorkspacesChanged={loadWorkspaces}
         user={me.user}
         currentId={currentId}
