@@ -35,6 +35,12 @@ type pageMeta struct {
 	Description string          `json:"description"`
 	Snippet     string          `json:"snippet"`
 	Thumb       string          `json:"thumb"`
+	// Only on a page in the trash: when it went, and — in the page list, where
+	// the trash is drawn — who sent it there, read from the activity log. See
+	// attachTrashers.
+	TrashedAt      string `json:"trashedAt,omitempty"`
+	TrashedBy      string `json:"trashedBy,omitempty"`
+	TrashedByAgent bool   `json:"trashedByAgent,omitempty"`
 }
 
 type page struct {
@@ -50,6 +56,9 @@ func scanMeta(sc interface{ Scan(...any) error }) (pageMeta, error) {
 	var isTemplate int
 	err := sc.Scan(&m.ID, &m.ParentID, &m.Title, &m.Icon, &m.Cover, &m.Position, &m.UpdatedAt, &trashedAt, &m.Type, &props, &m.WorkspaceID, &m.OwnerID, &m.Visibility, &isTemplate, &tags, &m.Description, &m.Snippet, &m.Thumb)
 	m.Trashed = trashedAt.Valid
+	if trashedAt.Valid {
+		m.TrashedAt = trashedAt.String
+	}
 	m.Props = json.RawMessage(props)
 	m.IsTemplate = isTemplate != 0
 	m.Tags = []string{}
@@ -124,7 +133,9 @@ func (s *Server) handleListPages(w http.ResponseWriter, r *http.Request) {
 		}
 		list = append(list, m)
 	}
-	writeJSON(w, s.filterReadable(requestUser(r).ID, list))
+	list = s.filterReadable(requestUser(r).ID, list)
+	s.attachTrashers(list)
+	writeJSON(w, list)
 }
 
 // handleListTemplates is the templates' own list, because they are no longer in

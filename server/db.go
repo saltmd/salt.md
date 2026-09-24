@@ -277,6 +277,7 @@ CREATE TABLE IF NOT EXISTS audit_log (
 	detail TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_audit_ws ON audit_log(workspace_id, id);
+CREATE INDEX IF NOT EXISTS idx_audit_page ON audit_log(page_id);
 CREATE TABLE IF NOT EXISTS idempotency (
 	key TEXT PRIMARY KEY,
 	result TEXT NOT NULL,

@@ -275,6 +275,7 @@ second later.
 | `POST /api/pages/{id}/restore` | bring it back out of the trash |
 | `POST /api/pages/{id}/duplicate` | deep-copy the page and everything under it |
 | `GET /api/pages/{id}/backlinks` | the pages that mention this one |
+| `GET /api/pages/{id}/preview` | the page as a plain, script-free HTML document — what the trash's preview shows |
 | `GET /api/graph` | every link between pages you can read, as source/target pairs |
 | `GET /api/favorites` · `POST`/`DELETE /api/favorites/{id}` | your own favourites |
 | `GET /api/tags` · `GET`/`PUT /api/tag-colors` | tags in use, and their colours |

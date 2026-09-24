@@ -21,6 +21,13 @@ export function isDesktopPointer(): boolean {
   return window.matchMedia('(hover: hover) and (pointer: fine)').matches;
 }
 
+/** Is this the salt.md desktop app? To CSS its window is an ordinary browser
+ *  window — it never reports display-mode standalone — but the app's preload
+ *  hands every page it loads a `salt` bridge, and nothing else does. */
+export function isDesktopApp(): boolean {
+  return typeof (window as { salt?: { getServer?: unknown } }).salt?.getServer === 'function';
+}
+
 const EVENT = 'salt:refresh';
 
 /** Ask every screen holding server data to fetch it again. Deliberately a

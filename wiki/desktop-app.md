@@ -293,6 +293,14 @@ been connected. Do that piece of setup in a browser.
   you selected first. There you get Copy and the spelling suggestions, and the
   system spell checker underlines misspellings as you write. Right-clicking a
   word in ordinary text with nothing selected gives no menu at all.
+- **A sync button sits at the bottom of the sidebar**, between your name and
+  the theme switch; its tooltip reads *Fetch the latest changes*. It fetches the
+  page tree and an open table or board again and reconnects the live updates,
+  without reloading the window — your tabs, your scroll position and whatever
+  you are typing stay where they are. It is for the moments the window has not
+  caught up: after the laptop slept, or after an agent trashed a row over MCP,
+  which an open board is not told about. Reload in the View menu still starts
+  the window over.
 - **The View menu** has Reload (⌘R / Ctrl+R), Force Reload, Actual Size, Zoom In,
   Zoom Out, Toggle Full Screen and Toggle Developer Tools. **Edit** is the
   standard one: Undo, Redo, Cut, Copy, Paste, Delete, Select All — plus, on
