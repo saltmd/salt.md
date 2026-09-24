@@ -1,0 +1,47 @@
+name: CI
+
+# The gate a contributor runs locally, run for them: `make frontend` (the seven
+# check scripts, then the Vite build) and the Go tests, on every pull request
+# and every push to main. Release, Docker and desktop builds have their own
+# workflows and trigger on tags — this one never publishes anything.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# A new push to the same pull request supersedes the run still going.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+
+      # Type check, translation catalogue, formatting, card layout, drop files,
+      # tree mode and the wiki against the code — then the Vite build. The
+      # binary embeds web/dist, so nothing Go can compile before this.
+      - name: Frontend (check gate + build)
+        run: make frontend
+
+      - name: Go tests
+        run: go test ./...
+
+      - name: Go build
+        run: CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o salt .
