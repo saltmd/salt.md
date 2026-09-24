@@ -1046,5 +1046,10 @@
   "⚠ This is the URL of the running quick tunnel — it changes on every start. For OAuth that lasts, use a named tunnel or your own domain and enter it as the base URL.": "⚠ Das ist die URL des laufenden Quick-Tunnels — sie wechselt bei jedem Start. Für dauerhaftes OAuth einen benannten Tunnel oder eine eigene Domain nutzen und als Basis-URL eintragen.",
   "✓ Resolved": "✓ Erledigt",
   "＋ Link": "＋ Link",
-  "＋ Person": "＋ Person"
+  "＋ Person": "＋ Person",
+  "Click to edit; drag to reorder. Keyboard: Alt + Left/Right.": "Zum Bearbeiten klicken; zum Sortieren ziehen. Tastatur: Alt + Links/Rechts.",
+  "Delete option “{name}”?": "Option „{name}“ löschen?",
+  "Enter a unique, non-empty name.": "Einen eindeutigen, nicht leeren Namen eingeben.",
+  "Existing selections are not cleared.": "Bestehende Auswahlen werden nicht gelöscht.",
+  "Option name": "Optionsname"
 }

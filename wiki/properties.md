@@ -140,6 +140,18 @@ does not exist yet and an entry appears offering to create it on the spot, or
 click the ⋯ beside an option to recolour it (nine named colours, Gray through
 Red) or delete it. Choosing the option that is already set clears the cell.
 
+In **Properties**, click an option chip to edit its **Option name**. Names update in the dialog as you type. Blank names and names already used by another
+option are not accepted. Drag an option chip before or after another chip to change its position in
+pickers and board columns (or focus it and press Alt + Left/Right); the red **Delete option** trash icon asks for confirmation before removing its definition. Colours
+are available in the same panel. Names, colours and option order stay local until **Save**; **Cancel** discards
+them. Escape closes the option panel. Invalid names are not applied. The panel starts at its original 150px width and expands
+for longer names, within the viewport. This also works for multi-select options.
+
+Renaming and reordering preserve option ids, row selections and filters.
+Deleting in Properties keeps existing row values; references to a deleted
+option appear as stray ids, as described below. Reordering does not change
+sorting by stored option id.
+
 Deleting an option here removes it from the collection's schema and clears it
 from the row you are on — **but not from other rows**. Those cells keep the id
 and show it in grey, which is how a stray `in-progress` sometimes appears on

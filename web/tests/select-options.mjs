@@ -1,0 +1,62 @@
+import assert from 'node:assert/strict';
+import { withFixture } from './fixture.mjs';
+
+await withFixture(async ({ page, open, chip, field, read, assertRows, schema }) => {
+  await open();
+  const layout = await page.locator('.dialog.wide').boundingBox();
+  await chip(0, 'To do').click();
+  assert.deepEqual(await page.locator('.dialog.wide').boundingBox(), layout);
+  assert.equal(Math.round((await page.locator('.schema-option-editor').boundingBox()).width), 150);
+  await field.fill('');
+  await page.getByRole('alert').waitFor();
+  await field.fill('Done');
+  await page.getByRole('alert').waitFor();
+  await field.fill('A longer option name');
+  assert((await page.locator('.schema-option-editor').boundingBox()).width > 150);
+  await field.fill('Ready');
+  await field.press('Escape');
+  const box = await chip(0, 'Third').boundingBox();
+  await chip(0, 'Ready').dragTo(chip(0, 'Third'), {
+    targetPosition: { x: box.width - 2, y: box.height / 2 },
+  });
+  assert.deepEqual(await page.locator('.schema-options').first().locator('.opt-chip').allTextContents(),
+    ['Done', 'Third', 'Ready']);
+  await chip(1, 'To do').click();
+  await field.fill('Ready label');
+  await field.press('Escape');
+  assert.deepEqual((await read()).schema, schema, 'Editing must stay local until Save');
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await open();
+  await chip(0, 'To do').click();
+  await field.fill('Ready');
+  await page.getByRole('button', { name: 'Green', exact: true }).click();
+  await chip(0, 'Ready').press('Alt+ArrowRight');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await page.getByRole('heading', { name: 'Collection properties' }).waitFor({ state: 'hidden' });
+  await page.reload();
+  const persisted = await read();
+  assert.deepEqual(persisted.schema[0].options.map(option => option.id), ['done', 'todo', 'third']);
+  assert.equal(persisted.schema[0].options[1].name, 'Ready');
+  assert.notEqual(persisted.schema[0].options[1].color, schema[0].options[0].color);
+  await open();
+  await chip(0, 'Ready').click();
+  await page.getByRole('button', { name: 'Delete option', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await chip(0, 'Ready').click();
+  await page.getByRole('button', { name: 'Delete option', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Delete option', exact: true }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await page.getByRole('heading', { name: 'Collection properties' }).waitFor({ state: 'hidden' });
+  assert(!(await read()).schema[0].options.some(option => option.id === 'todo'));
+  await assertRows();
+  await open();
+  await page.setViewportSize({ width: 375, height: 500 });
+  await chip(1, 'To do').click();
+  await field.fill('A very long option name that must remain inside the viewport');
+  const narrow = await page.locator('.schema-option-editor').boundingBox();
+  assert(narrow.x >= 7 && narrow.x + narrow.width <= 368);
+  await page.getByRole('button', { name: 'Red', exact: true }).click();
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+});
+console.log('Select option browser regressions passed.');

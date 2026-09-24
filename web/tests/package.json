@@ -1,0 +1,11 @@
+{
+  "name": "salt-browser-regressions",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node select-options.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.63.0"
+  }
+}

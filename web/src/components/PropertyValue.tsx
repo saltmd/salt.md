@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { api } from '../api';
+import { confirm } from '../dialog';
 import type { ChecklistItem, PropDef, PropOption } from '../types';
 import Portal from './Portal';
 import { OPTION_HEXES, optionPalette, optionSlug } from '../selectOptions';
@@ -141,7 +142,10 @@ function SelectCell({
     onOptionsChange?.(options.map((o) => (o.id === oid ? { ...o, color: hex } : o)));
     setColorFor(null);
   };
-  const remove = (oid: string) => {
+  const remove = async (oid: string) => {
+    close();
+    const ok = await confirm(t('Delete option “{name}”?', { name: options.find((o) => o.id === oid)?.name ?? oid }), { confirmText: t('Delete option'), danger: true });
+    if (!ok) return;
     onOptionsChange?.(options.filter((o) => o.id !== oid));
     if (multi) onChange(vals.filter((v) => v !== oid));
     else if (String(value) === oid) onChange('');

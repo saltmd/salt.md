@@ -9950,3 +9950,20 @@ body:has(.live-down) .update-banner {
   opacity: 1; /* it is working, not unavailable */
   color: var(--accent);
 }
+
+.schema-options { position: relative; }
+.schema-option-editor .select-rename { display: flex; gap: 6px; padding: 4px 0 8px; }
+.schema-option-editor .select-rename button { padding: 4px 6px; border-radius: 6px; }
+.schema-option-editor .select-rename button:hover:not(:disabled) { background: var(--hover); }
+.schema-option-backdrop { position: fixed; inset: 0; z-index: 900; }
+.schema-option-editor { position: fixed; z-index: 901; min-width: 0; overflow-y: auto; overscroll-behavior: contain; }
+.schema-option-editor .select-rename .prop-input { min-width: 0; width: 0; flex: 1; border: 1px solid var(--border); }
+.schema-option-editor button:disabled { opacity: 0.5; cursor: default; }
+
+.draggable-option { cursor: grab; }
+.draggable-option:active { cursor: grabbing; }
+.option-dragging { opacity: 0.4; }
+.option-drop-before { box-shadow: -3px 0 0 0 var(--accent); }
+.option-drop-after { box-shadow: 3px 0 0 0 var(--accent); }
+
+.schema-option-editor .select-rename .danger { color: var(--danger, #d44b40); }
