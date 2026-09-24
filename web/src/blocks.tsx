@@ -26,7 +26,16 @@ function safeHref(u: string): string {
 // An emphasized box with a leading emoji. Clicking the emoji cycles through a
 // preset list (kept simple on purpose — no popover to fight the editor focus).
 
-const CALLOUT_EMOJIS = ['💡', '⚠️', '❗', '✅', '📌', '🔥', 'ℹ️'];
+const CALLOUT_TONES: Record<string, string> = {
+  '💡': 'neutral',
+  '⚠️': 'warning',
+  '❗': 'danger',
+  '✅': 'success',
+  '📌': 'neutral',
+  '🔥': 'amber',
+  'ℹ️': 'info',
+};
+const CALLOUT_EMOJIS = Object.keys(CALLOUT_TONES);
 
 export const calloutSpec = createReactBlockSpec(
   {
@@ -46,7 +55,7 @@ export const calloutSpec = createReactBlockSpec(
         editor.updateBlock(block, { props: { emoji: next } } as never);
       };
       return (
-        <div className="bn-callout">
+        <div className="bn-callout" data-tone={CALLOUT_TONES[emoji] ?? 'neutral'}>
           <button
             type="button"
             className="bn-callout-emoji"

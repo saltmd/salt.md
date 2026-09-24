@@ -3384,10 +3384,24 @@ body.is-col-resizing {
   gap: 10px;
   align-items: flex-start;
   width: 100%;
-  background: var(--accent-soft);
+  background: #f1f1ef;
   border-radius: 10px;
   padding: 12px 14px;
 }
+
+/* The icon determines the tone; no separate color is stored in the document. */
+.bn-callout[data-tone='warning'] { background: #fff3bf; }
+.bn-callout[data-tone='danger'] { background: #fde2e2; }
+.bn-callout[data-tone='success'] { background: #e1f3e5; }
+.bn-callout[data-tone='amber'] { background: #ffe8bd; }
+.bn-callout[data-tone='info'] { background: #e0f0ff; }
+
+[data-theme='dark'] .bn-callout { background: #2c2c2a; }
+[data-theme='dark'] .bn-callout[data-tone='warning'] { background: #40391f; }
+[data-theme='dark'] .bn-callout[data-tone='danger'] { background: #442827; }
+[data-theme='dark'] .bn-callout[data-tone='success'] { background: #243c2c; }
+[data-theme='dark'] .bn-callout[data-tone='amber'] { background: #44321f; }
+[data-theme='dark'] .bn-callout[data-tone='info'] { background: #243747; }
 
 .bn-callout-emoji {
   border: none;

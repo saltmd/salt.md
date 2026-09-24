@@ -315,7 +315,9 @@ instance keeps its documents to itself.
 
 A boxed note with an emoji at the left. Click the emoji to cycle it — the
 tooltip says *Change symbol* — through 💡 ⚠️ ❗ ✅ 📌 🔥 ℹ️ and back to the
-start. The text beside it is ordinary inline content.
+start. Its background follows the symbol: light gray for 💡 and 📌, yellow for
+⚠️, red for ❗, green for ✅, amber for 🔥, and light blue for ℹ️. Dark mode uses
+muted shades of the same colors. The text beside it is ordinary inline content.
 
 ### Table of contents
 
