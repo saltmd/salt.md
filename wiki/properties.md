@@ -19,7 +19,8 @@ both sides.
 3. Fill in whatever the type needs — a select needs options, a relation needs
    **Links to**, a rollup needs four answers. Those fields appear under the
    property as soon as you pick the type.
-4. Click **Save**. Nothing is written until you do; **Cancel** discards the lot.
+4. Changes save automatically after a short pause. **Close** waits for pending changes.
+   If saving fails, the dialog stays open and offers **Retry**. Property deletion asks for confirmation.
 
 Rename a property by typing over its name. Change its type with the dropdown
 beside it. **Changing the type does not delete anything**: the values stay in

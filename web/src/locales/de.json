@@ -1046,5 +1046,7 @@
   "⚠ This is the URL of the running quick tunnel — it changes on every start. For OAuth that lasts, use a named tunnel or your own domain and enter it as the base URL.": "⚠ Das ist die URL des laufenden Quick-Tunnels — sie wechselt bei jedem Start. Für dauerhaftes OAuth einen benannten Tunnel oder eine eigene Domain nutzen und als Basis-URL eintragen.",
   "✓ Resolved": "✓ Erledigt",
   "＋ Link": "＋ Link",
-  "＋ Person": "＋ Person"
+  "＋ Person": "＋ Person",
+  "Could not save changes.": "Änderungen konnten nicht gespeichert werden.",
+  "Delete property “{name}”?": "Eigenschaft „{name}“ löschen?"
 }

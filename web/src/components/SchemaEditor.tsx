@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
+import { confirm } from '../dialog';
 import type { CollectionConfig, PropDef, PropType, ViewDef } from '../types';
 import Portal from './Portal';
 import { useExclusiveModal } from '../modal';
@@ -71,8 +72,17 @@ export default function SchemaEditor({
   onClose: () => void;
 }) {
   const [schema, setSchema] = useState<PropDef[]>(config.schema);
-  const [views, setViews] = useState<ViewDef[]>(config.views);
-  useExclusiveModal(onClose);
+  const [views] = useState<ViewDef[]>(config.views);
+  const persistedViews = useRef(config.views);
+  useExclusiveModal(() => { void closeEditor(); });
+  const [saveError, setSaveError] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const saved = useRef(JSON.stringify(config));
+  const queue = useRef<Promise<boolean>>(Promise.resolve(true));
+  const closing = useRef(false);
+  const draftKey = useRef('');
+  draftKey.current = JSON.stringify({ schema, views });
+  const persistRef = useRef<() => Promise<boolean>>(async () => true);
   const [newName, setNewName] = useState('');
   const [newType, setNewType] = useState<PropType>('select');
   // Welcher Options-Chip gerade seinen Farbwaehler offen hat ("propId:optId").
@@ -164,7 +174,11 @@ export default function SchemaEditor({
     );
   };
 
-  const removeProp = (id: string) => setSchema((prev) => prev.filter((p) => p.id !== id));
+  const removeProp = async (id: string) => {
+    if (await confirm(t('Delete property “{name}”?', { name: schema.find((p) => p.id === id)?.name ?? id }), { confirmText: t('Delete property'), danger: true })) {
+      setSchema((prev) => prev.filter((p) => p.id !== id));
+    }
+  };
 
   const save = async () => {
     // Every option WITHOUT a colour gets the fallback written in on save.
@@ -186,22 +200,69 @@ export default function SchemaEditor({
       (p) => p.type === 'select' || p.type === 'multiselect' || p.type === 'relation',
     );
     const dateProps = colored.filter((p) => p.type === 'date');
-    const fixedViews = views.map((v) => {
-      const next = { ...v };
-      if (v.type === 'board' && !propIds.has(v.groupBy ?? '')) {
-        next.groupBy = selectProps[0]?.id ?? '';
+    const task = queue.current.then(async () => {
+      // Normalize against the last successful write, so removed view settings
+      // cannot reappear when a later edit reuses a deleted property id.
+      const fixedViews = persistedViews.current.map((v) => {
+        const next = { ...v };
+        if (v.type === 'board' && !propIds.has(v.groupBy ?? '')) {
+          next.groupBy = selectProps[0]?.id ?? '';
+        }
+        if (v.type === 'calendar' && !propIds.has(v.dateProp ?? '')) {
+          next.dateProp = dateProps[0]?.id ?? '';
+        }
+        if (v.filters) next.filters = v.filters.filter((f) => propIds.has(f.property));
+        if (v.sort && !propIds.has(v.sort.property)) next.sort = null;
+        if (v.hidden) next.hidden = v.hidden.filter((id) => propIds.has(id));
+        return next;
+      });
+      const next = { schema: colored, views: fixedViews };
+      const key = JSON.stringify(next);
+      if (key === saved.current) {
+        setSaveError(false);
+        return true;
       }
-      if (v.type === 'calendar' && !propIds.has(v.dateProp ?? '')) {
-        next.dateProp = dateProps[0]?.id ?? '';
-      }
-      if (v.filters) next.filters = v.filters.filter((f) => propIds.has(f.property));
-      if (v.sort && !propIds.has(v.sort.property)) next.sort = null;
-      if (v.hidden) next.hidden = v.hidden.filter((id) => propIds.has(id));
-      return next;
+      setSaving(true);
+      try {
+        await onSave(next);
+        saved.current = key;
+        persistedViews.current = fixedViews;
+        setSaveError(false);
+        return true;
+      } catch {
+        setSaveError(true);
+        return false;
+      } finally { setSaving(false); }
     });
-    await onSave({ schema: colored, views: fixedViews });
-    onClose();
+    queue.current = task;
+    return task;
   };
+
+  persistRef.current = save;
+  useEffect(() => {
+    if (JSON.stringify({ schema, views }) === saved.current) return;
+    const timer = window.setTimeout(() => { void persistRef.current(); }, 450);
+    return () => window.clearTimeout(timer);
+  }, [schema, views]);
+
+  async function closeEditor() {
+    if (closing.current) return;
+    closing.current = true;
+    try {
+      // A slow write must not close over edits made while it was pending.
+      // Drain the newest draft before unmounting and cancelling its debounce.
+      while (true) {
+        const key = draftKey.current;
+        if (!await persistRef.current()) return;
+        if (key === draftKey.current) {
+          onClose();
+          return;
+        }
+      }
+    } finally {
+      closing.current = false;
+    }
+  }
 
   const relationProps = schema.filter((p) => p.type === 'relation');
 
@@ -442,7 +503,7 @@ export default function SchemaEditor({
 
   return (
     <Portal>
-    <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) void closeEditor(); }}>
       <div className="dialog wide">
         <h2>{t('Collection properties')}</h2>
         <div className="schema-list">
@@ -551,8 +612,9 @@ export default function SchemaEditor({
           <button className="btn" onClick={addProp}>Add</button>
         </div>
         <div className="dialog-buttons">
-          <button className="btn" onClick={onClose}>{t('Cancel')}</button>
-          <button className="btn primary" onClick={save}>{t('Save')}</button>
+          <span role="status">{saving ? t('Saving…') : saveError ? t('Could not save changes.') : ''}</span>
+          {saveError && <button className="btn" onClick={() => { void save(); }}>{t('Retry')}</button>}
+          <button className="btn" onClick={() => { void closeEditor(); }}>{t('Close')}</button>
         </div>
       </div>
     </div>

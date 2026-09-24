@@ -362,8 +362,8 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
   const schema = config?.schema ?? [];
 
   const saveConfig = async (next: CollectionConfig) => {
-    setConfig(next);
     await api.putCollection(collectionId, next);
+    setConfig(next);
   };
 
   const addRow = async (presetProps?: Record<string, unknown>) => {
