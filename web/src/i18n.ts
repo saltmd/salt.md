@@ -19,6 +19,7 @@ import { setFormatLocale, setFormatPrefs } from './format';
 export const LOCALES: Record<string, string> = {
   en: 'English',
   de: 'Deutsch',
+  es: 'Español',
 };
 
 /** Plural categories as Intl names them. Which ones a language actually uses
