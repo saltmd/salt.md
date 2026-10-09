@@ -27,9 +27,7 @@ the person who published it.
 
 Four things follow from how the link is served:
 
-- It is a **standalone HTML document**. The app is not involved, and no
-  JavaScript runs. It opens on anything, including a phone browser with
-  scripting switched off.
+- It is a **standalone HTML document**. The app is not involved. Its content is rendered on the server and remains readable with scripting switched off. An optional theme switch remembers light, dark or system appearance.
 - It carries **that page and nothing else**. Sub-pages, the rest of the
   workspace, search, the sidebar: none of it is reachable from a public link,
   because none of it is in the document.
@@ -174,54 +172,30 @@ Three properties of this that surprise people:
 
 ## What a visitor sees
 
-The document is the page, rendered plainly: the page icon and title as the
-heading, the description underneath it if the page has one, then the content.
-The browser tab shows the page title. There is no navigation and no sign-in
-prompt.
+The document follows the application's reading layout rather than its A4 print
+layout: title and icon, description, optional cover, and the page content. It
+uses the same bundled stylesheet and fonts as the app, with a reading width
+that adapts to a phone. Light, dark and system appearance are available; the
+content itself needs no JavaScript. Printing and HTML export keep their own
+renderer and options.
 
-There is no salt.md branding **on the document**. The two gates in front of it
-are the exception, and both name the product in the browser tab: the password
-form's tab reads "salt.md: protected page", the "Not found" page's tab reads
-"salt.md".
+Saved block formatting is preserved: alignment, inline emphasis and highlights,
+headings, lists, read-only checkboxes, quotes, code, tables with header cells,
+callouts, toggles, columns, bookmarks, media sizing and captions, and a table of
+contents linking to headings. Unsafe link schemes are replaced by a dead link.
 
-Content survives with its structure: headings, bullet and numbered lists,
-checklist items (as ticked boxes that cannot be clicked), quotes, code blocks,
-tables, dividers, callouts, toggles (which open and close), columns, bookmarks
-and links.
+Uploaded files currently referenced by the shared page, its icon or its cover
+are served through a token-scoped address. This does not expose other uploads,
+child pages, comments, notes or history. Removing a reference, revoking the
+share, or reaching its expiry disables that asset access. Password-protected
+assets require the share password or the short-lived grant obtained by opening
+the protected page; passwords never enter an asset URL. The original signed-in
+`/files/` route stays protected.
 
-Links behave in two different ways, which matters if the page was written by
-somebody else:
-
-- A link carried by a **file, image or bookmark block** is checked. Anything
-  that is not `http`, `https` or `mailto` is replaced by a dead link.
-- A link written **inside the text** goes out exactly as it was typed. It is not
-  checked and not rewritten.
-
-What is **not** in the document:
-
-| Not included | What the visitor gets instead |
-| --- | --- |
-| Sub-pages | Nothing. Only the page you shared |
-| Links to other pages of your instance | A link into the app, which lands on the sign-in screen |
-| An embedded collection | A link into the app, labelled `▦ Datenbank` (fixed text, not the collection's name, and not the rows) |
-| Files uploaded into this instance (images, attachments) | A broken image or a dead link: they sit at an address that needs a signed-in account. An image whose address points at another website loads normally |
-| The cover image | Nothing |
-| Properties of a database row | Nothing; only the row's title and body |
-| Comments, notes, version history | Nothing. They are never part of a share |
-| A table of contents block | Nothing; it is built by the app |
-| A table's header row | Ordinary cells. The document has no header row, so the first row is not set apart |
-
-The file limitation is the one that catches people out. An image you dropped
-into a page is stored at an address that requires a signed-in account, and a
-public page's `<img>` points at that address, so the picture that is there for
-you is missing for the visitor.
-
-If the images matter, use **⋯ → Print / as PDF** and send the PDF. That view
-opens in a tab of the app, where you are still signed in, so the pictures are
-in the document you print. **⋯ → Web page (.html)** does not help: the
-downloaded file goes through the same renderer and points at the same internal
-addresses, so it shows the same gaps as the public page
-([Import and export](import-export.md)).
+Links to other pages still lead into the app and require the reader's own
+account and access. Embedded collections do not publish their rows here, and
+row properties are not added to the document. The collection's public table
+behaviour is described below.
 
 ### Publishing a collection
 
