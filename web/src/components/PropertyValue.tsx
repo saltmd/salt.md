@@ -7,7 +7,7 @@ import { OPTION_HEXES, optionPalette, optionSlug } from '../selectOptions';
 import { daysUntil, formatDay, formatMoment, formatNumber } from '../format';
 import { showActivityFor } from './ActivityLogHost';
 import { initials, nameColor } from './CommentsPanel';
-import { Check, Link2 as LinkIcon, Plus, Trash2 } from 'lucide-react';
+import { Check, ExternalLink, Link2 as LinkIcon, Plus, Trash2 } from 'lucide-react';
 import { PageIcon } from '../pageIcon';
 import { t } from '../i18n';
 
@@ -850,6 +850,45 @@ function RelationValue({ def, value, onChange, readOnly, compact, maxChips }: Pr
   );
 }
 
+// Editing and following a URL are separate actions. A filled cell must not
+// become impossible to correct merely because it already contains a link.
+function UrlValue({ def, value, onChange, readOnly, compact }: Props) {
+  const raw = String(value ?? '').trim();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(raw);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const cancelled = useRef(false);
+  let href = '';
+  let label = raw;
+  try {
+    const url = new URL(/^[a-z][a-z\d+.-]*:/i.test(raw) ? raw : 'https://' + raw);
+    if (url.protocol === 'http:' || url.protocol === 'https:') {
+      href = url.href;
+      label = url.hostname.replace(/^www\./, '');
+    }
+  } catch { /* An unfinished address can still be edited. */ }
+  const begin = () => { cancelled.current = false; setDraft(raw); setEditing(true); };
+  const finish = () => {
+    if (!cancelled.current && draft.trim() !== raw) onChange?.(draft.trim());
+    setEditing(false);
+  };
+  const restoreFocus = () => requestAnimationFrame(() => trigger.current?.focus());
+  const chip = <><LinkIcon size={11} /><span>{label}</span></>;
+  if (readOnly || !onChange || compact) {
+    if (!raw) return compact ? null : <span className="prop-empty">—</span>;
+    return href ? <a className="prop-url-chip" href={href} target="_blank" rel="noopener noreferrer" title={raw} onClick={(e) => e.stopPropagation()}>{chip}</a> : <span className="prop-url-chip">{chip}</span>;
+  }
+  if (editing) return <input className="prop-input" aria-label={def.name} autoFocus value={draft} onFocus={(e) => e.currentTarget.select()} onChange={(e) => setDraft(e.target.value)} onBlur={finish} onKeyDown={(e) => {
+    e.stopPropagation();
+    if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); restoreFocus(); }
+    if (e.key === 'Escape') { e.preventDefault(); cancelled.current = true; setEditing(false); restoreFocus(); }
+  }} />;
+  return <div className="prop-url-value">
+    <button ref={trigger} type="button" className="prop-url-edit prop-url-chip" aria-label={t('Edit') + ': ' + def.name} title={raw || def.name} onClick={(e) => { e.stopPropagation(); begin(); }}>{raw ? chip : <span className="prop-empty">—</span>}</button>
+    {href && <a className="prop-url-open" href={href} target="_blank" rel="noopener noreferrer" aria-label={t('Open link')} title={t('Open link')} onClick={(e) => e.stopPropagation()}><ExternalLink size={13} /></a>}
+  </div>;
+}
+
 export default function PropertyValue({
   def,
   value,
@@ -1014,34 +1053,8 @@ export default function PropertyValue({
           onChange={(e) => onChange!(e.target.value)}
         />
       );
-    case 'url': {
-      // Without a case of its own a URL landed in the text branch and sat on
-      // the card as a full line of raw text ("https://trello.com/c/yksGXxLh")
-      // — on a board that is pure noise. The host is what is shown, the full
-      // address is what is opened.
-      const href = String(value ?? '').trim();
-      if (!href) return compact ? null : <span className="prop-empty">—</span>;
-      let label = href;
-      try {
-        const u = new URL(href.includes('://') ? href : 'https://' + href);
-        label = u.hostname.replace(/^www\./, '');
-      } catch {
-        /* not a valid URL — then leave it unshortened */
-      }
-      return (
-        <a
-          className="prop-url-chip"
-          href={href.includes('://') ? href : 'https://' + href}
-          target="_blank"
-          rel="noopener noreferrer"
-          title={href}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <LinkIcon size={11} />
-          {label}
-        </a>
-      );
-    }
+    case 'url':
+      return <UrlValue def={def} value={value} onChange={onChange} readOnly={readOnly} compact={compact} />;
     case 'person':
       return <PersonValue def={def} value={value} onChange={onChange} readOnly={readOnly} compact={compact} />;
     case 'text':

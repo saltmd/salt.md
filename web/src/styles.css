@@ -10187,3 +10187,11 @@ body:has(.live-down) .update-banner {
   padding: 2px 7px;
   white-space: nowrap;
 }
+
+/* A URL cell edits in place; opening the destination is a separate target. */
+.prop-url-value { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.prop-url-edit { flex: 1; min-width: 0; border: 0; background: transparent; padding: 3px 0; text-align: left; cursor: text; font: inherit; }
+.prop-url-edit span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.prop-url-open { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 24px; height: 24px; color: var(--muted); border-radius: 4px; }
+.prop-url-open:hover { color: var(--accent); background: var(--hover); }
+.prop-url-value :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
