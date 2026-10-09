@@ -455,7 +455,7 @@
         }
       ],
       "takenAt": {
-        "server/public.go": "37843af6889b",
+        "server/public.go": "a2c5ffd03997",
         "web/src/components/Editor.tsx": "2c78356b1bb6",
         "web/src/theme.css": "b1c3dece61ce"
       }

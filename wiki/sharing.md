@@ -226,9 +226,10 @@ addresses, so it shows the same gaps as the public page
 ### Publishing a collection
 
 A collection can be published too, from the same globe button, and it renders
-differently: as raw Markdown in a monospaced block. Nothing is turned into a
-web page: the visitor reads the title on the first line with its `#` still in
-front of it, then a pipe table.
+as a semantic, read-only HTML table. Column headers and row titles remain
+readable as ordinary text; only the table scrolls when it is wider than the
+screen. An empty collection shows "No rows yet.". The content needs no
+JavaScript, and the existing set of rows and property values stays the same.
 
 - **Every row that is not in the trash**, in the collection's own order, not
   the filter, sort or grouping of any [view](views.md). A board's columns and a
