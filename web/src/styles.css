@@ -10187,3 +10187,11 @@ body:has(.live-down) .update-banner {
   padding: 2px 7px;
   white-space: nowrap;
 }
+
+/* Compact clipboard action inside the public-link field. */
+.share-link-row { display: flex; align-items: center; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+.share-link-row .share-input { flex: 1; min-width: 0; border: 0; margin: 0; background: transparent; }
+.share-copy { flex: 0 0 32px; margin-right: 3px; }
+.share-copy:disabled { opacity: .4; }
+
+.share-copy-status { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }

@@ -35,7 +35,7 @@ import { usePeers, setPeers, clearPeers } from '../presence';
 import { tagColorClass, TAG_PALETTE } from '../tags';
 import { collectTags, suggestTags } from '../tagSuggest';
 import { modalOpen, useMenuDismiss } from '../modal';
-import { Menu, Star, Lock, LockOpen, Globe, MessageSquare, History, MoreHorizontal, Printer, FileCode, FileText, Upload, AlignLeft, Check, Image as ImageIcon , Smile, PanelRight, Link2, Trash2, FilePlus2, Columns2, Workflow} from 'lucide-react';
+import { Menu, Copy, Star, Lock, LockOpen, Globe, MessageSquare, History, MoreHorizontal, Printer, FileCode, FileText, Upload, AlignLeft, Check, Image as ImageIcon , Smile, PanelRight, Link2, Trash2, FilePlus2, Columns2, Workflow} from 'lucide-react';
 import { blockTypeFor, carriesExternalFiles } from '../dropFiles';
 
 export interface EditorProps {
@@ -490,6 +490,8 @@ function PageHeader({
   const [visibility, setVisibility] = useState(page.visibility);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
+  useEffect(() => { if (!shareCopied) return; const timer = setTimeout(() => setShareCopied(false), 1600); return () => clearTimeout(timer); }, [shareCopied]);
   const [shareExpiry, setShareExpiry] = useState(0); // days; 0 = never
   const [sharePassword, setSharePassword] = useState('');
   const [overflowOpen, setOverflowOpen] = useState(false);
@@ -633,6 +635,7 @@ function PageHeader({
     try {
       const res = await api.sharePage(pageId, days, password);
       // Absolute URL on the external domain when configured; else current origin.
+      setShareCopied(false);
       setShareUrl(res.url.startsWith('http') ? res.url : location.origin + res.url);
     } catch {
       toast(t('Sharing failed'));
@@ -858,7 +861,13 @@ function PageHeader({
             {shareOpen && (
               <div className="menu share-menu">
                 <div className="share-hint">Anyone with this link can view this page (read-only).</div>
-                <input className="share-input" readOnly value={shareUrl ?? 'Creating…'} onFocus={(e) => e.currentTarget.select()} />
+                <div className="share-link-row">
+                  <input className="share-input" readOnly aria-label={t('Public link')} value={shareUrl ?? 'Creating…'} onFocus={(e) => e.currentTarget.select()} />
+                  <button className="icon-btn share-copy" disabled={!shareUrl} title={t(shareCopied ? 'Copied' : 'Copy link')} aria-label={t(shareCopied ? 'Copied' : 'Copy link')} onClick={async () => { if (!shareUrl) return; try { await navigator.clipboard.writeText(shareUrl); setShareCopied(true); } catch { toast(t('Copy failed — select the link')); } }}>
+                    {shareCopied ? <Check size={16} /> : <Copy size={16} />}
+                  </button>
+                  <span className="share-copy-status" role="status">{shareCopied ? t('Copied') : ''}</span>
+                </div>
                 <label className="share-expiry">
                   Expires:
                   <select
@@ -881,12 +890,6 @@ function PageHeader({
                   onBlur={() => void createShare(shareExpiry, sharePassword)}
                 />
                 <div className="share-actions">
-                  <button
-                    className="btn-sm"
-                    onClick={() => shareUrl && void navigator.clipboard.writeText(shareUrl)}
-                  >
-                    {t('Copy')}
-                  </button>
                   <button className="btn-sm danger" onClick={stopShare}>
                     {t('Stop sharing')}
                   </button>
