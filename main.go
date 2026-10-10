@@ -67,6 +67,10 @@ func main() {
 			}
 			fmt.Printf("Cleaned %d row bodies\n", n)
 			return
+		default:
+			fmt.Fprintf(os.Stderr, "unknown command %q\n", os.Args[1])
+			fmt.Fprintln(os.Stderr, "usage: salt [backup [file] | restore <file> | version | fix-notion-rows]")
+			os.Exit(2)
 		}
 	}
 

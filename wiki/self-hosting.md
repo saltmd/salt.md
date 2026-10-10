@@ -182,10 +182,9 @@ The binary takes a handful of subcommands before it decides to be a server:
 Three things about this list are easy to get wrong.
 
 **Only those four words are subcommands.** Anything else, including
-`salt --version`, is not recognised, and the process goes on to **start a
-server**. On a machine where the service is already running that means a second
-instance on the same port, and a command that never returns. Read the version
-from the log, from `salt version`, or from `/api/health`.
+`salt --version`, prints an error and usage to stderr and exits with status 2,
+without starting the server or opening the database. Use `salt version`, the
+startup log, or `/api/health` to read the version.
 
 **The subcommands read `SALT_DATA` too.** `salt backup` run from cron without
 the same `SALT_DATA` as the service looks in `./data`, finds nothing, and stops
