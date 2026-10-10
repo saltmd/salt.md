@@ -34,6 +34,31 @@ func oauthClientFixture(t *testing.T, s *Server, redirect string) string {
 	return out.ClientID
 }
 
+func TestOAuthRegistrationReturnsJSON(t *testing.T) {
+	s := testServer(t)
+	body := `{"client_name":"MCP client","redirect_uris":["https://example.test/callback"],"token_endpoint_auth_method":"none"}`
+	rec := httptest.NewRecorder()
+	s.ServeHTTP(rec, httptest.NewRequest("POST", "/oauth/register", strings.NewReader(body)))
+	response := rec.Result()
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusCreated {
+		t.Fatalf("status = %d, want %d", response.StatusCode, http.StatusCreated)
+	}
+	// Inspect the committed headers, not Header(), which can change after WriteHeader.
+	if got := response.Header.Get("Content-Type"); got != "application/json" {
+		t.Fatalf("Content-Type = %q, want application/json", got)
+	}
+	var out struct {
+		ClientID string `json:"client_id"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&out); err != nil {
+		t.Fatalf("decode registration response: %v", err)
+	}
+	if out.ClientID == "" {
+		t.Fatal("missing client_id")
+	}
+}
+
 func pkce(verifier string) string {
 	sum := sha256.Sum256([]byte(verifier))
 	return base64.RawURLEncoding.EncodeToString(sum[:])

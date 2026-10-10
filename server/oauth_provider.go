@@ -194,6 +194,7 @@ func (s *Server) handleOAuthRegister(w http.ResponseWriter, r *http.Request) {
 		out["client_secret"] = secret
 		out["token_endpoint_auth_method"] = "client_secret_post"
 	}
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	writeJSON(w, out)
 }
