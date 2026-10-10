@@ -18,11 +18,12 @@ import (
 )
 
 type Server struct {
-	db          *sql.DB
-	mux         *http.ServeMux
-	dataDir     string
+	collectionCSS string
+	db            *sql.DB
+	mux           *http.ServeMux
+	dataDir       string
 	// name → the markup INSIDE a Lucide <svg>, for the print view.
-	lucide      map[string]string
+	lucide map[string]string
 	// The third-party licence notices, embedded from the repository root.
 	notices     string
 	addr        string
@@ -78,6 +79,10 @@ func New(dataDir string, dist fs.FS) (*Server, error) {
 	// data URI. A data URI rather than a link, because some MCP clients will
 	// not fetch foreign images (strict CSP) — a link would be silently empty
 	// there.
+	collectionCSS := ""
+	if index, err := fs.ReadFile(dist, "index.html"); err == nil {
+		collectionCSS = collectionStylesheet(index)
+	}
 	iconURI := ""
 	// The Lucide set, generated at build time (web/scripts/build-lucide.mjs).
 	// Read once, like the favicon below: the print view is built on the server
@@ -95,17 +100,18 @@ func New(dataDir string, dist fs.FS) (*Server, error) {
 	}
 
 	s := &Server{
-		mcpIcon:   iconURI,
-		lucide:    lucideSet,
-		ingest:    newIngestRegistry(),
-		db:        db,
-		mux:       http.NewServeMux(),
-		dataDir:   dataDir,
-		loginSem:  make(chan struct{}, 4),
-		events:    newEventHub(),
-		collab:    newCollabHub(),
-		mcpRate:   newRateLimiter(240, 60), // 240 writes/min per token, burst 60
-		loginRate: newRateLimiter(30, 10),  // 30 login attempts/min per IP, burst 10
+		collectionCSS: collectionCSS,
+		mcpIcon:       iconURI,
+		lucide:        lucideSet,
+		ingest:        newIngestRegistry(),
+		db:            db,
+		mux:           http.NewServeMux(),
+		dataDir:       dataDir,
+		loginSem:      make(chan struct{}, 4),
+		events:        newEventHub(),
+		collab:        newCollabHub(),
+		mcpRate:       newRateLimiter(240, 60), // 240 writes/min per token, burst 60
+		loginRate:     newRateLimiter(30, 10),  // 30 login attempts/min per IP, burst 10
 		// Fed by REJECTED tokens only, so a working agent never touches it.
 		tokenRate:   newRateLimiter(60, 20),
 		formRate:    newRateLimiter(20, 8), // 20 public form submits/min per IP, burst 8
