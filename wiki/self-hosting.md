@@ -80,6 +80,45 @@ unprivileged user, sets `SALT_ADDR=:8420` and `SALT_DATA=/data`, declares
 it is meant to get, so salt.md assumes a small machine. See
 [Memory](#memory-and-what-it-changes) for what that costs you.
 
+### Podman (rootless)
+
+Use the same image with rootless Podman, as your ordinary user without `sudo`.
+The memory limit requires cgroup v2.
+
+```sh
+podman run -d --name salt \
+  -p 127.0.0.1:8420:8420 -v salt-data:/data --memory=4g \
+  ghcr.io/saltmd/salt.md:latest
+```
+
+Open `http://127.0.0.1:8420` on the host. For a remote server, use an SSH tunnel
+or [reverse proxy](domain.md). The named volume keeps the database and uploads
+when the container is removed. See [Memory](#memory-and-what-it-changes) for
+why the limit matters.
+
+#### With systemd (Quadlet)
+
+For startup and crash recovery, use the supplied `deploy/salt.container`.
+This requires a Podman installation with Quadlet. If the quick-start container
+is running, stop and remove it first (`podman stop --time 20 salt`, then
+`podman rm salt`); the service reuses its `salt-data` volume.
+
+From a checkout, without overwriting an existing `salt.container`:
+
+```sh
+mkdir -p ~/.config/containers/systemd
+cp -i deploy/salt.container ~/.config/containers/systemd/salt.container
+systemctl --user daemon-reload
+systemctl --user start salt.service
+```
+
+Quadlet generates the service and its startup link; do not enable the generated
+unit manually. It starts with your user manager. To run at boot and after logout,
+an administrator can run `loginctl enable-linger USERNAME`.
+Read logs with `journalctl --user -u salt.service`. To update, pull
+`ghcr.io/saltmd/salt.md:latest` with Podman, then run
+`systemctl --user restart salt.service`.
+
 ### Docker Compose
 
 The repository ships a `docker-compose.yml`. Run it from a checkout:
