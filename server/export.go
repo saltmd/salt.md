@@ -421,7 +421,12 @@ func (s *Server) handleExportPage(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte(s.pageHTML(p, true, opts)))
 		} else {
 			w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": safeFilename(p.Title) + ".html"}))
-			w.Write([]byte(s.pageHTML(p, false, s.printOptionsFor(p))))
+			document, err := s.portableExportHTML(p, r)
+			if err != nil {
+				httpError(w, 500, "Could not include uploaded images in the export")
+				return
+			}
+			w.Write([]byte(document))
 		}
 		return
 	}
