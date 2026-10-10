@@ -65,3 +65,17 @@ func TestPublicCollectionTableEmptyAndCellValues(t *testing.T) {
 		t.Fatal("missing native CSS")
 	}
 }
+
+func TestPublicCollectionTableMissingSchemaKeepsDocumentFallback(t *testing.T) {
+	s := testServer(t)
+	p := &page{Content: []byte(`[{"type":"paragraph","content":[{"type":"text","text":"Fallback <content>"}]}]`)}
+	got, err := s.publicCollectionTable(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`<title>Untitled · salt.md</title>`, `<h1>Untitled</h1>`, `Fallback &lt;content&gt;`} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("missing %s", want)
+		}
+	}
+}

@@ -12,10 +12,14 @@ import (
 // non-trashed children that collectionMarkdown exports. It grants no row-page
 // navigation or child content access.
 func (s *Server) publicCollectionTable(p *page) (string, error) {
+	title := p.Title
+	if title == "" {
+		title = "Untitled"
+	}
 	var schemaJSON string
 	if err := s.db.QueryRow(`SELECT schema FROM collections WHERE page_id=?`, p.ID).Scan(&schemaJSON); err != nil {
 		if err == sql.ErrNoRows {
-			return s.collectionDocument(p.Title, `<h1>`+html.EscapeString(p.Title)+`</h1>`+blocksToHTML(p.Content)), nil
+			return s.collectionDocument(title, `<h1>`+html.EscapeString(title)+`</h1>`+blocksToHTML(p.Content)), nil
 		}
 		return "", err
 	}
@@ -33,10 +37,6 @@ func (s *Server) publicCollectionTable(p *page) (string, error) {
 		for _, opt := range prop.Options {
 			options[prop.ID+"/"+opt.ID] = opt.Name
 		}
-	}
-	title := p.Title
-	if title == "" {
-		title = "Untitled"
 	}
 	var body strings.Builder
 	body.WriteString(`<h1>` + html.EscapeString(title) + `</h1>`)
