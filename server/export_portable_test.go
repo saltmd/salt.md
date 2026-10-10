@@ -67,3 +67,12 @@ func TestPortableExportDoesNotFetchRemoteImages(t *testing.T) {
 		t.Fatal("remote source changed")
 	}
 }
+
+func TestPortableExportCountsRepeatedImagesAgainstLimit(t *testing.T) {
+	s := testServer(t)
+	seedFile(t, s, "repeat.png", "\x89PNG\r\n\x1a\n"+strings.Repeat("\x00", 12<<20))
+	p := &page{Content: json.RawMessage(`[{"type":"image","props":{"url":"/files/repeat.png"}},{"type":"image","props":{"url":"/files/repeat.png"}},{"type":"image","props":{"url":"/files/repeat.png"}}]`)}
+	if _, err := s.portableExportHTML(p, httptest.NewRequest("GET", "https://docs.example.test/export", nil)); err == nil {
+		t.Fatal("repeated images bypassed total export limit")
+	}
+}

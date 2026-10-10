@@ -28,6 +28,7 @@ func (s *Server) portableExportHTML(p *page, r *http.Request) (string, error) {
 	defer root.Close()
 	allowed := publicPageFiles(p)
 	cache := map[string]string{}
+	sizes := map[string]int64{}
 	remaining := int64(32 << 20)
 	z := xhtml.NewTokenizer(strings.NewReader(s.pageHTML(p, false, s.printOptionsFor(p))))
 	var out strings.Builder
@@ -81,10 +82,16 @@ func (s *Server) portableExportHTML(p *page, r *http.Request) (string, error) {
 					if !strings.HasPrefix(mime, "image/") {
 						return "", fmt.Errorf("upload is not an image")
 					}
-					remaining -= int64(len(data))
+					sizes[name] = int64(len(data))
 					embedded = "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(data)
 					cache[name] = embedded
 				}
+				// Count every embedded occurrence, including cached repeats, to bound
+				// the resulting document rather than only unique upload reads.
+				if sizes[name] > remaining {
+					return "", fmt.Errorf("upload exceeds export limit")
+				}
+				remaining -= sizes[name]
 				attr.Val = embedded
 				changed = true
 			} else if attr.Key == "href" && strings.HasPrefix(attr.Val, "/") && !strings.HasPrefix(attr.Val, "//") {
