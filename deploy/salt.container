@@ -1,0 +1,20 @@
+# Rootless Podman Quadlet. Copy to ~/.config/containers/systemd/salt.container.
+# See wiki/self-hosting.md for startup, backups and updates.
+[Unit]
+Description=salt.md workspace (rootless Podman)
+
+[Container]
+Image=ghcr.io/saltmd/salt.md:latest
+ContainerName=salt
+PublishPort=127.0.0.1:8420:8420
+Volume=salt-data:/data
+PodmanArgs=--memory=4g --stop-timeout=20
+
+[Service]
+Restart=on-failure
+RestartSec=2
+TimeoutStartSec=900
+TimeoutStopSec=30
+
+[Install]
+WantedBy=default.target
