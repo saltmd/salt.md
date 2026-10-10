@@ -545,9 +545,9 @@ that Notion writes into every database row and reports how many bodies it
 cleaned. It takes the sole database connection, so it will not run alongside a
 live instance.
 
-**Do not ask the binary for its version with a flag.** `salt version` prints it.
-An unrecognised flag is not a subcommand, so the binary starts a second server
-instead, beside the one already running.
+**Use `salt version` to print the version.** An unrecognised command or flag
+prints an error and usage to stderr and exits with status 2, without starting
+a server or opening the database.
 
 **And do not trust the version string to prove a deploy.** A mislabelled build
 reads exactly like a correct one. Check for something the new code has and the
