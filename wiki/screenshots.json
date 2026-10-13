@@ -80,8 +80,8 @@
       ],
       "takenAt": {
         "web/src/components/Sidebar.tsx": "9fd46b80ecc7",
-        "web/src/components/Editor.tsx": "d7fac74fac8f",
-        "web/src/App.tsx": "71d6874914a9",
+        "web/src/components/Editor.tsx": "34d377cbccfe",
+        "web/src/App.tsx": "cf155e131c73",
         "web/src/theme.css": "b1c3dece61ce"
       }
     },
@@ -141,7 +141,7 @@
         }
       ],
       "takenAt": {
-        "web/src/components/Editor.tsx": "d7fac74fac8f",
+        "web/src/components/Editor.tsx": "34d377cbccfe",
         "web/src/theme.css": "b1c3dece61ce"
       }
     },
@@ -299,7 +299,7 @@
         }
       ],
       "takenAt": {
-        "web/src/components/CollectionView.tsx": "96100be0faac",
+        "web/src/components/CollectionView.tsx": "c82e3e535aa5",
         "web/src/theme.css": "b1c3dece61ce"
       }
     },
@@ -333,7 +333,7 @@
         }
       ],
       "takenAt": {
-        "web/src/components/CollectionView.tsx": "96100be0faac",
+        "web/src/components/CollectionView.tsx": "c82e3e535aa5",
         "web/src/cardLayout.ts": "eb7f92584275",
         "web/src/theme.css": "b1c3dece61ce"
       }
@@ -367,7 +367,7 @@
         }
       ],
       "takenAt": {
-        "web/src/components/CollectionView.tsx": "96100be0faac",
+        "web/src/components/CollectionView.tsx": "c82e3e535aa5",
         "web/src/theme.css": "b1c3dece61ce"
       }
     },
@@ -459,7 +459,7 @@
       ],
       "takenAt": {
         "server/public.go": "a2ca9f04db9b",
-        "web/src/components/Editor.tsx": "d7fac74fac8f",
+        "web/src/components/Editor.tsx": "34d377cbccfe",
         "web/src/theme.css": "b1c3dece61ce"
       }
     },
@@ -489,7 +489,7 @@
         }
       ],
       "takenAt": {
-        "web/src/components/UserMenu.tsx": "0d048bde4d85",
+        "web/src/components/UserMenu.tsx": "5eca670f9eb3",
         "web/src/theme.css": "b1c3dece61ce"
       },
       "element": ".dialog"
@@ -522,7 +522,7 @@
       ],
       "takenAt": {
         "server/users.go": "f52bd5a4d78a",
-        "web/src/components/UserMenu.tsx": "0d048bde4d85",
+        "web/src/components/UserMenu.tsx": "5eca670f9eb3",
         "web/src/theme.css": "b1c3dece61ce"
       },
       "element": ".dialog"
@@ -555,7 +555,7 @@
       ],
       "takenAt": {
         "web/src/components/LanguageTime.tsx": "274ac44244e0",
-        "server/prefs.go": "b8cdac760108",
+        "server/prefs.go": "e19891ccc352",
         "web/src/theme.css": "b1c3dece61ce"
       },
       "element": ".dialog"

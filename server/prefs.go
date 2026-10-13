@@ -45,6 +45,11 @@ type userPrefs struct {
 	Clock string `json:"clock"`
 	// "" | "mon" | "sun" | "sat". "" lets the region decide.
 	WeekStart string `json:"weekStart"`
+	// Whether a plain click on a collection row opens it in a NEW tab.
+	// Absent (nil) is automatic, which means off: rows navigate unless the
+	// account explicitly opted in. Stored as "" | "on" | "off", like every
+	// other preference: "" is "never decided" and needs no backfill.
+	OpenRowsNewTab *bool `json:"openRowsNewTab,omitempty"`
 }
 
 var (
@@ -75,11 +80,12 @@ var (
 // it.
 func normalizePrefs(p userPrefs) userPrefs {
 	out := userPrefs{
-		Language:  strings.ToLower(strings.TrimSpace(p.Language)),
-		Region:    strings.TrimSpace(p.Region),
-		TimeZone:  strings.TrimSpace(p.TimeZone),
-		Clock:     strings.TrimSpace(p.Clock),
-		WeekStart: strings.ToLower(strings.TrimSpace(p.WeekStart)),
+		Language:       strings.ToLower(strings.TrimSpace(p.Language)),
+		Region:         strings.TrimSpace(p.Region),
+		TimeZone:       strings.TrimSpace(p.TimeZone),
+		Clock:          strings.TrimSpace(p.Clock),
+		WeekStart:      strings.ToLower(strings.TrimSpace(p.WeekStart)),
+		OpenRowsNewTab: p.OpenRowsNewTab,
 	}
 	if !rxLanguage.MatchString(out.Language) {
 		out.Language = ""
@@ -105,16 +111,31 @@ func normalizePrefs(p userPrefs) userPrefs {
 // value, which IS automatic — so a caller never has to check.
 func (s *Server) loadPrefs(userID string) userPrefs {
 	var p userPrefs
-	s.db.QueryRow(`SELECT pref_language, pref_region, pref_timezone, pref_clock, pref_week_start
-		FROM users WHERE id = ?`, userID).
-		Scan(&p.Language, &p.Region, &p.TimeZone, &p.Clock, &p.WeekStart)
+	var openRows string
+	s.db.QueryRow(`SELECT pref_language, pref_region, pref_timezone, pref_clock, pref_week_start,
+		pref_open_rows_new_tab FROM users WHERE id = ?`, userID).
+		Scan(&p.Language, &p.Region, &p.TimeZone, &p.Clock, &p.WeekStart, &openRows)
+	// "" is automatic (off); only an explicit "on" opens new tabs. Anything
+	// else, including leftovers from before, reads as the account never
+	// having decided.
+	if openRows == "on" || openRows == "off" {
+		v := openRows == "on"
+		p.OpenRowsNewTab = &v
+	}
 	return p
 }
 
 func (s *Server) savePrefs(userID string, p userPrefs) error {
+	openRows := ""
+	if p.OpenRowsNewTab != nil {
+		openRows = "off"
+		if *p.OpenRowsNewTab {
+			openRows = "on"
+		}
+	}
 	_, err := s.db.Exec(`UPDATE users SET pref_language = ?, pref_region = ?,
-		pref_timezone = ?, pref_clock = ?, pref_week_start = ? WHERE id = ?`,
-		p.Language, p.Region, p.TimeZone, p.Clock, p.WeekStart, userID)
+		pref_timezone = ?, pref_clock = ?, pref_week_start = ?, pref_open_rows_new_tab = ? WHERE id = ?`,
+		p.Language, p.Region, p.TimeZone, p.Clock, p.WeekStart, openRows, userID)
 	return err
 }
 

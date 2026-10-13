@@ -163,6 +163,33 @@ func TestPutPrefsAnswersWithTheCleanedSet(t *testing.T) {
 	}
 }
 
+// The row-opening choice round-trips through the API, and an account that
+// never chose reads as absent (nil): automatic, which means navigation,
+// without any backfill.
+func TestPutPrefsRowOpeningRoundTrip(t *testing.T) {
+	s := testServer(t)
+	uid, cookie := signedIn(t, s, "a@example.com")
+
+	if p := s.loadPrefs(uid); p.OpenRowsNewTab != nil {
+		t.Fatalf("fresh account chose nothing, got %+v", p.OpenRowsNewTab)
+	}
+	rec := putPrefs(t, s, `{"openRowsNewTab":false}`, map[string]string{"Cookie": cookie})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("got %d, want 200", rec.Code)
+	}
+	p := s.loadPrefs(uid)
+	if p.OpenRowsNewTab == nil || *p.OpenRowsNewTab {
+		t.Errorf("stored choice is not false: %+v", p.OpenRowsNewTab)
+	}
+	var got userPrefs
+	if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if got.OpenRowsNewTab == nil || *got.OpenRowsNewTab {
+		t.Errorf("answer does not carry the choice: %+v", got.OpenRowsNewTab)
+	}
+}
+
 // /api/me carries the preferences, and must not carry anybody else's.
 func TestMeCarriesOwnPrefsOnly(t *testing.T) {
 	s := testServer(t)

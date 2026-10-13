@@ -26,6 +26,16 @@ import ThemeSwitch, { type ThemePref } from './ThemeSwitch';
 import { applyPrefs, plural, t } from './i18n';
 import { useShortcut } from './keys';
 import { focusKey, useNavEntry } from './nav';
+import {
+  forgetPageScroll,
+  forgetViewId,
+  forgetViewScrolls,
+  readPageScroll,
+  readViewId,
+  setUiAccount,
+  writePageScroll,
+  writeViewId,
+} from './pageUiState';
 import ShortcutSheet from './components/ShortcutSheet';
 import { guardDrops } from './dropFiles';
 
@@ -340,6 +350,10 @@ export default function App() {
       .me()
       .then((m) => {
         setMe(m);
+        // Interface memory (open views, scroll positions) belongs to the
+        // account, not the browser: a second person signing in here must
+        // not inherit the first person's.
+        setUiAccount(m.authenticated && m.user ? m.user.id : null);
         // The account decides the language and time settings; initLocale only
         // had the localStorage cache to go on, which is a copy and may be
         // stale — somebody who changed the language on their phone gets it
@@ -354,13 +368,15 @@ export default function App() {
   }, [loadAll]);
 
   useEffect(() => {
-    const onUnauthorized = () =>
+    const onUnauthorized = () => {
+      setUiAccount(null);
       setMe((prev) => ({
         setupRequired: prev?.setupRequired ?? false,
         authenticated: false,
         user: null,
         version: prev?.version ?? BUILD_VERSION,
       }));
+    };
     // Back/forward: restore the exact tab set from the history entry's state
     // (set by pushTabHistory). Falls back to the URL id for entries with no
     // snapshot (e.g. the very first load), reopening a tab only then.
@@ -760,6 +776,10 @@ export default function App() {
       n.delete(id);
       return n;
     });
+    // The remembered scroll positions die with the tab. The chosen VIEW stays:
+    // that is a choice about the collection, not about the tab.
+    forgetPageScroll(id);
+    forgetViewScrolls(id);
     if (activeRef.current === id) {
       const neighbour = next[i] ?? next[i - 1] ?? null;
       pushTabHistory(next, neighbour, true);

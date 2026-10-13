@@ -9,9 +9,10 @@ import { useExclusiveModal } from '../modal';
 import { formatDay, formatMoment } from '../format';
 import { plural, t } from '../i18n';
 import { AdminSettingsModal, TwoFAModal, CalendarSubModal } from './AdminSettings';
-import { Key, History, CalendarDays, ShieldCheck, Users, Settings, LogOut, Bot, User as UserIcon, Columns2, Type, Languages, Undo2, Keyboard } from 'lucide-react';
+import { Key, History, CalendarDays, ShieldCheck, Users, Settings, LogOut, Bot, User as UserIcon, Columns2, Type, Languages, Undo2, Keyboard, SquareArrowOutUpRight } from 'lucide-react';
 import { chordFor } from '../keys';
 import { LanguageTimeModal } from './LanguageTime';
+import { RowOpenModal } from './RowOpenSettings';
 
 export function Avatar({ user, size = 22 }: { user: User; size?: number }) {
   // With an uploaded picture the circle shows the picture, otherwise the
@@ -233,7 +234,7 @@ interface Props {
 
 export default function UserMenu({ user, onLogout, onUserChanged, onOpenAgents, notesMode, onToggleNotesMode, onOpenShortcuts, fontPref = 'brand', onSetFont }: Props) {
   const [open, setOpen] = useState(false);
-  const [modal, setModal] = useState<'users' | 'tokens' | 'activity' | 'twofa' | 'settings' | 'calendar' | 'profile' | 'langtime' | null>(null);
+  const [modal, setModal] = useState<'users' | 'tokens' | 'activity' | 'twofa' | 'settings' | 'calendar' | 'profile' | 'langtime' | 'rowopen' | null>(null);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -313,6 +314,9 @@ export default function UserMenu({ user, onLogout, onUserChanged, onOpenAgents, 
               <Settings size={16} /> {t('Instance settings')}
             </button>
           )}
+          <button onClick={() => { setOpen(false); setModal('rowopen'); }}>
+            <SquareArrowOutUpRight size={16} /> {t('Open rows in new tab')}
+          </button>
           <button className="danger" onClick={onLogout}>
             <LogOut size={16} /> {t('Sign out')}
           </button>
@@ -334,6 +338,7 @@ export default function UserMenu({ user, onLogout, onUserChanged, onOpenAgents, 
       {modal === 'twofa' && <TwoFAModal onClose={() => setModal(null)} />}
       {modal === 'calendar' && <CalendarSubModal onClose={() => setModal(null)} />}
       {modal === 'langtime' && <LanguageTimeModal onClose={() => setModal(null)} />}
+      {modal === 'rowopen' && <RowOpenModal onClose={() => setModal(null)} />}
       {modal === 'settings' && <AdminSettingsModal onClose={() => setModal(null)} />}
     </div>
   );

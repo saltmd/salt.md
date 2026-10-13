@@ -102,6 +102,9 @@ export type Prefs = {
   timeZone?: string;
   clock?: string;
   weekStart?: string;
+  // Collection rows open in a new tab on a plain click only when the
+  // account opted in. Absent means automatic, which is off.
+  openRowsNewTab?: boolean;
 };
 
 let prefs: Prefs = {};

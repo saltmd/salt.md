@@ -539,6 +539,10 @@ func openDB(path string) (*sql.DB, error) {
 		{"pref_timezone", `pref_timezone TEXT NOT NULL DEFAULT ''`},
 		{"pref_clock", `pref_clock TEXT NOT NULL DEFAULT ''`},
 		{"pref_week_start", `pref_week_start TEXT NOT NULL DEFAULT ''`},
+		// "" is automatic (off); "on" opens rows in a new tab, "off" keeps
+		// navigation. Like every other preference here, a TEXT column where
+		// "" means "never decided".
+		{"pref_open_rows_new_tab", `pref_open_rows_new_tab TEXT NOT NULL DEFAULT ''`},
 	} {
 		if err := ensureColumn(db, "users", c[0], c[1]); err != nil {
 			return nil, fmt.Errorf("migrate users.%s: %w", c[0], err)

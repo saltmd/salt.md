@@ -18,6 +18,7 @@ import IconPicker from './IconPicker';
 import { PageIcon } from '../pageIcon';
 import { BlockContext } from '../blockContext';
 import { exitsDown, exitsStart, focusedKey, focusItem, focusKey, navItem, nothingBefore, useNavRegion } from '../nav';
+import { readPageScroll, writePageScroll } from '../pageUiState';
 import { useShortcut } from '../keys';
 import CollectionView from './CollectionView';
 import { HistoryModal } from './PageHistory';
@@ -617,10 +618,27 @@ function PageHeader({
   // Toggle a `scrolled` class on the page body (with hysteresis so it never
   // flaps) — CSS uses it to shrink the docked page icon once the collapsed
   // cover strip is pinned.
+  //
+  // The same listener remembers the scroll position per page (see
+  // pageUiState): the Editor remounts on every document-tab switch, so without
+  // this every return lands at the top.
+  //
+  // Only USER moves are remembered. After a restore the content keeps growing
+  // (images, embeds, fonts), and the browser's scroll anchoring shifts scrollTop
+  // to hold the text still — persisting that shift ratchets the position a
+  // little lower on every reload. A gesture timestamp separates the two: wheel,
+  // touch, keys and scrollbar drags count; restores, anchoring and content
+  // growth do not.
   useEffect(() => {
     const el = bodyRef.current;
     if (!el) return;
     let scrolled = false;
+    let saveRaf = 0;
+    let lastGesture = 0;
+    const markGesture = () => {
+      lastGesture = Date.now();
+    };
+    const maySave = () => Date.now() - lastGesture < 2000;
     const onScroll = () => {
       const s = el.scrollTop;
       if (!scrolled && s > 110) {
@@ -630,11 +648,48 @@ function PageHeader({
         scrolled = false;
         el.classList.remove('scrolled');
       }
+      if (!maySave()) return;
+      cancelAnimationFrame(saveRaf);
+      saveRaf = requestAnimationFrame(() => {
+        if (maySave()) writePageScroll(pageId, el.scrollTop);
+      });
     };
     onScroll();
     el.addEventListener('scroll', onScroll, { passive: true });
-    return () => el.removeEventListener('scroll', onScroll);
-  }, []);
+    el.addEventListener('wheel', markGesture, { passive: true });
+    el.addEventListener('touchmove', markGesture, { passive: true });
+    el.addEventListener('pointerdown', markGesture);
+    el.addEventListener('keydown', markGesture);
+    return () => {
+      cancelAnimationFrame(saveRaf);
+      // A switch made mid-glide keeps the last user position rather than the
+      // one before it — but never an anchoring shift (no gesture, no save).
+      if (maySave()) writePageScroll(pageId, el.scrollTop);
+      el.removeEventListener('scroll', onScroll);
+      el.removeEventListener('wheel', markGesture);
+      el.removeEventListener('touchmove', markGesture);
+      el.removeEventListener('pointerdown', markGesture);
+      el.removeEventListener('keydown', markGesture);
+    };
+  }, [pageId]);
+
+  // Back where you were: restore the remembered scroll position. The content
+  // (document blocks, collection rows) grows over several frames after the
+  // mount, and setting scrollTop early clamps — so retry until the value
+  // sticks or the budget runs out.
+  useLayoutEffect(() => {
+    const el = bodyRef.current;
+    const saved = el && readPageScroll(pageId);
+    if (!el || !saved) return;
+    let tries = 60;
+    let raf = 0;
+    const restore = () => {
+      el.scrollTop = saved.top;
+      if (el.scrollTop < saved.top - 2 && --tries > 0) raf = requestAnimationFrame(restore);
+    };
+    raf = requestAnimationFrame(restore);
+    return () => cancelAnimationFrame(raf);
+  }, [pageId]);
 
   const togglePrivate = () => {
     const next = visibility === 'private' ? 'workspace' : 'private';

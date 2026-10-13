@@ -8,6 +8,8 @@
 // embedded collection reaches it through the editor's context, but a bare
 // component in a test may not. Plain navigation is then the honest fallback.
 
+import { getPrefs } from './i18n';
+
 export type PageOpeners = {
   onNavigate: (id: string) => void;
   onOpenInNewTab?: (id: string) => void;
@@ -35,4 +37,22 @@ export function openPageAux(
   if (e.button !== 1) return;
   e.preventDefault();
   open(id, o);
+}
+
+// ---- collection rows ----
+
+// Rows follow the sidebar rule: a plain click navigates the current tab,
+// ⌘/Ctrl (or the middle button) adds a tab beside it. The account can opt
+// into always opening rows in a new tab instead (server prefs, default off);
+// the modifier then changes nothing, exactly as in a browser.
+export const collectionRowNewTab = (): boolean => getPrefs().openRowsNewTab === true;
+
+/** A click on a collection row, with or without ⌘/Ctrl. */
+export function openCollectionRow(
+  e: { metaKey?: boolean; ctrlKey?: boolean },
+  id: string,
+  o: PageOpeners,
+): void {
+  if (collectionRowNewTab() || e.metaKey || e.ctrlKey) open(id, o);
+  else o.onNavigate(id);
 }
