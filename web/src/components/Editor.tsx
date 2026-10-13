@@ -28,6 +28,7 @@ import CommentsPanel, {
   setCommentsPanelOpen,
 } from './CommentsPanel';
 import NoteTrail from './NoteTrail';
+import PageShares from './PageShares';
 import { FilePreview, isPreviewable } from './FilePreview';
 import StructurePanel, { structurePanelOpen, setStructurePanelOpen } from './StructurePanel';
 import { AgentPresence } from './AgentBadge';
@@ -511,6 +512,9 @@ function PageHeader({
   const overflowWrapRef = useRef<HTMLDivElement>(null);
   useMenuDismiss(shareOpen, shareWrapRef, () => setShareOpen(false));
   useMenuDismiss(overflowOpen, overflowWrapRef, () => setOverflowOpen(false));
+  const [sharesOpen, setSharesOpen] = useState(false);
+  const accessWrapRef = useRef<HTMLDivElement>(null);
+  useMenuDismiss(sharesOpen, accessWrapRef, () => setSharesOpen(false));
   const [historyOpen, setHistoryOpen] = useState(false);
   const [openComments, setOpenComments] = useState(0);
   // Same rule as in Editor, and it has to be asked here too: this is where the
@@ -865,13 +869,25 @@ function PageHeader({
           >
             <Star size={17} fill={favorite ? 'currentColor' : 'none'} />
           </button>
-          <button
-            className={'icon-btn topbar-wide-only' + (visibility === 'private' ? ' active-star' : '')}
-            title={visibility === 'private' ? t('Private (only you): click to share with the workspace') : t('Visible to the workspace: click to make it private')}
-            onClick={togglePrivate}
-          >
-            {visibility === 'private' ? <Lock size={17} /> : <LockOpen size={17} />}
-          </button>
+          <div className="access-wrap" ref={accessWrapRef}>
+            <button
+              className={'icon-btn topbar-wide-only' + (visibility !== 'workspace' ? ' active-star' : '')}
+              title={t('Page access…')}
+              onClick={() => setSharesOpen((o) => !o)}
+            >
+              {visibility === 'workspace' ? <LockOpen size={17} /> : <Lock size={17} />}
+            </button>
+            {sharesOpen && (
+              <PageShares
+                pageId={pageId}
+                workspaceId={page.workspaceId}
+                myUserId={user.id}
+                visibility={visibility}
+                onClose={() => setSharesOpen(false)}
+                onVisibilityChange={setVisibility}
+              />
+            )}
+          </div>
           <div className="share-wrap" ref={shareWrapRef}>
             <button className={'icon-btn topbar-wide-only' + (isShared ? ' shared-active' : '')} title={isShared ? t('Shared') : t('Share to web (read-only link)')} onClick={openShare}>
               <Globe size={17} />

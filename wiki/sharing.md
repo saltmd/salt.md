@@ -267,6 +267,29 @@ The links between those pages do not join up either. A link from one of your
 pages to another always points into the app, even when the target has a public
 link of its own; a visitor who clicks it lands on the sign-in screen.
 
+## Sharing with chosen members
+
+A public link shares with whoever holds it. Sharing with chosen members shares
+with accounts: a private page opened to named people in the same workspace
+(**Can view** or **Can edit** each). The full rules are in
+[Permissions](permissions.md#private-pages-shared-with-chosen-members); here
+is the mechanics.
+
+1. Open the page and click the lock button in the topbar.
+2. Choose **Only me and chosen members** in the panel. Pick a member, pick the
+   access, press **Share**, repeat for everybody who needs in. Nobody else
+   can see the page from that moment: not in the sidebar, not in search.
+3. **Everyone in the workspace** in the same panel ends it and drops the
+   access list, so nothing stays armed.
+
+Over HTTP the same acts are `GET /api/pages/{id}/shares` (the access list),
+`POST /api/pages/{id}/shares` (with `userId` and `access` in the body) and
+`DELETE /api/pages/{id}/shares/{userId}`. Sharing needs a workspace admin or
+the page owner; reading the list needs the same. There is no MCP tool for it:
+membership-shaped acts stay out of the agent catalogue on purpose, and the
+REST routes accept an API token exactly like the workspace member endpoints
+do. See [The API](api.md).
+
 ## Turning it off
 
 **Stop sharing** revokes the link at once **if you have write access to the

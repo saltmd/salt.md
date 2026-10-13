@@ -221,6 +221,12 @@ func (s *Server) mcpMovePageOrWorkspace(u *user, pageID, parentID, wsID string) 
 // all access checks that query via s.db MUST happen BEFORE tx.Begin — calling
 // s.canWrite inside the tx would deadlock the whole server.
 func (s *Server) mcpMovePage(userID, pageID, parentID string) (string, error) {
+	// Moving needs write permission on the page itself, not just the new
+	// parent: re-parenting under something readable must not carry a page
+	// out of its owner's hands.
+	if !s.canWrite(userID, pageID) {
+		return "", fmt.Errorf("page %q not found", pageID)
+	}
 	if parentID != "" {
 		if parentID == pageID {
 			return "", fmt.Errorf("a page cannot be its own parent")

@@ -154,7 +154,7 @@ func (s *Server) handleListTags(w http.ResponseWriter, r *http.Request) {
 	counts := map[string]int{}
 	label := map[string]string{}
 	for _, rw := range scanned {
-		if s.forbiddenPrivateAncestor(userID, rw.id, rw.ws) {
+		if !s.canRead(userID, rw.id) {
 			continue // hide tags that live only on pages the user can't read
 		}
 		var tags []string

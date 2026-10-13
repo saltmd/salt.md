@@ -291,6 +291,10 @@ func New(dataDir string, dist fs.FS) (*Server, error) {
 	m.HandleFunc("DELETE /api/workspaces/{id}/members/{userId}", s.auth(s.handleRemoveMember))
 	m.HandleFunc("POST /api/pages/{id}/share", s.auth(s.handleSharePage))
 	m.HandleFunc("DELETE /api/pages/{id}/share", s.auth(s.handleUnsharePage))
+	// Restricted-page member shares (fork): list, grant, revoke.
+	m.HandleFunc("GET /api/pages/{id}/shares", s.auth(s.handleListPageShares))
+	m.HandleFunc("POST /api/pages/{id}/shares", s.auth(s.handleGrantPageShare))
+	m.HandleFunc("DELETE /api/pages/{id}/shares/{userId}", s.auth(s.handleRevokePageShare))
 	// Public form sharing: mint/revoke/status (auth) + anonymous config+submit.
 	m.HandleFunc("GET /api/collections/{id}/form-share", s.auth(s.handleFormShareStatus))
 	m.HandleFunc("POST /api/collections/{id}/form-share", s.auth(s.handleShareForm))

@@ -530,6 +530,23 @@ func (s *Server) handleUpdatePage(w http.ResponseWriter, r *http.Request) {
 			httpError(w, 400, "visibility must be 'workspace' or 'private'")
 			return
 		}
+		// Changing visibility is page management, not content editing: an
+		// edit grant on the page is not enough, or a granted editor could
+		// lift the restriction (or publish the page by opening it) out from
+		// under its owner.
+		if !s.canManageShares(requestUser(r).ID, id) {
+			httpError(w, 403, "forbidden")
+			return
+		}
+		// Leaving 'private' drops the page's own grants: resurrecting stale
+		// ones on a later re-privatise would surprise everybody. Grants on
+		// sub-pages stay — they belong to those pages, not to this decision.
+		if v != "private" {
+			var old string
+			if s.db.QueryRow(`SELECT visibility FROM pages WHERE id = ?`, id).Scan(&old) == nil && old == "private" {
+				s.db.Exec(`DELETE FROM page_grants WHERE page_id = ?`, id)
+			}
+		}
 		sets = append(sets, "visibility = ?")
 		args = append(args, v)
 		metaChanged = true

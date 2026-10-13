@@ -544,6 +544,26 @@ func openDB(path string) (*sql.DB, error) {
 			return nil, fmt.Errorf("migrate users.%s: %w", c[0], err)
 		}
 	}
+	// Direct per-user grants on private pages (fork): a private page opens to
+	// its owner, the workspace admins, and explicitly granted members; the
+	// grant covers the whole subtree until a nested private page narrows it
+	// again. subject_type is carried from the start so groups can reuse the
+	// table later: today only 'user' rows are ever written or read.
+	// No migration: pages stay 'private', so every check that tests
+	// visibility = 'private' keeps matching, a rollback stays closed, and a
+	// grant whose user is gone deletes with it (CASCADE both sides) instead
+	// of failing startup.
+	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS page_grants (
+		page_id TEXT NOT NULL REFERENCES pages(id) ON DELETE CASCADE,
+		user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		subject_type TEXT NOT NULL DEFAULT 'user',
+		access TEXT NOT NULL DEFAULT 'view',
+		created_at TEXT NOT NULL,
+		PRIMARY KEY (page_id, user_id, subject_type)
+	)`); err != nil {
+		return nil, fmt.Errorf("create page_grants: %w", err)
+	}
+	db.Exec(`CREATE INDEX IF NOT EXISTS idx_page_grants_user ON page_grants(user_id)`)
 	// Record the schema/app version so an operator (and future migrations) can
 	// see what a data dir was last written by. Additive, idempotent.
 	db.Exec(`INSERT INTO schema_meta (key, value) VALUES ('version', ?)

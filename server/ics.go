@@ -107,7 +107,7 @@ func (s *Server) handleICSInfo(w http.ResponseWriter, r *http.Request) {
 						break
 					}
 				}
-				if !hasDate || s.forbiddenPrivateAncestor(uid, c.id, c.ws) {
+				if !hasDate || !s.canRead(uid, c.id) {
 					continue
 				}
 				title := c.title
@@ -226,11 +226,11 @@ func (s *Server) handleICSFeed(w http.ResponseWriter, r *http.Request) {
 			}
 			crows.Close() // drain before per-collection row queries (single conn)
 
-			// Drop collections in private subtrees the subscriber can't read —
+			// Drop collections in private subtrees the subscriber can't read:
 			// membership alone is not enough (same rule handleListPages applies).
 			readable := colls[:0]
 			for _, c := range colls {
-				if !s.forbiddenPrivateAncestor(userID, c.id, c.ws) {
+				if s.canRead(userID, c.id) {
 					readable = append(readable, c)
 				}
 			}

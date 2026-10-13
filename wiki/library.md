@@ -102,7 +102,9 @@ These two split the shelf by *visibility*, which is a different thing from
 
 - **Private** means a page its owner and the workspace admins can read, and
   nobody else. In the table's **Source** column such a page shows a padlock and
-  the word **Private**.
+  the word **Private**. A page **Restricted** to chosen members counts on this
+  shelf too — it is equally not shared with the workspace — and a parentless one
+  shows the padlock with the word **Restricted**.
 - **Shared** means visible to the members of its workspace. It says nothing
   about whether the page has a public link.
 
