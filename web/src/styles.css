@@ -2292,8 +2292,8 @@ body:has(.icon-picker) .bn-side-menu {
 /* The move button is invisible until hover, but it was still IN the layout —
    a permanently reserved 24px that pushed the marks away from the card edge and
    made them look inset for no reason anybody could see. Out of the flow now:
-   the corner belongs to the marks, and the button lands on top of it only while
-   the pointer is there. The marks step aside for exactly that moment. */
+   the corner belongs to the marks, and the button floats above it only while
+   the pointer is there. Nothing underneath moves, on light or dark columns. */
 .card-move {
   position: absolute;
   top: 9px;
@@ -2308,6 +2308,7 @@ body:has(.icon-picker) .bn-side-menu {
   padding: 2px 5px;
   border-radius: 5px;
   opacity: 0;
+  background: var(--card);
 }
 
 .board-card:hover .card-move-btn {
@@ -8713,13 +8714,11 @@ body:has(.confirm-dialog) .dialog:not(.confirm-dialog) {
   display: inline-flex;
   align-items: center;
   flex-shrink: 0;
-  transition: margin-right 120ms ease;
 }
 
-/* Room for the move button, and only while it is actually there. */
-.board-card:hover .card-marks {
-  margin-right: 22px;
-}
+/* The move button floats on its own layer above the card corner — it never
+   pushes text or marks aside. The button carries its own card-coloured
+   backdrop so it stays readable when it overlaps them. */
 
 .agent-dot {
   display: inline-flex;
