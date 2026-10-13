@@ -15,7 +15,7 @@ covered in [Permissions](permissions.md).
 
 ## What a public link is
 
-One page, read-only, no account, no session. The address looks like this:
+One page, read-only, no account. The address looks like this:
 
 ```
 https://salt.example.com/public/4f9c2ab1e07d3856c2f1a904bb73e5d81c6a
@@ -27,9 +27,7 @@ the person who published it.
 
 Four things follow from how the link is served:
 
-- It is a **standalone HTML document**. The app is not involved, and no
-  JavaScript runs. It opens on anything, including a phone browser with
-  scripting switched off.
+- It is a **standalone HTML document**. The app is not involved. Its content is rendered on the server and remains readable with scripting switched off. An optional theme switch remembers light, dark or system appearance.
 - It carries **that page and nothing else**. Sub-pages, the rest of the
   workspace, search, the sidebar: none of it is reachable from a public link,
   because none of it is in the document.
@@ -58,7 +56,7 @@ token and the previous one stops working immediately.
    `In 7 days` or `In 30 days`).
 5. Optionally type a password into the **Password (optional)** field. It takes
    effect when you leave the field.
-6. **Copy** puts the address on the clipboard. Clicking into the field selects
+6. The **Copy link** icon inside the address field puts the address on the clipboard. Clicking into the field selects
    the whole address, for a browser where the clipboard button is blocked.
 
 ![Publishing a page: the link, an optional password and an optional expiry.](img/share-dialog.png)
@@ -143,8 +141,8 @@ the last visit. `Never` is the default.
 The first request after the expiry deletes the link and shows the visitor a
 plain page:
 
-> **Not found**
-> This link is invalid or has expired.
+> **Link unavailable**
+> This link may have been disabled or expired.
 
 An expired link and a made-up link are indistinguishable from outside, which is
 deliberate: a visitor learns nothing about whether the page exists.
@@ -159,18 +157,19 @@ either or neither.
 
 A visitor who opens a protected link gets a small form instead of the page:
 
-> 🔒 **Protected page**
+> **Protected page**
 > This page is protected by a password.
-> `Password` [ **Open** ]
+> `Page password` [ **Open page** ]
 
-A wrong password redisplays the form with **Wrong password.** in red. The
+A wrong password redisplays the form with **Wrong password. Please try again.** in red. The
 password is sent in the form body, so it never appears in the address bar or in
 a browser history entry.
 
 Three properties of this that surprise people:
 
-- **There is no session.** Nothing is remembered after the page is shown, so
-  every fresh visit, including a reload, asks again.
+- **A successful password entry grants access for one hour.** A path-bound,
+  HttpOnly cookie authorizes this share and its assets. It grants no account
+  identity; revoking the share or replacing its password invalidates the grant.
 - **The password cannot be read back or changed in place.** It is stored
   scrambled together with the token, and neither you nor an administrator can
   recover it. Setting a different one re-mints the link.
@@ -180,82 +179,46 @@ Three properties of this that surprise people:
 
 ## What a visitor sees
 
-The document is the page, rendered plainly: the page icon and title as the
-heading, the description underneath it if the page has one, then the content.
-The browser tab shows the page title. There is no navigation and no sign-in
-prompt.
+The document follows the application's reading layout rather than its A4 print
+layout: title and icon, description, optional cover, and the page content. It
+uses the same bundled stylesheet and fonts as the app, with a reading width
+that adapts to a phone. Light, dark and system appearance are available; the
+content itself needs no JavaScript. Printing and HTML export keep their own
+renderer and options. Downloaded HTML embeds supported uploads up to a total
+32 MiB; unavailable, unsupported or over-budget images retain their absolute
+address instead. Such fallback images still require access to the instance.
 
-There is no salt.md branding **on the document**. The two gates in front of it
-are the exception, and both name the product in the browser tab: the password
-form's tab reads "salt.md: protected page", the "Not found" page's tab reads
-"salt.md".
+Saved block formatting is preserved: alignment, inline emphasis and highlights,
+headings, lists, read-only checkboxes, quotes, code, tables with header cells,
+callouts, toggles, columns, bookmarks, media sizing and captions, and a table of
+contents linking to headings (up to 1,000 entries across the page). Diagrams
+are displayed as images, with source text when no safe drawing is available. Unsafe link schemes are replaced by a dead link.
 
-Content survives with its structure: headings, bullet and numbered lists,
-checklist items (as ticked boxes that cannot be clicked), quotes, code blocks,
-tables, dividers, callouts, toggles (which open and close), columns, bookmarks
-and links.
+Uploaded files currently referenced by the shared page, its icon or its cover
+are served through a token-scoped address. This does not expose other uploads,
+child pages, comments, notes or history. Removing a reference, revoking the
+share, or reaching its expiry disables that asset access. Password-protected
+assets require the share password or the short-lived grant obtained by opening
+the protected page; passwords never enter an asset URL. The original signed-in
+`/files/` route stays protected.
 
-Links behave in two different ways, which matters if the page was written by
-somebody else:
-
-- A link carried by a **file, image or bookmark block** is checked. Anything
-  that is not `http`, `https` or `mailto` is replaced by a dead link.
-- A link written **inside the text** goes out exactly as it was typed. It is not
-  checked and not rewritten.
-
-What is **not** in the document:
-
-| Not included | What the visitor gets instead |
-| --- | --- |
-| Sub-pages | Nothing. Only the page you shared |
-| Links to other pages of your instance | A link into the app, which lands on the sign-in screen |
-| An embedded collection | A link into the app, labelled `▦ Datenbank` (fixed text, not the collection's name, and not the rows) |
-| Files uploaded into this instance (images, attachments) | A broken image or a dead link: they sit at an address that needs a signed-in account. An image whose address points at another website loads normally |
-| The cover image | Nothing |
-| Properties of a database row | Nothing; only the row's title and body |
-| Comments, notes, version history | Nothing. They are never part of a share |
-| A table of contents block | Nothing; it is built by the app |
-| A sub-pages block | Nothing; it is built by the app |
-| A table's header row | Ordinary cells. The document has no header row, so the first row is not set apart |
-
-The file limitation is the one that catches people out. An image you dropped
-into a page is stored at an address that requires a signed-in account, and a
-public page's `<img>` points at that address, so the picture that is there for
-you is missing for the visitor.
-
-If the images matter, use **⋯ → Print / as PDF** and send the PDF. That view
-opens in a tab of the app, where you are still signed in, so the pictures are
-in the document you print. **⋯ → Web page (.html)** does not help: the
-downloaded file goes through the same renderer and points at the same internal
-addresses, so it shows the same gaps as the public page
-([Import and export](import-export.md)).
+Links to other pages still lead into the app and require the reader's own
+account and access. Embedded collections do not publish their rows here, and
+row properties are not added to the document. The collection's public table
+behaviour is described below.
 
 ### Publishing a collection
 
-A collection can be published too, from the same globe button, and it renders
-differently: as raw Markdown in a monospaced block. Nothing is turned into a
-web page: the visitor reads the title on the first line with its `#` still in
-front of it, then a pipe table.
+A collection uses the same reader shell with a read-only table. It shows up to
+1,000 immediate, non-trashed rows in collection order, followed by the number
+of additional rows. Private rows are excluded for anonymous visitors. A wide
+table scrolls horizontally and can be focused with the keyboard.
 
-- **Every row that is not in the trash**, in the collection's own order, not
-  the filter, sort or grouping of any [view](views.md). A board's columns and a
-  calendar's dates have no meaning here.
-- **One column per property**, in schema order, with Title first.
-- **Rollup, formula and backrelation columns are empty.** Those values are
-  worked out when the app reads a collection, and the public table does not work
-  them out. The headings are there; the cells are blank.
-- **The other columns print what is stored, not what the app shows you.** A
-  checkbox is `✓` or blank; select and multiselect show the option names; a date
-  is the stored value (`2026-07-18`), never reformatted for the visitor's
-  region; a number can carry trailing zeros (`3.2500`); a checklist stays empty.
-  A relation prints the internal ids of the pages it points at, and a person
-  column prints the internal id of whoever was picked from the member list:
-  ids, not titles and not names.
-- **Rows marked private are left out**, whoever they belong to, your own
-  included. A visitor without an account is nobody's colleague, so the private
-  flag hides a row from the published table just as it hides it from other
-  members.
-- Sub-pages of the rows are not included.
+Columns follow the schema. Values incompatible with the current property type
+are blank. Select options use their names; numbers and checkboxes use readable
+values. Relations, people and computed properties are blank: the public table
+does not publish internal IDs, names or related page titles. Row bodies,
+sub-pages and saved view filters are not included.
 
 ## Sharing more than one page
 
@@ -297,7 +260,7 @@ Removing the person who published it from the workspace does not.
 
 - Sharing a page does not share the workspace it lives in, and gives a visitor
   no way to reach anything else in it ([Workspaces](workspaces.md)).
-- A public link grants no session and no identity. A visitor cannot edit,
+- A public link grants no account session and no identity. A visitor cannot edit,
   comment, search, or see who else has the link.
 - A page that is **private** can still be published, and the link works. The
   lock icon in the topbar and the globe beside it are separate switches

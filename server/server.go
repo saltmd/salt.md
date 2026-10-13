@@ -18,11 +18,12 @@ import (
 )
 
 type Server struct {
-	db          *sql.DB
-	mux         *http.ServeMux
-	dataDir     string
+	publicCSS string
+	db        *sql.DB
+	mux       *http.ServeMux
+	dataDir   string
 	// name → the markup INSIDE a Lucide <svg>, for the print view.
-	lucide      map[string]string
+	lucide map[string]string
 	// The third-party licence notices, embedded from the repository root.
 	notices     string
 	addr        string
@@ -78,6 +79,10 @@ func New(dataDir string, dist fs.FS) (*Server, error) {
 	// data URI. A data URI rather than a link, because some MCP clients will
 	// not fetch foreign images (strict CSP) — a link would be silently empty
 	// there.
+	cssHref := ""
+	if index, err := fs.ReadFile(dist, "index.html"); err == nil {
+		cssHref = publicCSSHref(index)
+	}
 	iconURI := ""
 	// The Lucide set, generated at build time (web/scripts/build-lucide.mjs).
 	// Read once, like the favicon below: the print view is built on the server
@@ -95,6 +100,7 @@ func New(dataDir string, dist fs.FS) (*Server, error) {
 	}
 
 	s := &Server{
+		publicCSS: cssHref,
 		mcpIcon:   iconURI,
 		lucide:    lucideSet,
 		ingest:    newIngestRegistry(),
@@ -298,6 +304,7 @@ func New(dataDir string, dist fs.FS) (*Server, error) {
 	m.HandleFunc("GET /api/public/form/{token}", s.handlePublicFormConfig)
 	m.HandleFunc("POST /api/public/form/{token}/submit", s.handlePublicFormSubmit)
 	m.HandleFunc("GET /api/public/{token}", s.handlePublicPage)
+	m.HandleFunc("GET /public/{token}/files/{name}", s.handlePublicFile)
 	m.HandleFunc("GET /public/{token}", s.handlePublicView)
 	m.HandleFunc("POST /public/{token}", s.handlePublicView)
 

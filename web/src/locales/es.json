@@ -1097,5 +1097,7 @@
   "⚠ This is the URL of the running quick tunnel. It changes on every start. For OAuth that lasts, use a named tunnel or your own domain and enter it as the base URL.": "⚠ Esta es la URL del túnel rápido activo. Cambia en cada inicio. Para OAuth permanente, utiliza un túnel con nombre o tu propio dominio e introdúcelo como URL base.",
   "✓ Resolved": "✓ Resuelto",
   "＋ Link": "＋ Enlace",
-  "＋ Person": "＋ Persona"
+  "＋ Person": "＋ Persona",
+  "Public link": "Enlace público",
+  "Copy failed; select the link": "No se pudo copiar; selecciona el enlace"
 }
