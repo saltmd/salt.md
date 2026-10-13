@@ -1040,7 +1040,7 @@ function TokensModal({ onClose }: { onClose: () => void }) {
               {copied === 'token' ? t('Copied ✓') : t('Copy token')}
             </button>
             <div style={{ marginTop: 10 }}>
-              {t('Or connect an agent in one step. Paste this into your terminal:')}
+              {t('Or connect an agent in one step: paste this into your terminal:')}
             </div>
             <code style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>{mcpCommand}</code>
             <button

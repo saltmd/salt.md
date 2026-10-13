@@ -130,6 +130,13 @@ the tab stays open. When the connection returns, everything you wrote is pushed
 across in one go and merged with whatever the others wrote meanwhile. Neither
 side wins; both texts survive.
 
+**Creations and small edits queue.** A page or row created offline opens at once
+under a temporary id and syncs in the background once the connection is back;
+title, property, comment and note edits made offline replay in the order they
+were made. The sync button carries the count of what is still waiting, and
+opening it lists the items. Queued writes survive a reload — they live in the
+browser, not in the tab.
+
 **Reconnecting is automatic and backs off.** The first retry comes within a
 second, and each following wait is about twice the one before it, up to a ceiling
 of thirty seconds. Every delay carries a random part, so twenty open tabs do not
@@ -156,10 +163,21 @@ outage in words. If the faces vanish and you know your colleagues are still
 sitting there, it is your connection that went, not theirs; they reappear within
 seconds of it coming back.
 
-**The one way to lose work** is to close the tab while it is disconnected. The
-edits made in that window exist only in that window until the connection returns.
-If you have been typing and are not sure the page is live, leave the tab open
-until the faces come back.
+**Closing the tab while disconnected** used to lose the edits made in that
+window. A journal of them is now kept in the browser and replayed on the next
+visit: exactly what was typed, merged into the server's current state, never
+a wholesale push of the old copy (which would resurrect a restore, an agent
+rewrite or an import that landed meanwhile). The remaining way to lose work is
+a replacement landing in between (below): the stored document is discarded,
+and what was in flight has nowhere to land. If you have been typing and are
+not sure the page is live, leave the tab open until the faces come back.
+
+Offline data belongs to the account, not the browser: snapshots, the journal
+and the queue live under the signed-in account's name, and signing out wipes
+them, so the next person on the same browser starts clean. Queued creates
+replay exactly once even from two tabs, and a queued write is never dropped
+for failing: it waits, listed under the sync button, until the server takes
+it or refuses it for good.
 
 ## When the page is replaced under you
 

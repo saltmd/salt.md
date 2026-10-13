@@ -6,6 +6,7 @@ import { formatMoment, formatRelative } from '../format';
 import { AgentMark } from './AgentBadge';
 import { confirm } from '../dialog';
 import { toast } from '../toast';
+import { enqueue, isOfflineError, isTempId } from '../outbox';
 import { t, plural } from '../i18n';
 
 // The raw trail at the foot of a page — see server/notelog.go for what it is
@@ -74,6 +75,14 @@ export default function NoteTrail({ pageId, canWrite }: { pageId: string; canWri
       setExpanded(true);
       load();
     } catch (e) {
+      // Offline (or a not-yet-synced temp page): journal the note, it replays
+      // after the page itself exists. Anything else puts the text back.
+      if (isTempId(pageId) || isOfflineError(e)) {
+        await enqueue({ kind: 'note', pageId, payload: { body: text }, label: text.slice(0, 60) });
+        setExpanded(true);
+        toast(t('Will sync when the connection is back'));
+        return;
+      }
       setBody(text);
       toast((e as Error).message || t('Note not saved'));
     }

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { api } from '../api';
+import { isTempId, savePageUpdate } from '../outbox';
 import type { FontPref } from '../App';
 import type { PageMeta, User, Workspace } from '../types';
 import UserMenu from './UserMenu';
@@ -901,7 +902,9 @@ export default function Sidebar({
     },
   });
   const unflagTemplate = (id: string) =>
-    void api.updatePage(id, { isTemplate: false }).catch(() => toast(t('Could not be changed')));
+    void savePageUpdate(id, { isTemplate: false }, { label: t('Template') }).then((ok) => {
+      if (!ok) toast(t('Could not be changed'));
+    });
 
   // Which of the two sidebar shapes this workspace uses. Needed by the tree
   // itself, not just by the sections — see treeMode.ts.
@@ -1087,15 +1090,18 @@ export default function Sidebar({
     onMoveToWorkspace: (pageId, wsId, wsName) => {
       // The move takes the whole subtree along and puts the page at the top
       // level in the target — the previous parent stays behind.
-      void api
-        .updatePage(pageId, { workspaceId: wsId })
-        .then(() => {
-          toast(t('Moved to “{name}”').replace('{name}', wsName));
-          // The page tree updates itself through the server's change feed
-          // (pagesChanged); only the workspace counters need catching up here.
-          onWorkspacesChanged();
-        })
-        .catch((e: Error) => toast(e.message || t('Moving failed')));
+      const live = !isTempId(pageId) && navigator.onLine !== false;
+      void savePageUpdate(pageId, { workspaceId: wsId }, { label: t('Move') }).then((ok) => {
+        if (!ok) {
+          toast(t('Moving failed'));
+          return;
+        }
+        // Online the tree updates through the server's change feed
+        // (pagesChanged); offline the queue toast already said it is pending.
+        if (live) toast(t('Moved to “{name}”').replace('{name}', wsName));
+        // Only the workspace counters need catching up here.
+        onWorkspacesChanged();
+      });
     },
     dragStart: (id, e) => {
       dragId.current = id;

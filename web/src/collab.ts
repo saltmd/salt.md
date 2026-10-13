@@ -5,6 +5,7 @@ import {
   encodeAwarenessUpdate,
   removeAwarenessStates,
 } from 'y-protocols/awareness';
+import { appendJournal, clearJournal, readJournal } from './offlineCache';
 
 // Thin realtime provider for salt.md's relay protocol (see server/collab.go).
 // The server replays the persisted doc, then relays updates. It never
@@ -37,16 +38,49 @@ export class SaltProvider {
   private connectStarted = 0;
   private watchdog: ReturnType<typeof setInterval>;
 
-  constructor(pageId: string, onSynced: (isNew: boolean) => void, onReset: () => void) {
+  constructor(
+    pageId: string,
+    onSynced: (isNew: boolean) => void,
+    onReset: () => void,
+    opts?: { initialUpdate?: Uint8Array | null; onLocalUpdate?: (update: Uint8Array) => void },
+  ) {
     this.pageId = pageId;
     this.onSynced = onSynced;
     this.onReset = onReset;
     this.doc = new Y.Doc();
     this.awareness = new Awareness(this.doc);
+    // Offline snapshot taken while disconnected: apply before connecting so
+    // the local edits survive a reload. The snapshot itself is never pushed
+    // back: only the journal below travels, so a server-side rewrite
+    // (restore, agent edit, import) is never reverted by a stale copy.
+    if (opts?.initialUpdate && opts.initialUpdate.length > 0) {
+      try {
+        Y.applyUpdate(this.doc, opts.initialUpdate, 'offline');
+      } catch {
+        /* a corrupt snapshot must not block the fresh server state */
+      }
+    }
 
     this.doc.on('update', (update: Uint8Array, origin: unknown) => {
       if (origin === 'remote') return;
       this.send(FRAME_UPDATE, update);
+      // While the channel is down the send above vanishes: journal the update
+      // so the first sync can replay exactly what was typed, no more. (When
+      // synced over a live socket, updates already reached the server.)
+      // The socket check matters too: a half-dead socket still reads OPEN
+      // until the watchdog kills it, and synced flips only afterwards.
+      if (!this.synced || this.ws?.readyState !== WebSocket.OPEN) {
+        const copy = new Uint8Array(update.length);
+        copy.set(update);
+        void appendJournal(this.pageId, copy);
+      }
+      // Persist every local change (origin 'offline' included): the tab may be
+      // closed while disconnected, and the server replay is the only other copy.
+      try {
+        opts?.onLocalUpdate?.(update);
+      } catch {
+        /* persistence is best-effort */
+      }
     });
     this.awareness.on(
       'update',
@@ -117,10 +151,14 @@ export class SaltProvider {
         } else if ('synced' in msg) {
           this.synced = true;
           this.reconnectAttempt = 0; // a clean sync resets the backoff
-          if (this.everSynced) {
-            // Reconnect: push local state so offline edits reach the server.
-            this.send(FRAME_UPDATE, Y.encodeStateAsUpdate(this.doc));
-          }
+          // Replay the offline journal, if any: exactly the edits typed while
+          // disconnected, merged into the server's current state. Never the
+          // whole local doc: pushing that would resurrect whatever the
+          // server rewrote meanwhile (a restore, an agent edit, an import).
+          void readJournal(this.pageId).then((journal) => {
+            for (const u of journal) this.send(FRAME_UPDATE, u);
+            if (journal.length > 0) void clearJournal(this.pageId);
+          });
           const first = !this.everSynced;
           this.everSynced = true;
           if (first) this.onSynced(this.isNew);

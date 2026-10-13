@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import { toast } from '../toast';
+import { enqueue, isOfflineError, isTempId } from '../outbox';
 import type { Comment } from '../types';
 import { Check, MessageSquareText, Trash2, X } from 'lucide-react';
 import { formatRelative } from '../format';
@@ -107,6 +108,13 @@ export default function CommentsPanel({
       // Your own contribution should be visible, not below the fold.
       requestAnimationFrame(() => listRef.current?.scrollTo({ top: 1e6, behavior: 'smooth' }));
     } catch (err) {
+      // Offline (or a not-yet-synced temp page): journal the comment, it
+      // replays after the page itself exists. Anything else restores the box.
+      if (isTempId(pageId) || isOfflineError(err)) {
+        await enqueue({ kind: 'comment', pageId, payload: { body: text }, label: text.slice(0, 60) });
+        toast(t('Will sync when the connection is back'));
+        return;
+      }
       setBody(text); // swallow nothing if sending fails
       toast((err as Error).message || t('Could not post the comment'));
     }

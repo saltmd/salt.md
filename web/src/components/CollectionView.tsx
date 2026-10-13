@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api';
 import { onRefresh } from '../pwa';
+import { collectionKey, getCollectionSnapshot, putCollectionSnapshot } from '../offlineCache';
+import { REMAP_EVENT, enqueue, isOfflineError, isTempId, newTempId, savePageUpdate } from '../outbox';
+import { useOnline } from '../useOnline';
 import Portal from './Portal';
 import { useBoardDrag } from '../boardDrag';
 import { tagColorClass } from '../tags';
@@ -240,6 +243,8 @@ function applyView(rows: Row[], view: ViewDef): Row[] {
 export default function CollectionView({ collectionId, pages, tagColors, onNavigate, onOpenInNewTab, onPagesChanged, embed }: Props) {
   const [config, setConfig] = useState<CollectionConfig | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
+  const [offlineSnapshot, setOfflineSnapshot] = useState(false);
+  const online = useOnline();
   const [viewId, setViewId] = useState<string>(embed?.viewId ?? '');
   const pickView = (id: string) => {
     setViewId(id);
@@ -268,10 +273,17 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
   }, [workspaceId]);
 
   const loadConfig = useCallback(() => {
-    void api.getCollection(collectionId).then((c) => {
-      setConfig(c);
-      setViewId((v) => v || c.views[0]?.id || '');
-    });
+    void api
+      .getCollection(collectionId)
+      .then((c) => {
+        setConfig(c);
+        setOfflineSnapshot(false);
+        setViewId((v) => v || c.views[0]?.id || '');
+      })
+      .catch(() => {
+        // Offline: keep the last seen schema so the frozen rows still render
+        // with their columns. Rows fallback happens in loadRows.
+      });
   }, [collectionId]);
 
   const [total, setTotal] = useState(0);
@@ -324,27 +336,52 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
   const loadRows = useCallback(async () => {
     const epoch = ++epochRef.current;
     let acc: Row[] = [];
-    for (;;) {
-      const res = await api.collectionRows(collectionId, {
-        limit: PAGE,
-        offset: acc.length,
-        filters: serverFilters,
-        sort: serverSort,
-      });
-      if (epoch !== epochRef.current) return; // inzwischen neu geladen
-      const mapped: Row[] = res.rows.map((r) => ({
-        id: r.id,
-        title: r.title,
-        icon: r.icon,
-        cover: r.cover || '',
-        props: r.props || {},
-        position: r.position,
-        tags: r.tags ?? [],
-      }));
-      acc = [...acc, ...mapped];
-      setTotal(res.total);
-      setRows(acc);
-      if (acc.length >= res.total || mapped.length === 0) return;
+    try {
+      for (;;) {
+        const res = await api.collectionRows(collectionId, {
+          limit: PAGE,
+          offset: acc.length,
+          filters: serverFilters,
+          sort: serverSort,
+        });
+        if (epoch !== epochRef.current) return; // inzwischen neu geladen
+        const mapped: Row[] = res.rows.map((r) => ({
+          id: r.id,
+          title: r.title,
+          icon: r.icon,
+          cover: r.cover || '',
+          props: r.props || {},
+          position: r.position,
+          tags: r.tags ?? [],
+        }));
+        acc = [...acc, ...mapped];
+        setTotal(res.total);
+        setRows(acc);
+        if (acc.length >= res.total || mapped.length === 0) break;
+      }
+      if (epoch !== epochRef.current) return;
+      setOfflineSnapshot(false);
+      // Freeze this exact view (filters + sort included): offline we can only
+      // show what was seen, not run a new query.
+      const snapConfig = config;
+      if (snapConfig && acc.length > 0) {
+        void putCollectionSnapshot({
+          key: collectionKey(collectionId, fsKey),
+          config: snapConfig,
+          rows: acc,
+          total: acc.length,
+        });
+      }
+    } catch {
+      if (epoch !== epochRef.current) return;
+      // Offline with a snapshot: render the frozen view instead of an empty table.
+      const snap = await getCollectionSnapshot(collectionKey(collectionId, fsKey));
+      if (snap && epoch === epochRef.current) {
+        if (!config) setConfig(snap.config);
+        setRows(snap.rows);
+        setTotal(snap.total);
+        setOfflineSnapshot(true);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [collectionId, fsKey]);
@@ -401,9 +438,50 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
     // Deliberately does NOT onNavigate() into the new row: creating an item
     // from a collection view should keep you looking at the collection, same
     // as Notion. Opening it is the same click as any other existing row.
-    await api.createPage(collectionId, 'Untitled', 'doc', presetProps);
+    try {
+      await api.createPage(collectionId, 'Untitled', 'doc', presetProps);
+    } catch (e) {
+      // Offline: show a temp row at once and journal the create. The flush
+      // remaps its id (REMAP_EVENT below); prop edits meanwhile journal
+      // against the temp id and remap with it.
+      if (!isOfflineError(e)) throw e;
+      const tempId = newTempId();
+      setRows((prev) => [
+        ...prev,
+        {
+          id: tempId,
+          title: t('Untitled'),
+          icon: '',
+          cover: '',
+          props: presetProps ?? {},
+          position: Date.now(),
+          tags: [],
+        },
+      ]);
+      setTotal((n) => n + 1);
+      await enqueue({
+        kind: 'create-page',
+        pageId: tempId,
+        parentId: collectionId,
+        payload: { title: 'Untitled', type: 'doc', props: presetProps ?? {} },
+        label: t('Untitled'),
+      });
+      toast(t('Will sync when the connection is back'));
+      return;
+    }
     onPagesChanged();
   };
+
+  // A queued create resolving: swap the temp row id for the real one so the
+  // card stops looking pending and its links work.
+  useEffect(() => {
+    const onRemap = (e: Event) => {
+      const { tempId, realId } = (e as CustomEvent<{ tempId: string; realId: string }>).detail;
+      setRows((prev) => prev.map((r) => (r.id === tempId ? { ...r, id: realId } : r)));
+    };
+    window.addEventListener(REMAP_EVENT, onRemap);
+    return () => window.removeEventListener(REMAP_EVENT, onRemap);
+  }, []);
 
   // Persist an inline change to a select/multiselect property's options (create,
   // recolour, delete) — the cell editor edits the schema, not just the value.
@@ -423,8 +501,14 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
     // different properties of the same row don't overwrite each other.
     try {
       await api.updatePage(rowId, { propsPatch: { [propId]: value } });
-    } catch {
-      toast(t('Change not saved'));
+    } catch (e) {
+      // Temp rows and dead networks journal into the outbox (remapped on
+      // flush); anything else is a real failure worth a toast.
+      if (isTempId(rowId) || isOfflineError(e)) {
+        await savePageUpdate(rowId, { propsPatch: { [propId]: value } }, { label: t('Change') });
+      } else {
+        toast(t('Change not saved'));
+      }
     }
   };
 
@@ -787,6 +871,11 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
         (embed && (view.filters ?? []).some(filterIsArmed) ? ' is-filtered' : '')
       }
     >
+      {(offlineSnapshot || !online) && rows.length > 0 ? (
+        <div className="offline-banner" role="status">
+          {t('Offline copy — filters and new rows need a connection')}
+        </div>
+      ) : null}
       {viewSwitcher}
       {view.type === 'form' ? (
         <FormView

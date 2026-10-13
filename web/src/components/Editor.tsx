@@ -7,7 +7,11 @@ import {
 import { filterSuggestionItems, insertOrUpdateBlockForSlashMenu } from '@blocknote/core';
 import { en as coreEn } from '@blocknote/core/locales';
 import { BlockNoteView } from '@blocknote/mantine';
-import { api } from '../api';
+import { api, ApiError } from '../api';
+import * as Y from 'yjs';
+import { clearJournal, dropYDoc, getPage as getCachedPage, putPage as putCachedPage, getYDoc, putYDoc } from '../offlineCache';
+import { enqueue, isOfflineError, isTempId, newTempId, savePageUpdate } from '../outbox';
+import { useOnline } from '../useOnline';
 import { toast } from '../toast';
 import type { Backlink, CollectionConfig, Page, PageMeta, PropOption, User } from '../types';
 import { SaltProvider } from '../collab';
@@ -66,6 +70,8 @@ export interface EditorProps {
 export default function Editor(props: EditorProps) {
   const [page, setPage] = useState<Page | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [offlineCopy, setOfflineCopy] = useState(false);
+  const online = useOnline();
   const [nonce, setNonce] = useState(0);
   // The panel is a reading preference, not a property of the page: it stays
   // put while you move through the workspace, like the comment column's.
@@ -144,13 +150,26 @@ export default function Editor(props: EditorProps) {
     let alive = true;
     setPage(null);
     setError(null);
+    setOfflineCopy(false);
     api
       .getPage(props.pageId)
       .then((p) => {
-        if (alive) setPage(p);
+        if (!alive) return;
+        setPage(p);
+        void putCachedPage(p);
       })
       .catch((e: Error) => {
-        if (alive) setError(e.message);
+        // Offline with a snapshot: render the last seen copy instead of an
+        // error. Edits still merge through the CRDT layer on reconnect.
+        void getCachedPage(props.pageId).then((cached) => {
+          if (!alive) return;
+          if (cached) {
+            setPage(cached);
+            setOfflineCopy(true);
+          } else {
+            setError(e.message);
+          }
+        });
       });
     return () => {
       alive = false;
@@ -187,6 +206,11 @@ export default function Editor(props: EditorProps) {
         (arriving ? ' panel-arriving' : '')
       }
     >
+      {(offlineCopy || !online) && page ? (
+        <div className="offline-banner" role="status">
+          {t('Offline copy — changes will sync when the connection is back')}
+        </div>
+      ) : null}
       <PageHeader
         page={page}
         {...props}
@@ -220,7 +244,18 @@ export default function Editor(props: EditorProps) {
             onOpenInNewTab={props.onOpenInNewTab}
             onCreatePage={props.onCreatePage}
             onPagesChanged={props.onPagesChanged}
-            onReset={() => setNonce((n) => n + 1)}
+            onReset={() => {
+              // The server replaced the document under us (restore, agent
+              // rewrite, import): our in-flight edits lost to the replacement.
+              // The state before it survives as a revision — point there.
+              // The offline journal and snapshot die with it: replaying them
+              // onto the new document would resurrect exactly what was
+              // replaced.
+              void clearJournal(props.pageId);
+              void dropYDoc(props.pageId);
+              toast(t('This page was replaced on the server. Open Version history to recover your text.'));
+              setNonce((n) => n + 1);
+            }}
           />
         )}
       </PageHeader>
@@ -411,8 +446,10 @@ function RowProperties({
     setProps((p) => ({ ...p, [propId]: value }));
     try {
       await api.updatePage(pageId, { propsPatch: { [propId]: value } });
-    } catch {
-      toast(t('Property not saved'));
+    } catch (e) {
+      if (!(await savePageUpdate(pageId, { propsPatch: { [propId]: value } }, { label: t('Property') }))) {
+        toast(t('Property not saved'));
+      }
     }
   };
   const setOptions = async (propId: string, options: PropOption[]) => {
@@ -639,7 +676,13 @@ function PageHeader({
   const togglePrivate = () => {
     const next = visibility === 'private' ? 'workspace' : 'private';
     setVisibility(next);
-    api.updatePage(pageId, { visibility: next }).catch(() => toast(t('Visibility not saved')));
+    api.updatePage(pageId, { visibility: next }).catch((e) => {
+      if (isTempId(pageId) || isOfflineError(e)) {
+        void savePageUpdate(pageId, { visibility: next }, { label: t('Visibility') });
+        return;
+      }
+      toast(t('Visibility not saved'));
+    });
   };
 
   const createShare = async (days: number, password: string) => {
@@ -688,7 +731,14 @@ function PageHeader({
     saveTimer.current = window.setTimeout(() => {
       const merged = pendingMeta.current;
       pendingMeta.current = {};
-      api.updatePage(pageId, merged).catch(() => {
+      api.updatePage(pageId, merged).catch((e) => {
+        // Temp pages and dead networks both journal into the outbox (it
+        // survives reloads and remaps temp ids on flush); any other failure
+        // keeps the existing in-memory retry.
+        if (isTempId(pageId) || isOfflineError(e)) {
+          void savePageUpdate(pageId, merged as Record<string, unknown>, { label: t('Title and properties') });
+          return;
+        }
         Object.assign(pendingMeta.current, merged); // keep for a later retry
         toast(t('Title/icon not saved'));
       });
@@ -1417,57 +1467,101 @@ function CollabEditor({ page, user, theme, canEdit, onReset, ...rest }: CollabPr
   // destroyed the committed provider for good — dev hung on a dead Y.Doc.
   // Here, setup→cleanup→setup simply produces a second provider.
   useEffect(() => {
-    const p = new SaltProvider(
-      page.id,
-      (isNew) => {
-        // Seed a brand-new CRDT doc from the page's stored content once.
-        if (isNew && Array.isArray(page.content) && page.content.length > 0) {
-          seedRef.current = page.content;
+    let cancelled = false;
+    let p: SaltProvider | null = null;
+    let saveTimer = 0;
+    let onVisibility: (() => void) | null = null;
+    // Restore the offline snapshot first so edits typed before a reload are
+    // not lost; the provider merges it with the server replay on connect.
+    void getYDoc(page.id).then((initialUpdate) => {
+      if (cancelled) return;
+      const scheduleSave = () => {
+        window.clearTimeout(saveTimer);
+        saveTimer = window.setTimeout(() => {
+          try {
+            if (p) {
+              const cur = Y.encodeStateAsUpdate(p.doc);
+              if (cur.length > 0) void putYDoc(page.id, cur);
+            }
+          } catch {
+            /* snapshot is best-effort */
+          }
+        }, 1000);
+      };
+      p = new SaltProvider(
+        page.id,
+        (isNew) => {
+          // Seed a brand-new CRDT doc from the page's stored content once.
+          if (isNew && Array.isArray(page.content) && page.content.length > 0) {
+            seedRef.current = page.content;
+          }
+          setReady(true);
+        },
+        onReset,
+        { initialUpdate, onLocalUpdate: () => scheduleSave() },
+      );
+      // Presence means "is looking at this page right now": a tab in a hidden
+      // window must not show up as a peer for hours. Doc sync stays connected;
+      // only the awareness state is withdrawn. IMPORTANT: setLocalState, not
+      // setLocalStateField — after setLocalState(null) the latter is a silent
+      // no-op (y-protocols checks state !== null), and presence would never come
+      // back after switching tabs.
+      const applyPresence = () => {
+        if (!p) return;
+        if (document.visibilityState === 'hidden') {
+          p.awareness.setLocalState(null);
+        } else {
+          p.awareness.setLocalState({
+            user: { name: user.name, color: user.color, avatar: user.avatar },
+          });
         }
-        setReady(true);
-      },
-      onReset,
-    );
-
-    // Presence means "is looking at this page right now": a tab in a hidden
-    // window must not show up as a peer for hours. Doc sync stays connected;
-    // only the awareness state is withdrawn. IMPORTANT: setLocalState, not
-    // setLocalStateField — after setLocalState(null) the latter is a silent
-    // no-op (y-protocols checks state !== null), and presence would never come
-    // back after switching tabs.
-    const applyPresence = () => {
-      if (document.visibilityState === 'hidden') {
-        p.awareness.setLocalState(null);
-      } else {
-        p.awareness.setLocalState({
-          user: { name: user.name, color: user.color, avatar: user.avatar },
+      };
+      onVisibility = applyPresence;
+      applyPresence();
+      // Awareness has long known about the others — you just never saw them.
+      // Here they are written into the presence store the header reads.
+      const pushPeers = () => {
+        if (!p) return;
+        const mine = p.awareness.clientID;
+        const out: { name: string; color: string; avatar?: string }[] = [];
+        p.awareness.getStates().forEach((state: Record<string, unknown>, id: number) => {
+          if (id === mine) return;
+          const u = state.user as { name?: string; color?: string; avatar?: string } | undefined;
+          if (u?.name) out.push({ name: u.name, color: u.color || '#888', avatar: u.avatar });
         });
-      }
-    };
-    applyPresence(); // deckt auch den nie fokussierten Hintergrund-Tab ab (startet hidden)
-
-    // Awareness has long known about the others — you just never saw them.
-    // Here they are written into the presence store the header reads.
-    const pushPeers = () => {
-      const mine = p.awareness.clientID;
-      const out: { name: string; color: string; avatar?: string }[] = [];
-      p.awareness.getStates().forEach((state: Record<string, unknown>, id: number) => {
-        if (id === mine) return;
-        const u = state.user as { name?: string; color?: string; avatar?: string } | undefined;
-        if (u?.name) out.push({ name: u.name, color: u.color || '#888', avatar: u.avatar });
-      });
-      setPeers(page.id, out);
-    };
-    p.awareness.on('change', pushPeers);
-    pushPeers();
-
-    document.addEventListener('visibilitychange', applyPresence);
-    setProvider(p);
+        setPeers(page.id, out);
+      };
+      p.awareness.on('change', pushPeers);
+      pushPeers();
+      document.addEventListener('visibilitychange', applyPresence);
+      setProvider(p);
+      // A restored snapshot renders now, without waiting for a sync that may
+      // never come while offline: the body below reads the local doc, and the
+      // provider merges it with the server replay on connect. With no snapshot
+      // and no connection there is likewise nothing to wait for.
+      if ((initialUpdate && initialUpdate.length > 0) || !navigator.onLine) setReady(true);
+    });
     return () => {
-      document.removeEventListener('visibilitychange', applyPresence);
+      cancelled = true;
+      window.clearTimeout(saveTimer);
+      if (onVisibility) document.removeEventListener('visibilitychange', onVisibility);
       clearPeers(page.id);
       setReady(false); // the next provider (StrictMode) gates itself again
-      p.destroy();
+      // Flush the latest state so a tab closed right now keeps its edits.
+      try {
+        if (p) {
+          const cur = Y.encodeStateAsUpdate(p.doc);
+          if (cur.length > 0) void putYDoc(page.id, cur);
+        }
+      } catch {
+        /* best-effort */
+      }
+      try {
+        p?.destroy();
+      } catch {
+        /* best-effort */
+      }
+      setProvider(null);
     };
     // page.id is constant over the lifetime (key={currentId} remounts)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1718,6 +1812,45 @@ function BlockContent({
               ' ',
             ]);
           } catch (e) {
+            // Offline: journal the page but insert no link — a link to a temp
+            // id would dangle after the flush remaps it, and there is no
+            // in-doc fixup pass. The page itself appears in the tree on sync.
+            if (isOfflineError(e)) {
+              const tempId = newTempId();
+              const now = new Date().toISOString();
+              await putCachedPage({
+                id: tempId,
+                parentId: null,
+                title: query.trim(),
+                icon: '',
+                cover: '',
+                position: Date.now(),
+                updatedAt: now,
+                trashed: false,
+                type: 'doc',
+                props: {},
+                workspaceId: '',
+                ownerId: '',
+                visibility: 'workspace',
+                isTemplate: false,
+                tags: [],
+                description: '',
+                snippet: '',
+                thumb: '',
+                content: [],
+                createdAt: now,
+              });
+              await enqueue({
+                kind: 'create-page',
+                pageId: tempId,
+                parentId: null,
+                payload: { title: query.trim(), type: 'doc', props: {} },
+                label: query.trim(),
+              });
+              onPagesChanged();
+              toast(t('Will sync when the connection is back'));
+              return;
+            }
             console.error('salt.md: failed to create page from mention', e);
           }
         },
@@ -1801,7 +1934,23 @@ function BlockContent({
           keepalive: true,
         });
       } else {
-        api.updatePage(provider.pageId, { content: doc }, { materialize: true }).catch(() => {
+        api.updatePage(provider.pageId, { content: doc }, { materialize: true }).catch((e) => {
+          // Dead network or a not-yet-synced temp page: journal the snapshot
+          // (the outbox replays it after the create). A 404 here means the
+          // page was deleted or replaced under us — say so plainly (#4).
+          if (isTempId(provider.pageId) || isOfflineError(e)) {
+            dirty.current = false;
+            void savePageUpdate(
+              provider.pageId,
+              { content: doc } as Record<string, unknown>,
+              { materialize: true, label: t('Page content') },
+            );
+            return;
+          }
+          if (e instanceof ApiError && e.status === 404) {
+            toast(t('This page was deleted on the server. Open the trash to get it back.'));
+            return;
+          }
           dirty.current = true; // retry on next change / unmount flush
           toast(t('Page content not saved'));
         });
