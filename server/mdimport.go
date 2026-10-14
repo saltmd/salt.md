@@ -58,11 +58,12 @@ var linkRe = regexp.MustCompile(`^\[([^\]]*)\]\(([^)]+)\)`)
 // `[label](/p/id)` (see export.go), so exporting a page and importing it back
 // silently downgraded every internal link.
 //
-// Accepted: a bare `/p/<id>`, or an absolute URL ending in `/p/<id>` — agents
-// write the absolute form because that is what share_page hands them. An id is
-// 32 hex characters from newID(); anything else stays an ordinary link, which
-// is the safe direction to be wrong in.
-var pageHrefRe = regexp.MustCompile(`(?:^|/)p/([0-9a-f]{32})/?$`)
+// Accepted: a bare `/p/<id>`, a `/p/<slug>-<id>` with a transliterated title
+// prefix (the address bar form; the slug is ignored), or an absolute URL
+// ending in either — agents write the absolute form because that is what
+// set_sharing hands them. An id is 32 hex characters from newID(); anything
+// else stays an ordinary link, which is the safe direction to be wrong in.
+var pageHrefRe = regexp.MustCompile(`(?:^|/)p/(?:[A-Za-z0-9-]+-)?([0-9a-f]{32})/?$`)
 
 // pageLinkHint tells an agent that the conversion above exists. It goes in
 // every tool description that takes Markdown, because the schema is the only

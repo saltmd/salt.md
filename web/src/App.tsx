@@ -26,6 +26,7 @@ import ThemeSwitch, { type ThemePref } from './ThemeSwitch';
 import { applyPrefs, plural, t } from './i18n';
 import { useShortcut } from './keys';
 import { focusKey, useNavEntry } from './nav';
+import { pageIdFromPathname, pagePath, pageSlugTitle } from './pageUrl';
 import ShortcutSheet from './components/ShortcutSheet';
 import { guardDrops } from './dropFiles';
 
@@ -77,8 +78,7 @@ declare const __SALT_VERSION__: string;
 const BUILD_VERSION = __SALT_VERSION__;
 
 function pageIdFromLocation(): string | null {
-  const m = window.location.pathname.match(/^\/p\/([0-9a-f]+)$/);
-  return m ? m[1] : null;
+  return pageIdFromPathname(window.location.pathname);
 }
 
 type Theme = 'light' | 'dark';
@@ -158,6 +158,9 @@ export default function App() {
   // once per id (see the resolver below) and forgotten when its tab closes.
   const [extraPages, setExtraPages] = useState<Map<string, PageMeta>>(() => new Map());
   const resolvingRef = useRef<Set<string>>(new Set());
+  // Title lookup for building canonical URLs in pushTabHistory (declared
+  // before pagesById, so it reads through a ref mirrored below).
+  const pagesByIdRef = useRef<Map<string, PageMeta>>(new Map());
   const [searchOpen, setSearchOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [indexOpen, setIndexOpen] = useState(false);
@@ -382,7 +385,7 @@ export default function App() {
     const onLinkNav = (e: Event) => {
       const id = (e as CustomEvent<string>).detail;
       if (!id) return;
-      history.pushState(null, '', `/p/${id}`);
+      history.pushState(null, '', pagePath(id, pageSlugTitle(pagesByIdRef.current.get(id))));
       setCurrentId(id);
       setSidebarOpen(false);
       setOpenTabs((prev) => {
@@ -701,8 +704,11 @@ export default function App() {
   // Each history entry carries a snapshot of the tab set + active id in its
   // state, so back/forward restore the EXACT prior tabs instead of the URL id
   // being re-appended as a phantom tab (which happens with in-place navigation).
+  // The URL is canonical (/p/<slug>-<id>) when the title is already known;
+  // otherwise the effect below corrects it once pages arrive — replaceState,
+  // so no extra history entry and never a reload.
   const pushTabHistory = (tabs: string[], id: string | null, replace: boolean) => {
-    const url = id ? `/p/${id}` : '/';
+    const url = id ? pagePath(id, pageSlugTitle(pagesByIdRef.current.get(id))) : '/';
     const state = { tabs, active: id };
     if (replace) history.replaceState(state, '', url);
     else history.pushState(state, '', url);
@@ -1041,6 +1047,26 @@ export default function App() {
     for (const [id, p] of extraPages) if (!m.has(id)) m.set(id, p);
     return m;
   }, [pages, extraPages]);
+  useEffect(() => {
+    pagesByIdRef.current = pagesById;
+  }, [pagesById]);
+
+  // Canonical slug URL: keep /p/<slug>-<id> in the address bar without ever
+  // reloading. The id identifies the page; the slug follows the title. Unknown
+  // titles leave the URL alone (a stale slug still opens the page); a known
+  // empty title falls back to the bare /p/<id>. Private pages never carry a
+  // slug: the address bar is copied into chats and tickets, and a title
+  // there would leak it.
+  useEffect(() => {
+    if (!currentId) return;
+    if (!window.location.pathname.startsWith('/p/')) return;
+    const meta = pagesById.get(currentId);
+    if (!meta) return;
+    const want =
+      pagePath(currentId, pageSlugTitle(meta)) + window.location.search + window.location.hash;
+    const cur = window.location.pathname + window.location.search + window.location.hash;
+    if (cur !== want) history.replaceState(history.state, '', want);
+  }, [currentId, pagesById]);
 
   // A viewer (read-only workspace role) may not edit; the doc editor renders
   // read-only so a viewer isn't teased with an editable-looking page whose
@@ -1056,7 +1082,7 @@ export default function App() {
   // Switching workspaces must not leave the editor (and the URL) pointing at a
   // document that belonged to the workspace you just left — the picker used
   // to be wired straight to setCurrentWs, so `currentId` never changed and
-  // the previous workspace's content (and its /p/<id> URL) just sat there.
+  // the previous workspace's content (and its /p/<slug>-<id> URL) just sat there.
   // Land on the new workspace's first page instead, the same "pick a page"
   // fallback already used when the active page is trashed — or the empty
   // state if the workspace has none yet. If the page you're already on

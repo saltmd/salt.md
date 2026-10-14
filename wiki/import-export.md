@@ -152,7 +152,9 @@ missing.
 
 A link whose target is `/p/<id>` (where `<id>` is the 32-character page id)
 becomes a **page link**, not an ordinary link. An absolute URL that ends the
-same way works too, which is the form a share link takes.
+same way works too, which is the form a share link takes. The `/p/<slug>-<id>`
+form from the address bar works as well: the slug is ignored and only the
+trailing id matters.
 
 | You write | You get |
 | --- | --- |

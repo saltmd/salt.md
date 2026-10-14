@@ -11,6 +11,7 @@ import { plural, t } from '../i18n';
 import { AdminSettingsModal, TwoFAModal, CalendarSubModal } from './AdminSettings';
 import { Key, History, CalendarDays, ShieldCheck, Users, Settings, LogOut, Bot, User as UserIcon, Columns2, Type, Languages, Undo2, Keyboard } from 'lucide-react';
 import { chordFor } from '../keys';
+import { pagePath } from '../pageUrl';
 import { LanguageTimeModal } from './LanguageTime';
 
 export function Avatar({ user, size = 22 }: { user: User; size?: number }) {
@@ -441,11 +442,11 @@ export function ActivityModal({ onClose, pageId, pageTitle }: { onClose: () => v
                   <>
                     {' '}
                     <a
-                      href={'/p/' + e.pageId}
+                      href={pagePath(e.pageId, e.pageTitle)}
                       onClick={(ev) => {
                         ev.preventDefault();
                         onClose();
-                        window.location.assign('/p/' + e.pageId);
+                        window.location.assign(pagePath(e.pageId, e.pageTitle));
                       }}
                     >
                       {e.pageTitle}
