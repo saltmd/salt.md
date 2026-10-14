@@ -3291,6 +3291,32 @@ body.is-col-resizing {
   gap: 8px;
   margin-bottom: 10px;
 }
+/* Settings and the period picker keep the right edge, as on the timeline —
+   the settings button used to sit with the arrows on the left. */
+.cal-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+/* A phone cannot fit ‹ title › Today ⚙ and the span picker on one line — the
+   picker used to be pushed off the screen entirely. The head takes two lines
+   there, and the picker keeps the right edge to itself. */
+@media (max-width: 700px) {
+  .calendar-head,
+  .tl-controls {
+    flex-wrap: wrap;
+  }
+  .calendar-head .cal-range-wrap,
+  .tl-controls .cal-range-wrap {
+    margin-left: auto;
+  }
+  .calendar-title,
+  .tl-title {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+}
 
 .calendar-title {
   font-weight: 600;
@@ -3298,10 +3324,204 @@ body.is-col-resizing {
   text-transform: capitalize;
 }
 
-.calendar-grid {
+/* Month-count picker in the calendar head, and the grids it switches. */
+.cal-range-wrap {
+  position: relative;
+  display: inline-flex;
+  margin-left: auto;
+}
+
+.cal-range-wrap .btn-sm {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cal-grids {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  align-items: stretch;
+}
+
+.cal-grids .calendar-grid {
+  min-width: 0;
+}
+
+.cal-grid-title {
+  font-weight: 600;
+  font-size: 14px;
+  text-transform: capitalize;
+  margin: 2px 2px 8px;
+}
+
+/* One day's rows as a plain vertical list. */
+.cal-day-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 2px;
+}
+
+.cal-day-list .calendar-event {
+  text-align: left;
+}
+/* A row with an end date is drawn as one bar across the days it covers: a
+   segment in each cell it touches, bleeding over the cell's own padding and
+   over the 1px grid line so the pieces read as one bar, rounded only at the
+   real start and end. Lanes give a week's bars the same order in every cell,
+   so the segments line up instead of jumping between rows. */
+.cal-lane {
+  height: 21px;
+  flex: none;
+}
+.cal-span {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+  /* A fixed height, not one grown from the text: the segments that carry no
+     label (everything but the first day of a range) would otherwise collapse to
+     their padding and the bar would look like a hairline. */
+  height: 21px;
+  box-sizing: border-box;
+  line-height: 17px;
+  padding: 2px 6px;
+  /* How far a segment reaches past its own cell, so the pieces read as one bar
+     over the grid line. Named because a bar's first segment measures its own
+     width against it (see .cal-span.is-start). */
+  --span-bleed: 4.5px;
+  margin: 0 calc(-1 * var(--span-bleed));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+  cursor: pointer;
+}
+.cal-span.is-start {
+  margin-left: 0;
+  border-radius: 5px 0 0 5px;
+  /* The label belongs to the whole bar, not to its first cell: a range that
+     crosses a week has the width to say its name, where one 50px cell managed
+     only "Дое…". This segment is as wide as the bar is in this week row
+     (--span-cells, set by the view) and is painted above the cells to its
+     right, which draw nothing of their own (see the view) — one layer of a
+     translucent colour, so the bar has no step in it. N cells of pitch, less
+     the grid line that follows the last one, measured from this cell's own
+     text edge. */
+  position: relative;
+  z-index: 1;
+  width: calc(
+    var(--span-cells, 1) * 100% +
+    (var(--span-cells, 1) - 1) * (var(--cell-pad, 4px) * 2 + var(--cell-gap, 1px))
+  );
+}
+/* A bar that runs on into the next week bleeds half the grid line past its last
+   cell here, exactly as a middle segment does — without it the row edge cuts
+   the bar short of the line. A range that really ends in this row stops at the
+   cell's text edge, where its rounded end has always sat. */
+.cal-span.is-start:not(.is-end) {
+  width: calc(
+    var(--span-cells, 1) * 100% +
+    (var(--span-cells, 1) - 1) * (var(--cell-pad, 4px) * 2 + var(--cell-gap, 1px)) +
+    var(--span-bleed)
+  );
+}
+.cal-span.is-end {
+  margin-right: 0;
+  border-radius: 0 5px 5px 0;
+}
+.cal-span.is-start.is-end {
+  border-radius: 5px;
+}
+.cal-span:hover {
+  filter: brightness(1.07);
+}
+/* A dot on a button with something behind it — the view settings, once per kind
+   of view, cleared the moment it is opened. The same mark the workspace menu
+   grows for a waiting proposal. */
+.btn-sm.has-dot {
+  position: relative;
+}
+.btn-sm.has-dot::after {
+  content: '';
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+/* Year overview: twelve compact month grids. Days with rows read bolder;
+   today keeps its marker; the mini title drills into that month. */
+.cal-year {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 20px 24px;
+}
+
+.cal-mini {
+  min-width: 0;
+}
+
+.cal-mini-title {
+  font-weight: 600;
+  font-size: 13.5px;
+  text-transform: capitalize;
+  padding: 2px 4px;
+  border-radius: 6px;
+  color: var(--fg);
+}
+
+button.cal-mini-title:hover {
+  background: var(--hover);
+}
+
+.cal-mini-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 1px;
+}
+
+.cal-mini-day {
+  font-size: 11.5px;
+  text-align: center;
+  padding: 3px 0;
+  border-radius: 5px;
+  color: var(--muted);
+}
+
+.cal-mini-day.empty {
+  visibility: hidden;
+}
+
+.cal-mini-day.dim {
+  opacity: 0.45;
+}
+
+.cal-mini-day.today {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.cal-mini-day.has-events {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+button.cal-mini-day:hover {
+  background: var(--hover);
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  /* Named because a bar's first segment measures its width in whole cells (see
+     .cal-span.is-start) and has to account for the line between them. */
+  --cell-gap: 1px;
+  gap: var(--cell-gap);
   background: var(--border);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -3318,12 +3538,57 @@ body.is-col-resizing {
 }
 
 .calendar-cell {
+  position: relative;
   background: var(--bg);
   min-height: 92px;
-  padding: 4px;
+  /* Grid children default to min-width: auto, so one long unbroken title
+     (white-space: nowrap) forces its column wide and the whole 7-column grid
+     sails off the screen on a phone. Zero lets 1fr hold and the text cut. */
+  min-width: 0;
+  /* Named because a bar's label measures itself in whole cells (see
+     .cal-span.is-start) and needs to know what the cell's own padding is. */
+  --cell-pad: 4px;
+  padding: var(--cell-pad);
   display: flex;
   flex-direction: column;
   gap: 3px;
+}
+/* Add-from-the-day: the corner of the cell. On a pointer it waits for hover, on
+   a touch screen it is simply there. */
+.cal-add {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 6px;
+  background: var(--hover);
+  color: var(--muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.calendar-cell:hover .cal-add {
+  opacity: 1;
+}
+.cal-add:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+@media (hover: none) {
+  .cal-add {
+    opacity: 1;
+  }
+  /* The + owns the bottom-right corner of the cell, so the entries stop above
+     it instead of running under it — two lines made the last one reach the
+     corner, where the button sat on top of the text. */
+  .calendar-cell {
+    padding-bottom: 24px;
+  }
 }
 
 .calendar-cell.empty {
@@ -3335,12 +3600,51 @@ body.is-col-resizing {
   background: var(--accent-soft);
 }
 
+/* The day number is a button — clicking it opens that day in the day view —
+   but it must not look like one: same size, same colour, no underline. */
 .calendar-daynum {
   font-size: 11.5px;
   color: var(--muted);
   align-self: flex-end;
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  line-height: inherit;
+  cursor: pointer;
 }
 
+/* An entry is carried only after a hold (see beginEntryDrag): until then a
+   finger starting here scrolls, like everywhere else. No text selection while
+   dragging it. */
+.calendar-event,
+.cal-span {
+  touch-action: pan-x pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+/* The day an entry would land on. */
+.calendar-cell.is-drop {
+  background: var(--accent-soft);
+}
+/* The entry under the finger, so the drag has something to look at besides a
+   tinted cell. */
+.cal-ghost {
+  position: fixed;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 400;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  box-shadow: var(--shadow);
+  max-width: 220px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .calendar-event {
   border: none;
   background: var(--accent-soft);
@@ -3350,9 +3654,15 @@ body.is-col-resizing {
   font-size: 12px;
   text-align: left;
   cursor: pointer;
-  white-space: nowrap;
+  /* Two lines, not one. A phone's month cell is a few characters wide, and one
+     line is a word cut off at the dots — two at least say what the thing is.
+     A long unbroken title wraps rather than running out of the cell (the cell
+     itself is min-width: 0, see .calendar-cell). */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 
 .calendar-event:hover {

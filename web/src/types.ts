@@ -268,12 +268,17 @@ export interface Sort {
   dir: 'asc' | 'desc';
 }
 
+/** Visible span of calendar and timeline views. */
+export type SpanMode = 'day' | 'week' | 'month' | '2months' | 'year';
+
 export interface ViewDef {
   id: string;
   name: string;
   type: 'table' | 'board' | 'list' | 'gallery' | 'calendar' | 'form' | 'timeline';
   groupBy?: string;
   dateProp?: string; // calendar/timeline view: date property (timeline: start)
+  /** Calendar view: which span the grid shows. Defaults to a month. */
+  calMode?: SpanMode;
   endDateProp?: string; // timeline view: optional end-date property (else 1-day bar)
   hidden?: string[]; // property ids hidden in this view
   filters?: Filter[];

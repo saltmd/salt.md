@@ -1056,6 +1056,16 @@ export default function PropertyValue({
           type="date"
           value={(value as string) || ''}
           onChange={(e) => onChange!(e.target.value)}
+          onClick={(e) => {
+            // The whole field opens the calendar: natively only the icon does
+            // that, and clicking the text merely starts segment editing.
+            // Typing still works — Tab into the field, or Escape the picker.
+            try {
+              e.currentTarget.showPicker?.();
+            } catch {
+              /* already open, or no picker on this browser — it still edits */
+            }
+          }}
         />
       );
     case 'url':

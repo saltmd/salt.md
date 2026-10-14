@@ -174,14 +174,26 @@ and why the table, not the gallery, is where a missing value is visible.
 ### `calendar`
 
 A month grid. Every row that has a value in the chosen date property appears in
-that day's cell as a clickable entry with its icon, title and tags. Rows without
+that day's cell as a clickable entry with its icon, title and tags. A row that
+also has an end date is drawn as **one bar** across the days it covers, rounded
+at its real start and end and labelled on its first day; a range that crosses a
+week boundary continues on the next line, as a paper calendar does. Rows without
 a date simply do not appear.
 
 ![A calendar view. It needs a date property to place rows on.](img/collection-calendar.png)
 
-The head of the calendar has `‹`, the month and year, `›`, and **Today**, which
-jumps back to the current month. Which day the week starts on follows your
-language and region (Monday across most of Europe, Sunday in the US and Japan,
+The head of the calendar has `‹`, the span, `›`, **Today**, which jumps back to
+today, and a ⚙ button with this view's own settings: which date property the
+calendar reads (**Start**) and what ends a row (**End**, optional). With no end
+every entry stays what it was — an entry on a single day. An agent can change
+the same with `set_view`, `date_prop` and `end_date_prop`.
+
+A mode picker beside it switches between **Day**, **Week**,
+**Month**, **2 months** and **Year**; two months stack one under the other, and
+the year is twelve small grids whose month names jump straight there. `‹`/`›`
+always slide by one step of the shown span — one day, week, month or year — so
+no month is ever skipped over in the two-month view. The choice
+is stored on the view, and a public link shows what its owner set. Which day the week starts on follows your
 Saturday in much of the Arab world) and the column headings are rotated to
 agree with it. You can override it under **Week starts on** in your
 [account settings](account.md).
@@ -189,11 +201,8 @@ agree with it. You can override it under **Week starts on** in your
 A date property is a calendar date and is never shifted by a time zone: a row
 dated the 18th sits on the 18th for everyone.
 
-One limit: the calendar's date property is chosen when the view is created (the
-first date property in the schema) and the settings bar has no control to change
-it afterwards. An agent can change it with `set_view` and `date_prop`. Without a
-usable one the view says *This calendar needs a Date property. Open ⚙ Properties
-to add one.*
+Without a usable date property the view says *This calendar needs a Date
+property. Open ⚙ Properties to add one.*
 
 ### `timeline`
 
@@ -207,6 +216,9 @@ The settings bar carries two pickers for this view, and only for this view:
 | --- | --- | --- |
 | **Start:** | **Start: (none)**, or any date property | Where the bar begins. Choosing (none) clears the choice, and the timeline falls back to the first date property in the schema. |
 | **End:** | **End: (none)**, or any date property | Where the bar ends. With none, every bar is one day wide. |
+
+That button wears a dot until you have opened this kind of view's settings once:
+a view reads a date property and spans a range, and nothing on screen says so.
 
 When you create a timeline it takes the first date property as its start and the
 second as its end, if there is one. A row without a start date is left out. If no
