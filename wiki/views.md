@@ -198,8 +198,19 @@ to add one.*
 ### `timeline`
 
 A horizontal day grid with a sticky title column on the left, one bar per row,
-month headings across the top and a line marking today. Clicking either the label
-or the bar opens the row.
+month headings across the top with every single day numbered underneath, and a
+line marking today. Clicking either the label or the bar opens the row.
+Hovering a bar highlights the days it spans; a bar's tooltip names the row and
+its span. The last row of the label column holds **+ New**, which adds a row
+dated at what the timeline is showing.
+
+The head carries a Day / Week / Month / 2 months / Year switch, stored on the
+view; the ‹ › buttons slide the window and Today jumps back to the current
+day. Dragging a bar by either edge stretches that end day by day, with the
+live date hanging off the edge; it persists on release. That needs an end
+property: without one the bars have no handles. Rows outside the window keep
+their label and lose only their bar, so narrowing the window never hides
+entries.
 
 The settings bar carries two pickers for this view, and only for this view:
 
@@ -214,10 +225,8 @@ row has one, the view says *No entries with a date yet. Set a start date so they
 appear on the timeline.* With no start property at all it says *This timeline
 needs a Date property as its start. Open ⚙ Properties to add one.*
 
-The visible range always contains today: it runs from three days before the
-earlier of today and the first start, to four days after the later of today and
-the last end. So a plan that lies entirely in the future begins three days before
-today, not three days before the first bar.
+New timelines open on the current month. When everything lies elsewhere the
+window starts at the data instead, so the first open already shows bars.
 
 ### `form`
 
