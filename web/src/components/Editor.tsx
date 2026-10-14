@@ -35,7 +35,7 @@ import { usePeers, setPeers, clearPeers } from '../presence';
 import { tagColorClass, TAG_PALETTE } from '../tags';
 import { collectTags, suggestTags } from '../tagSuggest';
 import { modalOpen, useMenuDismiss } from '../modal';
-import { Menu, Star, Lock, LockOpen, Globe, MessageSquare, History, MoreHorizontal, Printer, FileCode, FileText, Upload, AlignLeft, Check, Image as ImageIcon , Smile, PanelRight, Link2, Trash2, FilePlus2, Columns2, Workflow} from 'lucide-react';
+import { Menu, Star, Lock, LockOpen, Globe, MessageSquare, History, MoreHorizontal, Printer, FileCode, FileText, Upload, AlignLeft, Check, Image as ImageIcon , Smile, PanelRight, Link2, Trash2, FilePlus2, Columns2, Workflow, ClipboardList} from 'lucide-react';
 import { blockTypeFor, carriesExternalFiles } from '../dropFiles';
 
 export interface EditorProps {
@@ -450,6 +450,26 @@ function RowProperties({
   );
 }
 
+// The expiry select offers fixed buckets; map a stored expires_at back onto
+// the nearest one so the menu reflects the live link. Anything custom reads
+// as the closest bucket — picking it again keeps roughly the same expiry.
+function expiryToDays(expiresAt?: string): number {
+  if (!expiresAt) return 0;
+  const ms = Date.parse(expiresAt) - Date.now();
+  if (!Number.isFinite(ms) || ms <= 0) return 0;
+  const days = ms / 86400000;
+  let best = 0;
+  let bestDiff = Infinity;
+  for (const b of [0, 1, 7, 30]) {
+    const d = Math.abs(days - b);
+    if (d < bestDiff) {
+      bestDiff = d;
+      best = b;
+    }
+  }
+  return best;
+}
+
 function PageHeader({
   page,
   pageId,
@@ -501,10 +521,35 @@ function PageHeader({
     setShareUrl(null);
     setShareOff(false);
     setShareOpen(false);
+    setShareExpiry(0);
+    setSharePassword('');
+    setShareHasPassword(false);
+    setReadShared(false);
+    setFormShared(false);
+    setLastPassword('');
   }, [pageId]);
   const isShared = shareUrl != null || (!!page.shared && !shareOff);
   const [shareExpiry, setShareExpiry] = useState(0); // days; 0 = never
   const [sharePassword, setSharePassword] = useState('');
+  const [shareHasPassword, setShareHasPassword] = useState(false);
+  // Read-share and form-share are independent links; the dialog tracks them
+  // apart so a live form alone still offers the read share instead of the
+  // "link active, no URL" dead end. lastPassword is the raw password as last
+  // applied here — the only moment it exists — for the ?pw= copy below.
+  const [readShared, setReadShared] = useState(false);
+  const [formShared, setFormShared] = useState(false);
+  const [lastPassword, setLastPassword] = useState('');
+  const isCollection = page.type === 'collection';
+  // Collection share settings: which views the public link shows (null = all)
+  // and whether readers may open rows. Loaded lazily with the share menu.
+  const [shareViewsList, setShareViewsList] = useState<{ id: string; name: string }[]>([]);
+  const [shareAllowed, setShareAllowed] = useState<string[] | null>(null);
+  const [shareAllowDetail, setShareAllowDetail] = useState(false);
+  useEffect(() => {
+    setShareViewsList([]);
+    setShareAllowed(null);
+    setShareAllowDetail(false);
+  }, [pageId]);
   const [overflowOpen, setOverflowOpen] = useState(false);
   // Dropdowns must close on an outside click / Escape, not just mouse-leave.
   const shareWrapRef = useRef<HTMLDivElement>(null);
@@ -642,38 +687,207 @@ function PageHeader({
     api.updatePage(pageId, { visibility: next }).catch(() => toast(t('Visibility not saved')));
   };
 
-  const createShare = async (days: number, password: string) => {
+  // The token itself is stored hashed server-side, so a minted URL cannot be
+  // recovered — only remembered. The owner who minted it keeps it in this
+  // browser; opening the menu must never mint silently, or every open would
+  // kill the link somebody already sent.
+  const shareUrlKey = `salt:share-url:${pageId}`;
+  const readStoredUrl = (): string | null => {
     try {
-      const res = await api.sharePage(pageId, days, password);
+      return localStorage.getItem(shareUrlKey);
+    } catch {
+      return null;
+    }
+  };
+  const rememberUrl = (url: string) => {
+    try {
+      localStorage.setItem(shareUrlKey, url);
+    } catch {
+      // Private mode — the link simply will not survive a reload here.
+    }
+  };
+  const forgetUrl = () => {
+    try {
+      localStorage.removeItem(shareUrlKey);
+    } catch {
+      // Nothing stored, nothing to forget.
+    }
+  };
+  const displayUrl = shareUrl ?? readStoredUrl();
+
+  const mintShare = async (days: number, password: string, allowed?: string[] | null, allowDetail?: boolean, rotated = false) => {
+    try {
+      // An explicit view list, never empty: an empty list would publish every
+      // view including later ones, so a fresh link snapshots the views that
+      // exist right now.
+      const views = isCollection
+        ? (allowed ?? shareAllowed ?? shareViewsList.map((v) => v.id))
+        : [];
+      const res = await api.sharePage(
+        pageId,
+        days,
+        password,
+        views,
+        isCollection ? (allowDetail ?? shareAllowDetail) : false,
+      );
+      setShareAllowed(isCollection && views.length > 0 ? views : null);
       // Absolute URL on the external domain when configured; else current origin.
-      setShareUrl(res.url.startsWith('http') ? res.url : location.origin + res.url);
+      const url = res.url.startsWith('http') ? res.url : location.origin + res.url;
+      setShareUrl(url);
+      rememberUrl(url);
       setShareOff(false);
-      onPagesChanged();
+      setReadShared(true);
+      setSharePassword('');
+      setShareHasPassword(password !== '');
+      setLastPassword(password);
+      if (rotated) toast(t('A new link was created. The old one no longer works'));
     } catch {
       toast(t('Sharing failed'));
     }
   };
 
-  // Opening the menu publishes a page that is not shared yet. A page that is
-  // keeps its link: the server stores only a hash of the token, so the address
-  // cannot be shown again, and minting a new one on open broke it for everyone
-  // who had it. The globe marker made exactly that click the inviting one.
+  // Opening the menu never mints: minting replaces the token, so opening
+  // must only read. A fresh link is created by the explicit button below.
   const openShare = async () => {
     setShareOpen((o) => !o);
-    if (!shareUrl && !isShared) await createShare(shareExpiry, sharePassword);
+    await loadShareSettings();
+  };
+
+  const loadShareSettings = async (): Promise<{ shared: boolean; allowed: string[] | null; detail: boolean }> => {
+    let out = { shared: false, allowed: null as string[] | null, detail: false };
+    try {
+      const st = await api.shareStatus(pageId);
+      if (st.shared) {
+        out = {
+          shared: true,
+          allowed: st.allowedViews && st.allowedViews.length > 0 ? st.allowedViews : null,
+          detail: !!st.allowDetail,
+        };
+        setReadShared(true);
+        setShareAllowed(out.allowed);
+        setShareAllowDetail(out.detail);
+        setShareHasPassword(!!st.hasPassword);
+        setShareExpiry(expiryToDays(st.expiresAt));
+      } else {
+        setReadShared(false);
+      }
+    } catch {
+      // No live share yet — defaults stand.
+    }
+    if (isCollection) {
+      try {
+        const fs = await api.formShareStatus(pageId);
+        setFormShared(fs.shared);
+      } catch {
+        // Form state unknown — the note below simply stays hidden.
+      }
+    }
+    if (!isCollection) return out;
+    try {
+      const c = await api.getCollection(pageId);
+      setShareViewsList(c.views.filter((v) => v.type !== 'form').map((v) => ({ id: v.id, name: v.name })));
+    } catch {
+      // Not a collection (any more) — the section stays hidden.
+    }
+    return out;
+  };
+
+  const toggleShareView = async (viewId: string) => {
+    const next = shareAllowed === null
+      ? shareViewsList.filter((v) => v.id !== viewId).map((v) => v.id)
+      : shareAllowed.includes(viewId)
+        ? shareAllowed.filter((id) => id !== viewId)
+        : [...shareAllowed, viewId];
+    // Unchecking the last view would publish an empty collection — keep one.
+    if (next.length === 0) {
+      toast(t('Keep at least one view shared'));
+      return;
+    }
+    setShareAllowed(next.length >= shareViewsList.length ? null : next);
+    try {
+      await api.patchShare(pageId, { allowedViews: next });
+    } catch {
+      toast(t('Sharing failed'));
+    }
+  };
+
+  const toggleShareDetail = async () => {
+    const next = !shareAllowDetail;
+    setShareAllowDetail(next);
+    try {
+      await api.patchShare(pageId, { allowDetail: next });
+    } catch {
+      toast(t('Sharing failed'));
+    }
   };
 
   const changeExpiry = async (days: number) => {
     setShareExpiry(days);
-    // Re-mint the link with the new settings (the server replaces the old token).
-    await createShare(days, sharePassword);
+    // In place: expiry is a column update, the token stays.
+    try {
+      await api.patchShare(pageId, { expiresInDays: days });
+    } catch {
+      toast(t('Sharing failed'));
+    }
+  };
+
+  // The password lives in its own salted hash beside the token, so setting
+  // one keeps the link: PATCH in place, never a re-mint — and skipped when
+  // there is nothing to change. An empty field never clears: Apply with
+  // nothing typed is a no-op, so a password cannot be wiped by accident.
+  const applyPassword = async () => {
+    if (sharePassword === '') return;
+    try {
+      const res = await api.patchShare(pageId, { password: sharePassword });
+      setSharePassword('');
+      setShareHasPassword(!!res.hasPassword);
+      setLastPassword(sharePassword);
+    } catch {
+      toast(t('Sharing failed'));
+    }
+  };
+
+  // A direct-open link for a passworded share: the raw password exists only
+  // in this sitting (it is stored hashed), so the button shows exactly while
+  // there is one to embed — typed-but-unapplied, or just applied. Copying
+  // applies a still-unapplied value first, so the copied address always
+  // matches the live link instead of racing it.
+  const pwForLink = sharePassword !== '' ? sharePassword : lastPassword;
+  const copyPwLink = async () => {
+    const url = displayUrl;
+    if (!url) return;
+    let pw = lastPassword;
+    if (sharePassword !== '') {
+      try {
+        const res = await api.patchShare(pageId, { password: sharePassword });
+        setShareHasPassword(!!res.hasPassword);
+        setLastPassword(sharePassword);
+        pw = sharePassword;
+        setSharePassword('');
+      } catch {
+        toast(t('Sharing failed'));
+        return;
+      }
+    }
+    if (!pw) return;
+    const full = url + (url.includes('?') ? '&' : '?') + 'pw=' + encodeURIComponent(pw);
+    try {
+      await navigator.clipboard.writeText(full);
+      toast(t('Public link copied'));
+    } catch {
+      toast(t('Sharing failed'));
+    }
   };
 
   const stopShare = async () => {
     await api.unsharePage(pageId).catch(() => {});
     setShareUrl(null);
+    forgetUrl();
     setShareOff(true);
     setShareOpen(false);
+    setReadShared(false);
+    setShareHasPassword(false);
+    setLastPassword('');
     onPagesChanged();
   };
 
@@ -876,58 +1090,130 @@ function PageHeader({
             <button className={'icon-btn topbar-wide-only' + (isShared ? ' shared-active' : '')} title={isShared ? t('Shared') : t('Share to web (read-only link)')} onClick={openShare}>
               <Globe size={17} />
             </button>
-            {shareOpen && !shareUrl && isShared && (
+            {shareOpen && (
               <div className="menu share-menu">
-                <div className="share-hint">
-                  {t('This page is shared publicly. Its address was only shown when the link was made.')}
-                </div>
-                <div className="share-hint">{t('A new link stops the old one from working.')}</div>
-                <div className="share-actions">
-                  <button className="btn-sm" onClick={() => void createShare(shareExpiry, sharePassword)}>
-                    {t('New link')}
-                  </button>
-                  <button className="btn-sm danger" onClick={stopShare}>
-                    {t('Stop sharing')}
-                  </button>
-                </div>
-              </div>
-            )}
-            {shareOpen && (shareUrl || !isShared) && (
-              <div className="menu share-menu">
-                <div className="share-hint">{t('Anyone with this link can view this page (read-only).')}</div>
-                <input className="share-input" readOnly value={shareUrl ?? t('Creating…')} onFocus={(e) => e.currentTarget.select()} />
-                <label className="share-expiry">
-                  {t('Expires:')}
-                  <select
-                    className="prop-select"
-                    value={shareExpiry}
-                    onChange={(e) => void changeExpiry(Number(e.target.value))}
-                  >
-                    <option value={0}>{t('Never')}</option>
-                    <option value={1}>{t('In 1 day')}</option>
-                    <option value={7}>{t('In 7 days')}</option>
-                    <option value={30}>{t('In 30 days')}</option>
-                  </select>
-                </label>
-                <input
-                  className="share-input"
-                  type="password"
-                  placeholder={t('Password (optional)')}
-                  value={sharePassword}
-                  onChange={(e) => setSharePassword(e.target.value)}
-                  onBlur={() => void createShare(shareExpiry, sharePassword)}
-                />
-                <div className="share-actions">
-                  <button
-                    className="btn-sm"
-                    onClick={() => shareUrl && void navigator.clipboard.writeText(shareUrl)}
-                  >
-                    {t('Copy')}
-                  </button>
-                  <button className="btn-sm danger" onClick={stopShare}>
-                    {t('Stop sharing')}
-                  </button>
-                </div>
+                <div className="share-hint">{isCollection ? t('Anyone with this link sees this collection (read-only).') : t('Anyone with this link can view this page (read-only).')}</div>
+                {!readShared && !displayUrl ? (
+                  <>
+                    <button
+                      className="btn-sm primary"
+                      onClick={() => void mintShare(shareExpiry, sharePassword, shareAllowed, shareAllowDetail)}
+                    >
+                      {t('Share publicly')}
+                    </button>
+                    {formShared && (
+                      <div className="share-hint share-hint-icon"><ClipboardList size={13} />{t('The form on this page is already shared separately.')}</div>
+                    )}
+                  </>
+                ) : displayUrl ? (
+                  <>
+                    <input className="share-input" readOnly value={displayUrl} onFocus={(e) => e.currentTarget.select()} />
+                    <div className="share-actions">
+                      <button
+                        className="btn-sm"
+                        onClick={() => {
+                          void navigator.clipboard.writeText(displayUrl);
+                          toast(t('Public link copied'));
+                        }}
+                      >
+                        {t('Copy')}
+                      </button>
+                      <button className="btn-sm danger" onClick={() => void stopShare()}>
+                        {t('Stop sharing')}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="share-hint">{t('The link is active, but this browser does not have its URL.')}</div>
+                    <button
+                      className="btn-sm"
+                      onClick={() => void mintShare(shareExpiry, sharePassword, shareAllowed, shareAllowDetail, true)}
+                    >
+                      {t('Create a new link')}
+                    </button>
+                  </>
+                )}
+                {readShared && isCollection && shareViewsList.length > 1 && (
+                  <div className="share-section">
+                    <div className="share-section-title">{t('Views in the link')}</div>
+                    <div className="share-views">
+                      {shareViewsList.map((v) => {
+                        const on = shareAllowed === null || shareAllowed.includes(v.id);
+                        return (
+                          <label key={v.id} className="share-view-check">
+                            <input type="checkbox" checked={on} onChange={() => void toggleShareView(v.id)} />
+                            {v.name}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                {readShared && isCollection && (
+                  <div className="share-section">
+                    <label className="share-detail-check">
+                      <input type="checkbox" checked={shareAllowDetail} onChange={() => void toggleShareDetail()} />
+                      <span>
+                        {t('Let readers open notes')}
+                        <small>{t('Off = rows are visible, but do not open.')}</small>
+                      </span>
+                    </label>
+                  </div>
+                )}
+                {(readShared || displayUrl) && (
+                  <>
+                    <label className="share-expiry">
+                      {t('Expires:')}
+                      <select
+                        className="prop-select"
+                        value={shareExpiry}
+                        onChange={(e) => void changeExpiry(Number(e.target.value))}
+                      >
+                        <option value={0}>{t('Never')}</option>
+                        <option value={1}>{t('In 1 day')}</option>
+                        <option value={7}>{t('In 7 days')}</option>
+                        <option value={30}>{t('In 30 days')}</option>
+                      </select>
+                    </label>
+                    <div className="share-pw-row">
+                      <input
+                        className="share-input"
+                        type="password"
+                        placeholder={shareHasPassword ? '••••••' : t('Password (optional)')}
+                        value={sharePassword}
+                        onChange={(e) => setSharePassword(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') void applyPassword();
+                        }}
+                      />
+                      <button className="btn-sm" onClick={() => void applyPassword()}>
+                        {t('Apply')}
+                      </button>
+                      {shareHasPassword && sharePassword === '' && (
+                        <button
+                          className="btn-sm danger"
+                          onClick={() => void (async () => {
+                            try {
+                              await api.patchShare(pageId, { removePassword: true });
+                              setShareHasPassword(false);
+                            } catch {
+                              toast(t('Sharing failed'));
+                            }
+                          })()}
+                        >
+                          {t('Remove password')}
+                        </button>
+                      )}
+                    </div>
+                    {displayUrl && pwForLink && (
+                      <button className="btn-sm" onClick={() => void copyPwLink()}>
+                        {t('Copy link with password')}
+                      </button>
+                    )}
+                    <div className="share-hint">{t('The password applies to the current link. An empty Apply leaves it unchanged.')}</div>
+                  </>
+                )}
               </div>
             )}
           </div>

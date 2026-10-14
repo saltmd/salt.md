@@ -25,6 +25,7 @@ export default function GalleryView({
   onOpenInNewTab,
   onSetProp,
   onSetOptions,
+  readOnly,
 }: {
   rows: Row[];
   schema: PropDef[];
@@ -34,6 +35,7 @@ export default function GalleryView({
   onOpenInNewTab?: (id: string) => void;
   onSetProp: (rowId: string, propId: string, value: unknown) => void;
   onSetOptions: (propId: string, options: PropOption[]) => void;
+  readOnly?: boolean;
 }) {
   if (rows.length === 0) {
     return <div className="db-empty">{emptyLabel}</div>;
@@ -67,7 +69,7 @@ export default function GalleryView({
             <div className="gallery-props">
               {schema.map((p) => {
                 const v = r.props[p.id];
-                const editable = p.type === 'select' || p.type === 'multiselect';
+                const editable = !readOnly && (p.type === 'select' || p.type === 'multiselect');
                 if (!editable && (v === undefined || v === '' || (Array.isArray(v) && v.length === 0)))
                   return null;
                 if (editable) {

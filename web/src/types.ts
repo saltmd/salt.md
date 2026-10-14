@@ -268,12 +268,21 @@ export interface Sort {
   dir: 'asc' | 'desc';
 }
 
+/** Visible span of calendar and timeline views. */
+export type SpanMode = 'day' | 'week' | 'month' | '2months' | 'year';
+
 export interface ViewDef {
   id: string;
   name: string;
   type: 'table' | 'board' | 'list' | 'gallery' | 'calendar' | 'form' | 'timeline';
   groupBy?: string;
   dateProp?: string; // calendar/timeline view: date property (timeline: start)
+  /** Calendar view: which span the grid shows. Defaults to a month. */
+  calMode?: SpanMode;
+  /** Timeline view: which window it shows. Defaults to a month. */
+  tlMode?: SpanMode;
+  /** Timeline view: the sticky title column is collapsed, leaving the axis. */
+  tlHideLabels?: boolean;
   endDateProp?: string; // timeline view: optional end-date property (else 1-day bar)
   hidden?: string[]; // property ids hidden in this view
   filters?: Filter[];
@@ -303,6 +312,19 @@ export interface PublicFormConfig {
   formDesc?: string;
   formSubmit?: string;
   schema: PropDef[];
+}
+
+// Public collection config served (unauthenticated) at /api/public/c/{token} —
+// only the shared views and schema, never the rest of the workspace.
+export interface PublicCollectionConfig {
+  title: string;
+  icon: string;
+  cover: string;
+  description: string;
+  type: string;
+  schema: PropDef[];
+  views: ViewDef[];
+  allowDetail: boolean;
 }
 
 // One item on the blueprint shelf (see server/library.go). Everything from

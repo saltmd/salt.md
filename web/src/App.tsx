@@ -13,6 +13,7 @@ import Login from './components/Login';
 import Setup from './components/Setup';
 import InviteAccept from './components/InviteAccept';
 import PublicForm from './components/PublicForm';
+import PublicCollection from './components/PublicCollection';
 import OAuthConsent from './components/OAuthConsent';
 import { UploadBar, ImageLightbox } from './components/Overlays';
 import Toaster from './components/Toaster';
@@ -1100,6 +1101,13 @@ export default function App() {
   // is still loading).
   const formMatch = window.location.pathname.match(/^\/form\/([a-f0-9]+)$/);
   if (formMatch) return <PublicForm token={formMatch[1]} />;
+
+  // Public collection: /public/<token>. Fully public — renders before any
+  // auth/me gate so anyone with the link sees the shared views without an
+  // account. The server serves the app shell for collections (see
+  // handlePublicView); documents keep the server-rendered HTML.
+  const publicMatch = window.location.pathname.match(/^\/public\/([a-f0-9]+)$/);
+  if (publicMatch) return <PublicCollection token={publicMatch[1]} />;
 
   // Invite-accept flow: /invite/<token>. A signed-out visitor sets up (or signs
   // into) an account and joins; a signed-in visitor joins as their current

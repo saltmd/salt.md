@@ -3359,6 +3359,168 @@ body.is-col-resizing {
   filter: brightness(0.95);
 }
 
+.cal-grids {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  align-items: stretch;
+}
+
+.cal-grids .calendar-grid {
+  min-width: 0;
+}
+
+.cal-grid-title {
+  font-weight: 600;
+  font-size: 14px;
+  text-transform: capitalize;
+  margin: 2px 2px 8px;
+}
+
+/* One day's rows as a plain vertical list. */
+.cal-day-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 2px;
+}
+
+.cal-day-list .calendar-event {
+  text-align: left;
+}
+/* A row with an end date is drawn as one bar across the days it covers: a
+   segment in each cell it touches, bleeding over the cell's own padding and
+   over the 1px grid line so the pieces read as one bar, rounded only at the
+   real start and end. Lanes give a week's bars the same order in every cell,
+   so the segments line up instead of jumping between rows. */
+.cal-lane {
+  height: 21px;
+  flex: none;
+}
+.cal-span {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+  /* A fixed height, not one grown from the text: the segments that carry no
+     label (everything but the first day of a range) would otherwise collapse to
+     their padding and the bar would look like a hairline. */
+  height: 21px;
+  box-sizing: border-box;
+  line-height: 17px;
+  padding: 2px 6px;
+  /* How far a segment reaches past its own cell, so the pieces read as one bar
+     over the grid line. Named because a bar's first segment measures its own
+     width against it (see .cal-span.is-start). */
+  --span-bleed: 4.5px;
+  margin: 0 calc(-1 * var(--span-bleed));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+  cursor: pointer;
+}
+.cal-span.is-start {
+  margin-left: 0;
+  border-radius: 5px 0 0 5px;
+  /* The label belongs to the whole bar, not to its first cell: a range that
+     crosses a week has the width to say its name, where one 50px cell managed
+     only a stub. This segment is as wide as the bar is in this week row
+     (--span-cells, set by the view) and is painted above the cells to its
+     right, which draw nothing of their own (see the view) — one layer of a
+     translucent colour, so the bar has no step in it. N cells of pitch, less
+     the grid line that follows the last one, measured from this cell's own
+     text edge. */
+  position: relative;
+  z-index: 1;
+  width: calc(
+    var(--span-cells, 1) * 100% +
+    (var(--span-cells, 1) - 1) * (var(--cell-pad, 4px) * 2 + var(--cell-gap, 1px))
+  );
+}
+/* A bar that runs on into the next week bleeds half the grid line past its last
+   cell here, exactly as a middle segment does — without it the row edge cuts
+   the bar short of the line. A range that really ends in this row stops at the
+   cell's text edge, where its rounded end has always sat. */
+.cal-span.is-start:not(.is-end) {
+  width: calc(
+    var(--span-cells, 1) * 100% +
+    (var(--span-cells, 1) - 1) * (var(--cell-pad, 4px) * 2 + var(--cell-gap, 1px)) +
+    var(--span-bleed)
+  );
+}
+.cal-span.is-end {
+  margin-right: 0;
+  border-radius: 0 5px 5px 0;
+}
+.cal-span.is-start.is-end {
+  border-radius: 5px;
+}
+.cal-span:hover {
+  filter: brightness(1.07);
+}
+
+/* Year overview: twelve compact month grids. Days with rows read bolder;
+   today keeps its marker; the mini title drills into that month. */
+.cal-year {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 20px 24px;
+}
+
+.cal-mini {
+  min-width: 0;
+}
+
+.cal-mini-title {
+  font-weight: 600;
+  font-size: 13.5px;
+  text-transform: capitalize;
+  padding: 2px 4px;
+  border-radius: 6px;
+  color: var(--fg);
+}
+
+button.cal-mini-title:hover {
+  background: var(--hover);
+}
+
+.cal-mini-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+}
+
+.cal-mini-day {
+  font-size: 11.5px;
+  text-align: center;
+  padding: 3px 0;
+  border-radius: 5px;
+  color: var(--muted);
+}
+
+.cal-mini-day.empty {
+  visibility: hidden;
+}
+
+.cal-mini-day.dim {
+  opacity: 0.45;
+}
+
+.cal-mini-day.today {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.cal-mini-day.has-events {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+button.cal-mini-day:hover {
+  background: var(--hover);
+}
+
 @media (max-width: 640px) {
   .calendar-cell {
     min-height: 60px;
@@ -4917,7 +5079,7 @@ body.is-col-resizing {
 .share-menu {
   right: 0;
   top: 30px;
-  width: 280px;
+  width: 300px;
   padding: 10px;
   gap: 8px;
 }
@@ -4925,6 +5087,11 @@ body.is-col-resizing {
 .share-hint {
   font-size: 12px;
   color: var(--muted);
+}
+.share-hint-icon {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .share-input {
@@ -4942,6 +5109,15 @@ body.is-col-resizing {
   display: flex;
   gap: 6px;
   justify-content: flex-end;
+}
+
+.share-pw-row {
+  display: flex;
+  gap: 6px;
+}
+.share-pw-row .share-input {
+  flex: 1;
+  min-width: 0;
 }
 
 /* ---------- Toaster ---------- */
@@ -6562,6 +6738,44 @@ a.btn {
   line-height: 1.5;
   margin: 6px 0 22px;
 }
+
+/* ---- Password gate: one look for collections and documents ----
+   Centered narrow card, full-width bordered field, full-width primary
+   button — the standalone document gate (server/public.go) mirrors this
+   with hardcoded theme values, since it renders without the app. */
+.public-form-page.lock-gate {
+  align-items: center;
+  padding: 24px 20px 60px;
+}
+.public-form-page.lock-gate .form-card {
+  max-width: 400px;
+  padding: 32px;
+}
+.lock-input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 15px;
+  background: var(--card);
+  color: var(--fg);
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+.lock-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.public-form-page.lock-gate .form-actions {
+  margin-top: 12px;
+}
+.lock-btn {
+  width: 100%;
+  justify-content: center;
+}
 .public-form-loading {
   color: var(--muted);
   padding: 40px;
@@ -6614,6 +6828,87 @@ a.btn {
   .public-form-page { padding: 3vh 12px 60px; }
   .public-form-page .form-card { padding: 22px 18px 20px; }
   .form-heading-static { font-size: 23px; }
+}
+
+/* ---- Public collection page (/public/{token}) ---- */
+.public-collection-page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--bg);
+  padding: 0 0 80px;
+  overflow-y: auto;
+}
+.public-collection {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+.public-collection-cover {
+  height: 220px;
+  border-radius: 0 0 14px 14px;
+  margin: 0 -24px 0;
+}
+.public-collection-head {
+  padding: 20px 0 8px;
+}
+.public-collection-icon { display: block; margin-bottom: 8px; }
+.public-collection-title {
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0;
+  color: var(--fg);
+}
+.public-collection-desc { color: var(--muted); font-size: 15px; margin: 6px 0 0; }
+.public-tabs { margin: 12px 0 16px; }
+.public-collection-body { min-height: 200px; }
+.public-collection .board-card.is-clickable { cursor: pointer; }
+.calendar-event.is-static { cursor: default; }
+.tl-label.is-static, .tl-bar.is-static { cursor: default; }
+.tl-label.is-static:hover { background: none; }
+.tl-bar.is-static:hover { filter: none; }
+/* row detail modal */
+.public-detail-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 8vh 16px 40px;
+  z-index: 400;
+  overflow-y: auto;
+}
+.public-detail {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  max-width: 640px;
+  width: 100%;
+  padding: 24px 24px 20px;
+}
+.public-detail-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.public-detail-head h2 { font-size: 22px; margin: 0; flex: 1; }
+.public-detail-props { display: grid; gap: 8px; margin-bottom: 14px; }
+.public-detail-prop { display: flex; gap: 10px; align-items: baseline; }
+.public-detail-prop-name { min-width: 130px; color: var(--muted); font-size: 13px; }
+.public-detail-content p, .public-detail-content li { font-size: 15px; line-height: 1.6; }
+.public-detail-content h3 { font-size: 18px; margin: 14px 0 6px; }
+.public-detail-content .public-check { list-style: none; }
+.form-error { color: #c4554d; font-size: 14px; margin: 0 0 10px; }
+/* share panel: per-view checklist + detail switch */
+.share-section { padding: 10px 0 2px; border-top: 1px solid var(--border); margin-top: 10px; }
+.share-section-title { font-size: 12.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
+.share-views { display: grid; gap: 2px; margin-bottom: 6px; }
+.share-view-check { display: flex; align-items: center; gap: 8px; font-size: 13.5px; padding: 4px 2px; cursor: pointer; }
+.share-detail-check { display: flex; align-items: flex-start; gap: 8px; font-size: 13.5px; padding: 4px 2px; cursor: pointer; }
+.share-detail-check small { display: block; color: var(--muted); font-size: 12px; }
+
+@media (max-width: 640px) {
+  .public-collection { padding: 0 14px; }
+  .public-collection-cover { height: 140px; margin: 0 -14px 0; }
+  .public-collection-title { font-size: 26px; }
 }
 
 /* ---- Number progress bar / ring (numberDisplay) ---- */
@@ -6882,6 +7177,60 @@ a.btn {
 
 /* ---- Timeline / Gantt view ---- */
 .timeline { width: 100%; }
+.tl-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.tl-title {
+  font-weight: 600;
+  min-width: 160px;
+  text-transform: capitalize;
+}
+.tl-head-right {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.tl-days {
+  display: grid;
+  border-bottom: 1px solid var(--border);
+}
+.tl-day {
+  box-sizing: border-box;
+  min-width: 0;
+  text-align: center;
+  font-size: 11.5px;
+  color: var(--muted);
+  padding: 3px 0;
+}
+.tl-day.is-today {
+  color: var(--accent);
+  font-weight: 700;
+}
+/* Weekends get a slightly greyer column: a Gantt is read against them ("does
+   this land on a weekend?"). Before the span rules, so an event's own
+   highlight still wins on a weekend day. */
+.tl-day.is-weekend {
+  background: var(--hover);
+}
+.tl-day.is-span {
+  background: var(--accent-soft);
+}
+.tl-day.is-span-first {
+  border-radius: 8px 0 0 8px;
+}
+.tl-day.is-span-last {
+  border-radius: 0 8px 8px 0;
+}
+.tl-day.is-span-first.is-span-last {
+  border-radius: 8px;
+}
+/* The weekend column in the body, one band per weekend rather than per day. It
+   sits behind the bars, so a bar is read against the weekend it crosses. */
+.tl-weekend { position: absolute; top: 0; bottom: 0; background: var(--hover); }
 .tl-scroll { overflow-x: auto; overflow-y: hidden; }
 .tl-inner { position: relative; }
 .tl-header { display: flex; }

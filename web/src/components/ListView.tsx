@@ -26,6 +26,7 @@ export default function ListView({
   onOpenInNewTab,
   onSetProp,
   onSetOptions,
+  readOnly,
 }: {
   rows: Row[];
   schema: PropDef[];
@@ -35,6 +36,7 @@ export default function ListView({
   onOpenInNewTab?: (id: string) => void;
   onSetProp: (rowId: string, propId: string, value: unknown) => void;
   onSetOptions: (propId: string, options: PropOption[]) => void;
+  readOnly?: boolean;
 }) {
   if (rows.length === 0) {
     return <div className="db-empty">{emptyLabel}</div>;
@@ -75,8 +77,9 @@ export default function ListView({
                   def={p}
                   value={r.props?.[p.id]}
                   compact
-                  onChange={(v) => onSetProp(r.id, p.id, v)}
-                  onOptionsChange={(opts) => onSetOptions(p.id, opts)}
+                  readOnly={readOnly}
+                  onChange={readOnly ? undefined : (v) => onSetProp(r.id, p.id, v)}
+                  onOptionsChange={readOnly ? undefined : (opts) => onSetOptions(p.id, opts)}
                 />
               ))}
             </span>

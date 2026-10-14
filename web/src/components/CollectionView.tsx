@@ -916,7 +916,36 @@ function FormView({
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [shareBusy, setShareBusy] = useState(false);
 
+  // The token is stored hashed server-side, so a minted URL cannot be
+  // recovered — only remembered. Same deal as the read-share dialog: without
+  // this the URL vanishes on reload and "Copy link" below would silently
+  // rotate a live link somebody already sent.
+  const formUrlKey = `salt:form-url:${collectionId}`;
+  const readStoredUrl = (): string | null => {
+    try {
+      return localStorage.getItem(formUrlKey);
+    } catch {
+      return null;
+    }
+  };
+  const rememberUrl = (url: string) => {
+    try {
+      localStorage.setItem(formUrlKey, url);
+    } catch {
+      // Private mode — the link simply will not survive a reload here.
+    }
+  };
+  const forgetUrl = () => {
+    try {
+      localStorage.removeItem(formUrlKey);
+    } catch {
+      // Nothing stored, nothing to forget.
+    }
+  };
+  const displayUrl = shareUrl ?? readStoredUrl();
+
   useEffect(() => {
+    setShareUrl(null);
     api.formShareStatus(collectionId).then((s) => setShared(s.shared)).catch(() => {});
   }, [collectionId]);
 
@@ -928,6 +957,7 @@ function FormView({
       // configured; only fall back to the current origin for a bare path.
       const full = url.startsWith('http') ? url : window.location.origin + url;
       setShareUrl(full);
+      rememberUrl(full);
       setShared(true);
       try {
         await navigator.clipboard?.writeText(full);
@@ -942,12 +972,23 @@ function FormView({
     }
   };
 
+  const doCopy = async () => {
+    if (!displayUrl) return;
+    try {
+      await navigator.clipboard?.writeText(displayUrl);
+      toast(t('Public link copied'));
+    } catch {
+      toast(t('That did not work'));
+    }
+  };
+
   const doUnshare = async () => {
     setShareBusy(true);
     try {
       await api.deleteFormShare(collectionId);
       setShared(false);
       setShareUrl(null);
+      forgetUrl();
       toast(t('Public link revoked'));
     } catch {
       toast(t('That did not work'));
@@ -1009,13 +1050,25 @@ function FormView({
             <button className="btn-sm" disabled={shareBusy} onClick={() => void doShare()}>
               <Share2 size={14} /> {t('Share publicly')}
             </button>
+          ) : displayUrl ? (
+            <>
+              <span className="form-share-live">
+                <Globe size={13} /> {t('Public')}
+              </span>
+              <button className="btn-sm" disabled={shareBusy} onClick={() => void doCopy()}>
+                {t('Copy link')}
+              </button>
+              <button className="btn-sm" disabled={shareBusy} onClick={() => void doUnshare()}>
+                {t('Revoke')}
+              </button>
+            </>
           ) : (
             <>
               <span className="form-share-live">
                 <Globe size={13} /> {t('Public')}
               </span>
               <button className="btn-sm" disabled={shareBusy} onClick={() => void doShare()}>
-                {t('Copy link')}
+                {t('Create a new link')}
               </button>
               <button className="btn-sm" disabled={shareBusy} onClick={() => void doUnshare()}>
                 {t('Revoke')}
@@ -1023,11 +1076,11 @@ function FormView({
             </>
           )}
         </div>
-        {shareUrl && (
+        {displayUrl && (
           <input
             className="form-share-url"
             readOnly
-            value={shareUrl}
+            value={displayUrl}
             onFocus={(e) => e.currentTarget.select()}
           />
         )}

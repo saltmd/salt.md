@@ -250,8 +250,9 @@ A visitor gets a plain page with that sentence. Three things produce it:
 - the link was revoked with **Stop sharing**;
 - its expiry passed: an expired link is deleted the first time it is opened;
 - **the page was shared again**. There is only ever one live read link per page.
-  Changing the expiry or setting a password mints a new token and kills the old
-  one, so a link already sent out stops working.
+  Sharing it again, or pressing **Create a new link**, mints a new token and
+  the old one stops working. Changing the expiry, the views or the password
+  applies to the live link, so a link already sent out keeps working.
 
 A page that has been moved to the trash or deleted gives a shorter page: just
 *Not found*, with no sentence about the link. The link itself is still live, so
@@ -290,9 +291,10 @@ one*), which puts the files inside the archive. See
 
 ### A password-protected page keeps saying "Wrong password."
 
-The password is checked against the token in the link, so it only works through
-the exact link it was set with. If the link was re-created, its password went
-with it.
+The password is checked against the link it was set on, and clearing or
+changing it never moves the link — but re-creating the link (sharing the page
+again) drops its password with it. If the address changed since the password
+was set, the password went with the old one.
 
 ### "Form not found" on a public form
 

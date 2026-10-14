@@ -336,7 +336,7 @@ func (s *Server) mcpSharePage(r requestBase, pageID string, expiresInDays int, p
 	token := hex.EncodeToString(b)
 	var pwHash any
 	if password != "" {
-		pwHash = tokenHash(token + ":" + password)
+		pwHash = hashPassword(password)
 	}
 	s.db.Exec(`DELETE FROM share_links WHERE page_id = ? AND mode != 'form'`, pageID)
 	if _, err := s.db.Exec(`INSERT INTO share_links (token_hash, page_id, created_at, expires_at, password_hash) VALUES (?, ?, ?, ?, ?)`,

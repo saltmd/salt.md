@@ -544,6 +544,13 @@ func openDB(path string) (*sql.DB, error) {
 			return nil, fmt.Errorf("migrate users.%s: %w", c[0], err)
 		}
 	}
+	// Collection share options: which views a public link shows and whether
+	// readers may open rows. JSON, e.g. {"allowed_views":["board","table"],
+	// "allow_detail":false}. Empty = all views, no drill-in (the safe default:
+	// a re-shared collection does not suddenly expose notes inside rows).
+	if err := ensureColumn(db, "share_links", "options", `options TEXT NOT NULL DEFAULT ''`); err != nil {
+		return nil, fmt.Errorf("migrate share_links.options: %w", err)
+	}
 	// Record the schema/app version so an operator (and future migrations) can
 	// see what a data dir was last written by. Additive, idempotent.
 	db.Exec(`INSERT INTO schema_meta (key, value) VALUES ('version', ?)
