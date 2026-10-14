@@ -8,6 +8,7 @@ import { plural, t } from '../i18n';
 import { tagColorClass } from '../tags';
 import { Clock, FileText, Library, Lock, Share2, Star, Table2, Users, Workflow } from 'lucide-react';
 import GraphView from './GraphView';
+import { openPage, openPageAux } from '../pageOpen';
 
 type SortKey = 'title' | 'in' | 'out' | 'updated';
 type Mode = 'recent' | 'favorites' | 'shared' | 'private' | 'all' | 'tree' | 'graph';
@@ -57,6 +58,7 @@ export default function IndexView({
   workspaces,
   currentWs,
   onNavigate,
+  onOpenInNewTab,
   onClose,
 }: {
   pages: PageMeta[];
@@ -64,6 +66,7 @@ export default function IndexView({
   workspaces: Workspace[];
   currentWs: string;
   onNavigate: (id: string) => void;
+  onOpenInNewTab?: (id: string) => void;
   onClose: () => void;
 }) {
   const [edges, setEdges] = useState<{ source: string; target: string }[]>([]);
@@ -230,7 +233,12 @@ export default function IndexView({
       // Insert this node BEFORE its already-rendered descendants.
       treeRows.splice(before, 0,
         <div className="idx-node" style={{ paddingLeft: 6 + depth * 18 }} key={p.id}>
-          <button className="idx-node-main" onClick={() => onNavigate(p.id)} title={p.id}>
+          <button
+            className="idx-node-main"
+            onClick={(e) => openPage(e, p.id, { onNavigate, onOpenInNewTab })}
+            onAuxClick={(e) => openPageAux(e, p.id, { onNavigate, onOpenInNewTab })}
+            title={p.id}
+          >
             <span className="idx-node-icon"><PageIcon icon={p.icon} size={14} fallback={isDb ? '🗄' : '📄'} /></span>
             <span className={'idx-node-title' + (query && matches ? ' idx-hit' : '')}>{p.title || 'Untitled'}</span>
             {isDb && <span className="index-badge" title={t('Collection')}><Table2 size={11} /></span>}
@@ -308,7 +316,7 @@ export default function IndexView({
       </div>
 
       {mode === 'graph' ? (
-        <GraphView pages={live} edges={edges} onNavigate={onNavigate} />
+        <GraphView pages={live} edges={edges} onNavigate={onNavigate} onOpenInNewTab={onOpenInNewTab} />
       ) : mode !== 'tree' ? (
         <div className="table-wrap">
           <table className="db-table index-table">
@@ -330,7 +338,11 @@ export default function IndexView({
                       if the page has one, else the server-derived snippet —
                       both were already in the payload and shown nowhere. */}
                   <td>
-                    <button className="idx-row" onClick={() => onNavigate(page.id)}>
+                    <button
+                      className="idx-row"
+                      onClick={(e) => openPage(e, page.id, { onNavigate, onOpenInNewTab })}
+                      onAuxClick={(e) => openPageAux(e, page.id, { onNavigate, onOpenInNewTab })}
+                    >
                       <span className="idx-row-icon">
                         <PageIcon
                           icon={page.icon}
@@ -369,7 +381,11 @@ export default function IndexView({
                       from" that the shelf tabs sort by. */}
                   <td className="idx-dim">
                     {page.parentId ? (
-                      <button className="idx-src" onClick={() => onNavigate(page.parentId!)}>
+                      <button
+                        className="idx-src"
+                        onClick={(e) => openPage(e, page.parentId!, { onNavigate, onOpenInNewTab })}
+                        onAuxClick={(e) => openPageAux(e, page.parentId!, { onNavigate, onOpenInNewTab })}
+                      >
                         {titleOf(page.parentId)}
                       </button>
                     ) : page.visibility === 'private' ? (

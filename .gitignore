@@ -20,3 +20,8 @@ CLAUDE.md
 
 # Generated at build time from lucide-react (see scripts/build-lucide.mjs)
 web/public/lucide.json
+
+# Local tool state and scratch files — never commit.
+.serena/
+tmp/
+.openchamber/

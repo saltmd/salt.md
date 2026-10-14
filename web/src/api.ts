@@ -18,6 +18,7 @@ import type {
 } from './types';
 import { t } from './i18n';
 import type { Prefs } from './i18n';
+import { normalizeCollectionConfig } from './types';
 import { formatBytes } from './format';
 import { serverMessage } from './serverErrors';
 
@@ -77,7 +78,10 @@ function throwApiError(url: string, err: ApiError): never {
 async function req<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
     ...init,
-    headers: init?.body ? { 'Content-Type': 'application/json' } : undefined,
+    headers: {
+      ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
+      ...((init?.headers as Record<string, string> | undefined) ?? {}),
+    },
   });
   if (!res.ok) throwApiError(url, await toApiError(res, ''));
   return res.json() as Promise<T>;
@@ -370,7 +374,8 @@ export const api = {
   backlinks: (id: string) => req<Backlink[]>(`/api/pages/${id}/backlinks`),
   graph: () => req<{ edges: { source: string; target: string }[] }>('/api/graph'),
 
-  getCollection: (pageId: string) => req<CollectionConfig>(`/api/collections/${pageId}`),
+  getCollection: (pageId: string) =>
+    req<CollectionConfig>(`/api/collections/${pageId}`).then(normalizeCollectionConfig),
   // Who says they are working on what. Filtered per page on the server — the
   // live signal that triggers this carries no content for exactly that reason.
   presence: () =>

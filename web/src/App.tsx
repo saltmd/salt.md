@@ -1248,6 +1248,7 @@ export default function App() {
               setIndexOpen(false);
               navigate(id);
             }}
+            onOpenInNewTab={openInNewTab}
             onClose={() => setIndexOpen(false)}
           />
         ) : currentId ? (

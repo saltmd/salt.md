@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { PageMeta } from '../types';
 import { t, plural } from '../i18n';
+import { openPage } from '../pageOpen';
 
 // The graph: every page as a dot, every connection as a line, settling into
 // shape by itself.
@@ -72,10 +73,12 @@ export default function GraphView({
   pages,
   edges: linkEdges,
   onNavigate,
+  onOpenInNewTab,
 }: {
   pages: PageMeta[];
   edges: { source: string; target: string }[];
   onNavigate: (id: string) => void;
+  onOpenInNewTab?: (id: string) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [hoverTitle, setHoverTitle] = useState<string | null>(null);
@@ -461,7 +464,7 @@ export default function GraphView({
           if (wasDrag) return; // that was a drag, not a click
           const { x, y } = toWorld(e);
           const hit = pick(x, y);
-          if (hit !== null) onNavigate(state.current.nodes[hit].id);
+          if (hit !== null) openPage(e, state.current.nodes[hit].id, { onNavigate, onOpenInNewTab });
         }}
         onWheel={(e) => {
           const s = state.current;
