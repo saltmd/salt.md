@@ -274,6 +274,9 @@ export interface ViewDef {
   type: 'table' | 'board' | 'list' | 'gallery' | 'calendar' | 'form' | 'timeline';
   groupBy?: string;
   dateProp?: string; // calendar/timeline view: date property (timeline: start)
+  /** Table view: columns pinned to the left edge, so they stay on screen while
+   *  the rest of the table scrolls sideways. Column keys, in pin order. */
+  stuckCols?: string[];
   endDateProp?: string; // timeline view: optional end-date property (else 1-day bar)
   hidden?: string[]; // property ids hidden in this view
   filters?: Filter[];
