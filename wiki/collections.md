@@ -212,7 +212,9 @@ from [Trash](trash-and-recovery.md).
 
 A card shows a fixed set of zones rather than every property in schema order:
 
-1. **Chips**: select, multi-select and relation values, coloured.
+1. **Chips**: select, multi-select and relation values, coloured. Clicking a
+   relation chip edits it; the icon beside it opens the row it names in a
+   new tab.
 2. **Facts**: numbers, dates, checkboxes, checklists, rollups and formulas,
    each with its field name in front of it, because a bare "55" or a second
    date means nothing.

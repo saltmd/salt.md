@@ -3125,6 +3125,63 @@ body.is-col-resizing {
   white-space: nowrap;
 }
 
+/* One chip plus its open icon: a flex pair, so a long title shortens the chip
+   itself and never pushes the icon out of sight (on cards the hover pencil
+   used to disappear completely behind a long title). Siblings, never nested:
+   a button in a button is invalid HTML. */
+.relation-chip-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 100%;
+  min-width: 0;
+}
+.relation-chip-wrap .relation-chip {
+  min-width: 0;
+  text-align: left;
+}
+button.relation-chip {
+  cursor: pointer;
+}
+button.relation-chip:hover {
+  filter: brightness(0.94);
+  text-decoration: underline;
+}
+
+/* The icon opens the row (a new tab where the app can open tabs), the way
+   the URL chip's icon opens the link. Modelled on .prop-url-open. */
+.relation-open-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  color: var(--muted);
+  border-radius: 4px;
+}
+.relation-open-btn:hover {
+  color: var(--accent);
+  background: var(--hover);
+}
+
+/* On cards a relation chip folds instead of forcing the card wider than its
+   column: a related row can be called anything, including a whole sentence.
+   Same two-line clamp as card text chips. Tables keep nowrap with ellipsis
+   (see .db-table td .relation-chip) — there shortening is the point, and the
+   cell clips it. Clipping is scoped to the chip itself, never the card, so
+   the floating ⋯ menu still escapes. */
+.board-card .relation-chip,
+.public-collection .relation-chip {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: break-word;
+}
+
 /* A row icon may be an emoji (text) or an SVG. Centring the box rather than the
    glyph keeps both sitting on the same line as the title. */
 .relation-icon {
