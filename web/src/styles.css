@@ -4638,6 +4638,37 @@ body.is-col-resizing {
   flex: none;
 }
 
+/* One date bound of a filter: an Exact/Relative toggle above a picker, or
+   above a preset plus a field for a hand-typed word like today-1M. */
+.fs-date {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.fs-seg {
+  display: flex;
+  gap: 4px;
+}
+
+.fs-seg button {
+  flex: 1;
+  font-size: 12px;
+  padding: 3px 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.fs-seg button.on {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
 /* Says why the table has not changed. An unfinished condition does nothing on
    purpose, and silence about that reads as a broken filter. */
 .fs-hint {

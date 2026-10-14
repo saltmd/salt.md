@@ -4,7 +4,7 @@ import { onRefresh } from '../pwa';
 import Portal from './Portal';
 import { useBoardDrag } from '../boardDrag';
 import { tagColorClass } from '../tags';
-import { compare, firstWeekday, formatMonth, toDayString, weekdayNames } from '../format';
+import { compare, firstWeekday, formatDay, formatMonth, isUnfinishedRelativeDay, resolveSmartDate, toDayString, today, weekdayNames } from '../format';
 import { plural, t } from '../i18n';
 import { confirm, promptText } from '../dialog';
 import type {
@@ -152,25 +152,42 @@ function isEmptyVal(v: unknown): boolean {
  *  value. Never both — the same rule the server applies (rowFilter.vals). */
 export function filterValues(f: Filter): string[] {
   if (f.values?.length) return f.values;
-  return f.value === '' ? [] : [f.value];
+  return f.value ? [f.value] : [];
 }
 
 /** Is this condition finished enough to mean anything? An unfinished one must
  *  not filter: comparing against the empty string emptied the table the moment
  *  somebody added "Date is …", before they had typed a thing, which is what
- *  made the date filter look broken. `is_empty` is the deliberate version. */
+ *  made the date filter look broken. `is_empty` is the deliberate version.
+ *  A half-typed relative day ("today-") waits the same way. */
 export function filterIsArmed(f: Filter): boolean {
-  const op = f.op ?? (f.value === '' ? 'is_not_empty' : 'is');
+  const op = f.op ?? (f.value ? 'is' : 'is_not_empty');
   if (op === 'is_empty' || op === 'is_not_empty') return true;
-  if (op === 'between') return f.value !== '' && (f.value2 ?? '') !== '';
-  return filterValues(f).length > 0;
+  if (op === 'between')
+    return (
+      !!f.value &&
+      (f.value2 ?? '') !== '' &&
+      !isUnfinishedRelativeDay(f.value ?? '') &&
+      !isUnfinishedRelativeDay(f.value2 ?? '')
+    );
+  const vals = filterValues(f);
+  return vals.length > 0 && vals.some((v) => !isUnfinishedRelativeDay(v));
 }
 
-function matchesFilter(row: Row, f: Filter): boolean {
+function matchesFilter(row: Row, f: Filter, isDate: boolean): boolean {
   const v = row.props[f.property];
-  const op = f.op ?? (f.value === '' ? 'is_not_empty' : 'is');
+  const op = f.op ?? (f.value ? 'is' : 'is_not_empty');
   if (!filterIsArmed(f)) return true;
-  const vals = filterValues(f);
+  // A relative day names a different date every day. Resolve it now — the
+  // same way the server resolves it per query — or the rows the server sent
+  // and the rows shown here would disagree. Date properties only: a status
+  // option named "Today" must keep matching the option, not the date.
+  const day = (s: string) => (isDate ? (resolveSmartDate(s) ?? s) : s);
+  const live = (s: string) => !isUnfinishedRelativeDay(s);
+  const value = day(f.value ?? '');
+  const vals = filterValues(f)
+    .filter(live)
+    .map(day);
   // One value or several, the question is the same: does the cell hold any of
   // them. A cell may itself be a list (multiselect, relation).
   const holdsAny = () =>
@@ -185,27 +202,27 @@ function matchesFilter(row: Row, f: Filter): boolean {
     case 'is_not_empty':
       return !isEmptyVal(v);
     case 'contains': {
-      const needle = f.value.toLowerCase();
+      const needle = value.toLowerCase();
       if (Array.isArray(v)) return v.some((x) => String(x).toLowerCase().includes(needle));
       return String(v ?? '').toLowerCase().includes(needle);
     }
     case 'gt':
     case 'lt': {
       const nv = Number(v);
-      const nf = Number(f.value);
-      const cmp = !Number.isNaN(nv) && !Number.isNaN(nf) ? nv - nf : compare(String(v ?? ''), f.value);
+      const nf = Number(value);
+      const cmp = !Number.isNaN(nv) && !Number.isNaN(nf) ? nv - nf : compare(String(v ?? ''), value);
       return op === 'gt' ? cmp > 0 : cmp < 0;
     }
     case 'between': {
       // Inclusive at both ends — a range named by two dates contains them.
       // ISO dates compare correctly as text, so only numbers need Number().
-      const hi = f.value2 ?? '';
+      const hi = f.value2 === undefined ? '' : isDate ? (resolveSmartDate(f.value2) ?? f.value2) : f.value2;
       const nv = Number(v);
-      if (!Number.isNaN(nv) && !Number.isNaN(Number(f.value)) && !Number.isNaN(Number(hi))) {
-        return nv >= Number(f.value) && nv <= Number(hi);
+      if (!Number.isNaN(nv) && !Number.isNaN(Number(value)) && !Number.isNaN(Number(hi))) {
+        return nv >= Number(value) && nv <= Number(hi);
       }
       const sv = String(v ?? '');
-      return sv !== '' && sv >= f.value && sv <= hi;
+      return sv !== '' && sv >= value && sv <= hi;
     }
     case 'is_not':
       return !holdsAny();
@@ -218,10 +235,12 @@ function matchesFilter(row: Row, f: Filter): boolean {
 }
 
 // Apply a view's filters and sort to the row set.
-function applyView(rows: Row[], view: ViewDef): Row[] {
+function applyView(rows: Row[], view: ViewDef, schema: PropDef[]): Row[] {
+  const dateProps = new Set(schema.filter((p) => p.type === 'date').map((p) => p.id));
   let out = rows;
   for (const f of view.filters ?? []) {
-    out = out.filter((r) => matchesFilter(r, f));
+    const isDate = dateProps.has(f.property);
+    out = out.filter((r) => matchesFilter(r, f, isDate));
   }
   const sort = view.sort;
   if (sort) {
@@ -312,7 +331,11 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
     .filter(filterIsArmed)
     .map((f) => ({ property: f.property, op: f.op, value: f.value, values: f.values, value2: f.value2 }));
   const serverSort = view0?.sort ?? null;
-  const fsKey = JSON.stringify([serverFilters, serverSort]);
+  // The viewer's day travels with every row query, so "today" resolves
+  // against it and not the server's. Part of the key so a tab left open
+  // overnight reloads with the new day.
+  const todayStr = today();
+  const fsKey = JSON.stringify([serverFilters, serverSort, todayStr]);
 
   // Loads ALL rows, in steps of 200 one after another. It used to stop at the
   // first page plus a "Load more" button — with the result that a board of 656
@@ -330,6 +353,7 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
         offset: acc.length,
         filters: serverFilters,
         sort: serverSort,
+        today: todayStr,
       });
       if (epoch !== epochRef.current) return; // inzwischen neu geladen
       const mapped: Row[] = res.rows.map((r) => ({
@@ -543,7 +567,7 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
     setAddViewOpen(false);
   };
 
-  const viewRows = applyView(rows, view);
+  const viewRows = applyView(rows, view, schema);
   const emptyLabel =
     rows.length > 0 && viewRows.length === 0
       ? t('No rows match the current filter.')
@@ -1148,6 +1172,108 @@ export function formField(def: PropDef, value: unknown, onChange: (v: unknown) =
 
 // ---- Filter & sort controls ----
 
+// One date bound of a filter: either a calendar picker or a relative day such
+// as today-1M. The toggle only changes how the value is ENTERED — both write
+// the same Filter.value string, a YYYY-MM-DD day or a word the server
+// resolves anew on every query (see resolveSmartDate in format.ts), so the
+// view stays live.
+function DateFilterValue({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  // Exact or relative is a STICKY choice, not derived from the value: clearing
+  // the field to type a new word must not fling the picker back to Exact.
+  // It only initialises from the value (a stored word reopens as relative)
+  // and changes on an explicit toggle click.
+  const [relative, setRelative] = useState(
+    () => value !== '' && !/^\d{4}-\d{2}-\d{2}$/.test(value),
+  );
+  // Labels are built during render, never as a module constant: a list
+  // resolved once at import keeps its language for the life of the tab.
+  const presets: { token: string; label: string }[] = [
+    { token: 'today', label: t('Today') },
+    { token: 'yesterday', label: t('Yesterday') },
+    { token: 'tomorrow', label: t('Tomorrow') },
+    { token: 'today-7d', label: t('7 days ago') },
+    { token: 'today-30d', label: t('30 days ago') },
+    { token: 'today-1M', label: t('A month ago') },
+    { token: 'today-3M', label: t('3 months ago') },
+    { token: 'today-1Y', label: t('A year ago') },
+    { token: 'today+7d', label: t('In 7 days') },
+    { token: 'today+1M', label: t('In a month') },
+  ];
+  const exact = !relative;
+  const resolved = resolveSmartDate(value);
+  const picked = presets.some((p) => p.token === value) ? value : 'custom';
+  return (
+    <div className="fs-date">
+      <div className="fs-seg">
+        <button
+          type="button"
+          className={exact ? 'on' : ''}
+          onClick={() => {
+            // Baking the word in: switching to Exact keeps the day the word
+            // names today, or clears an already-empty field.
+            if (relative) {
+              setRelative(false);
+              onChange(resolved ?? '');
+            }
+          }}
+        >
+          {t('Exact')}
+        </button>
+        <button
+          type="button"
+          className={exact ? '' : 'on'}
+          onClick={() => {
+            if (exact) {
+              setRelative(true);
+              onChange('today');
+            }
+          }}
+        >
+          {t('Relative')}
+        </button>
+      </div>
+      {exact ? (
+        <input
+          className="prop-input"
+          type="date"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      ) : (
+        <>
+          <select
+            className="prop-select"
+            value={picked}
+            onChange={(e) =>
+              onChange(e.target.value === 'custom' ? (picked === 'custom' ? value : 'today') : e.target.value)
+            }
+          >
+            {presets.map((p) => (
+              <option key={p.token} value={p.token}>
+                {p.label}
+              </option>
+            ))}
+            <option value="custom">{t('Custom…')}</option>
+          </select>
+          <input
+            className="prop-input"
+            type="text"
+            value={value}
+            placeholder="today-1M" // i18n-ok: example token, identical in every language
+            onChange={(e) => onChange(e.target.value)}
+          />
+          {value !== '' &&
+            (resolved ? (
+              <div className="fs-hint">{t('Resolves to {date}', { date: formatDay(resolved) })}</div>
+            ) : (
+              <div className="fs-hint">{t('Unknown relative day. Try today-1M.')}</div>
+            ))}
+        </>
+      )}
+    </div>
+  );
+}
+
 function FilterSortControls({
   schema,
   view,
@@ -1313,6 +1439,14 @@ function FilterSortControls({
               next[i] = { ...f, ...u };
               onChange({ filters: next });
             };
+            // Keyed by what the condition IS, not where it sits: keying by
+            // index moved the Exact/Relative toggle's sticky state onto the
+            // wrong row when a filter above was removed. The occurrence count
+            // keeps two conditions on the same property apart.
+            const occurrence = filters
+              .slice(0, i)
+              .filter((g) => g.property === f.property && (g.op ?? '') === (f.op ?? '')).length;
+            const rowKey = `${f.property}::${f.op ?? ''}::${occurrence}`;
             const propType = schema.find((p) => p.id === f.property)?.type;
             const isDate = propType === 'date';
             const picked = filterValues(f);
@@ -1325,7 +1459,7 @@ function FilterSortControls({
               patch({ values: next, value: '' });
             };
             return (
-              <div key={i} className="fs-filter">
+              <div key={rowKey} className="fs-filter">
                 <div className="fs-filter-head">
                   <span className="fs-label">{propName(f.property)}</span>
                   <select
@@ -1374,21 +1508,29 @@ function FilterSortControls({
                         ))}
                       </div>
                     ) : op === 'between' ? (
-                      <div className="fs-range">
-                        <input
-                          className="prop-input"
-                          type={isDate ? 'date' : 'number'}
-                          value={f.value}
-                          onChange={(e) => patch({ value: e.target.value })}
-                        />
-                        <span className="fs-range-sep">–</span>
-                        <input
-                          className="prop-input"
-                          type={isDate ? 'date' : 'number'}
-                          value={f.value2 ?? ''}
-                          onChange={(e) => patch({ value2: e.target.value })}
-                        />
-                      </div>
+                      isDate ? (
+                        <div className="fs-range">
+                          <DateFilterValue value={f.value} onChange={(v) => patch({ value: v })} />
+                          <span className="fs-range-sep">–</span>
+                          <DateFilterValue value={f.value2 ?? ''} onChange={(v) => patch({ value2: v })} />
+                        </div>
+                      ) : (
+                        <div className="fs-range">
+                          <input
+                            className="prop-input"
+                            type="number"
+                            value={f.value}
+                            onChange={(e) => patch({ value: e.target.value })}
+                          />
+                          <span className="fs-range-sep">–</span>
+                          <input
+                            className="prop-input"
+                            type="number"
+                            value={f.value2 ?? ''}
+                            onChange={(e) => patch({ value2: e.target.value })}
+                          />
+                        </div>
+                      )
                     ) : options.length > 0 ? (
                       <select
                         className="prop-select"
@@ -1402,14 +1544,12 @@ function FilterSortControls({
                           </option>
                         ))}
                       </select>
+                    ) : isDate ? (
+                      <DateFilterValue value={f.value} onChange={(v) => patch({ value: v, values: undefined })} />
                     ) : (
                       <input
                         className="prop-input"
-                        // A date needs a picker, not a box you have to spell
-                        // 2026-08-18 into by hand. That, plus the empty
-                        // condition emptying the table, was the whole of
-                        // "date filtering does not work".
-                        type={isDate ? 'date' : propType === 'number' ? 'number' : 'text'}
+                        type={propType === 'number' ? 'number' : 'text'}
                         value={f.value}
                         placeholder={t('value')}
                         onChange={(e) => patch({ value: e.target.value, values: undefined })}

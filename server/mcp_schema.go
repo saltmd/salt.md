@@ -422,6 +422,15 @@ func checkViewFilter(f map[string]any, label string, has func(string) bool) (map
 			entry[k] = v
 		}
 	}
+	// `value` is written ALWAYS, even when the condition is expressed through
+	// `values` (a set) or through nothing at all (is_empty). The interface
+	// writes it that way, and a filter stored without it crashed the browser on
+	// the first read: matching a relative date — "today", "in 3 days" — goes
+	// through value.toLowerCase(), and undefined has none. One shape in, one
+	// shape out, and no reader has to defend against the other.
+	if _, ok := entry["value"]; !ok {
+		entry["value"] = ""
+	}
 	return entry, nil
 }
 

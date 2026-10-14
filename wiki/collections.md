@@ -174,6 +174,16 @@ checkbox offers **Checked** / **Unchecked**, and a relation offers the titles of
 the rows it points at; you never have to type an id. Anything else is a free
 text box.
 
+A date value can also be a relative day instead of a picked date: `today`,
+`yesterday`, `tomorrow`, or `today` with an offset such as `today-1M` (a month
+ago) or `today+7d` (a week from now). Offsets count days (`d`), weeks (`w`),
+months (`m`) or years (`y`), and months move on the calendar: March 31 minus
+one month is February 28. The word is what is stored, and it is resolved anew
+on every load, so a view reading "after `today-1M`" still means a month back
+next month, where a picked date would already lie. The filter offers presets
+for the common cases and a field for a hand-typed word, with a hint showing
+the day it currently names.
+
 Filtering and sorting happen in the database first: a collection with fifty
 thousand rows is narrowed before it is sent, and the browser then applies the
 same conditions again to what arrives. The view loads what is left in batches of

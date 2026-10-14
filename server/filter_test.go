@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"testing"
+	"time"
 )
 
 // What a filter means, checked against real rows in a real database.
@@ -60,7 +61,7 @@ func count(t *testing.T, s *Server, col string, f rowFilter) int {
 
 func countGroups(t *testing.T, s *Server, col string, groups [][]rowFilter) int {
 	t.Helper()
-	_, total, err := s.collectionRowsQuery(&user{ID: "u"}, col, nil, groups, "", 100, 0)
+	_, total, err := s.collectionRowsQuery(&user{ID: "u"}, col, nil, groups, "", 100, 0, time.Time{})
 	if err != nil {
 		t.Fatalf("query: %v", err)
 	}
@@ -163,7 +164,7 @@ func TestFlatFilterIsATermOfItsOwn(t *testing.T) {
 	s, col := filterFixture(t)
 	query := func(flat []rowFilter, groups [][]rowFilter) int {
 		t.Helper()
-		_, total, err := s.collectionRowsQuery(&user{ID: "u"}, col, flat, groups, "", 100, 0)
+		_, total, err := s.collectionRowsQuery(&user{ID: "u"}, col, flat, groups, "", 100, 0, time.Time{})
 		if err != nil {
 			t.Fatalf("query: %v", err)
 		}
@@ -208,5 +209,58 @@ func TestParseFilterGroups(t *testing.T) {
 	}
 	if groups[1][0].Op != "between" || groups[1][0].Value2 != "2026-12-31" {
 		t.Errorf("second group is %#v, want the datum range", groups[1])
+	}
+}
+
+func TestSystemDateFilters(t *testing.T) {
+	s, col := filterFixture(t)
+	// Created and Updated filter as days, like any date column: the two rows
+	// below are a year apart, so every spelling below must split them.
+	oldID, newID := newID(), newID()
+	var ws string
+	if err := s.db.QueryRow(`SELECT id FROM workspaces LIMIT 1`).Scan(&ws); err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range []struct {
+		id, created, updated string
+	}{
+		{oldID, "2020-05-01T10:00:00Z", "2020-06-01T10:00:00Z"},
+		{newID, "2024-05-01T10:00:00Z", "2024-06-01T10:00:00Z"},
+	} {
+		if _, err := s.db.Exec(`INSERT INTO pages (id, parent_id, workspace_id, title, type, props, position, created_at, updated_at)
+			VALUES (?, ?, ?, ?, 'row', '{}', 0, ?, ?)`, r.id, col, ws, "row", r.created, r.updated); err != nil {
+			t.Fatal(err)
+		}
+	}
+	u := &user{ID: "tester"}
+	has := func(list []map[string]any, id string) bool {
+		for _, r := range list {
+			if r["id"] == id {
+				return true
+			}
+		}
+		return false
+	}
+	for _, tc := range []struct {
+		name             string
+		filter           rowFilter
+		wantOld, wantNew bool
+	}{
+		{"created is", rowFilter{Prop: sortCreatedProp, Op: "is", Value: "2020-05-01"}, true, false},
+		{"created is not", rowFilter{Prop: sortCreatedProp, Op: "is_not", Value: "2020-05-01"}, false, true},
+		{"created after", rowFilter{Prop: sortCreatedProp, Op: "gt", Value: "2022-01-01"}, false, true},
+		{"created before", rowFilter{Prop: sortCreatedProp, Op: "lt", Value: "2022-01-01"}, true, false},
+		{"created between", rowFilter{Prop: sortCreatedProp, Op: "between", Value: "2024-01-01", Value2: "2024-12-31"}, false, true},
+		{"updated is", rowFilter{Prop: sortUpdatedProp, Op: "is", Value: "2024-06-01"}, false, true},
+		{"updated is not empty", rowFilter{Prop: sortUpdatedProp, Op: "is_not_empty"}, true, true},
+		{"updated is empty", rowFilter{Prop: sortUpdatedProp, Op: "is_empty"}, false, false},
+	} {
+		list, _, err := s.collectionRowsQuery(u, col, []rowFilter{tc.filter}, nil, "", 10, 0, time.Time{})
+		if err != nil {
+			t.Fatalf("%s: %v", tc.name, err)
+		}
+		if has(list, oldID) != tc.wantOld || has(list, newID) != tc.wantNew {
+			t.Errorf("%s: old=%v new=%v, want old=%v new=%v", tc.name, has(list, oldID), has(list, newID), tc.wantOld, tc.wantNew)
+		}
 	}
 }

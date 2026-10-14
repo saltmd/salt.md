@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node callout-colors.mjs && node property-order.mjs && node select-options.mjs && node menus-and-arrows.mjs && node shortcuts.mjs && node embeds.mjs && node people.mjs && node tabs.mjs"
+    "test": "node callout-colors.mjs && node property-order.mjs && node select-options.mjs && node menus-and-arrows.mjs && node shortcuts.mjs && node embeds.mjs && node people.mjs && node tabs.mjs && node smart-dates.mjs"
   },
   "devDependencies": {
     "playwright": "1.63.0"

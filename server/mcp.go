@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // filterConditionSchema is one filter condition as agents are shown it, in
@@ -20,9 +21,9 @@ func filterConditionSchema() map[string]any {
 	return map[string]any{"type": "object", "properties": map[string]any{
 		"property": map[string]any{"type": "string", "description": "Property id from get_collection"},
 		"op":       map[string]any{"type": "string", "description": "is (default) | is_not | contains | gt | lt | between | is_empty | is_not_empty"},
-		"value":    map[string]any{"type": "string", "description": "Compared value; ignored for is_empty/is_not_empty. For between, the LOWER bound."},
+		"value":    map[string]any{"type": "string", "description": "Compared value; ignored for is_empty/is_not_empty. For between, the LOWER bound. On a date property this also takes a relative day: today, yesterday, tomorrow, or today with an offset like today-1M (a month ago) or today+7d. The word is resolved on the day the query runs, so a saved view stays live."},
 		"values":   map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Several values for is/is_not: \"status is any of open, waiting\" as ONE condition. Use instead of value, not beside it."},
-		"value2":   map[string]any{"type": "string", "description": "Upper bound of between, inclusive. A date range is value..value2."}}}
+		"value2":   map[string]any{"type": "string", "description": "Upper bound of between, inclusive. A date range is value..value2. Relative days work here too, e.g. between today-1M and today."}}}
 }
 
 func bytesTrimSpace(b []byte) []byte { return bytes.TrimSpace(b) }
@@ -194,6 +195,7 @@ var mcpTools = []map[string]any{
 				"sort":   map[string]any{"type": "string", "description": "propertyId:asc or propertyId:desc"},
 				"limit":  map[string]any{"type": "integer", "description": "Max rows (default 50, max 500)"},
 				"offset": map[string]any{"type": "integer"},
+				"today":  map[string]any{"type": "string", "description": "Your current day as YYYY-MM-DD, used to resolve relative date words (today, today-1M). Omit it and the server resolves against its own day instead, which can differ near midnight."},
 			},
 			"required": []string{"page_id"}},
 	},
@@ -359,7 +361,7 @@ var mcpTools = []map[string]any{
 				"group_by":      map[string]any{"type": "string", "description": "board: the property to group columns by. Pass \"\" to clear."},
 				"date_prop":     map[string]any{"type": "string", "description": "calendar/timeline: the date property"},
 				"end_date_prop": map[string]any{"type": "string", "description": "timeline: optional end date, otherwise one-day bars"},
-				"filters":       map[string]any{"type": "array", "items": filterConditionSchema(), "description": "Conditions ANDed together, shaped like query_rows' filter. A board people actually work in usually needs one: without \"status is_not done\" the finished column grows forever and pushes the work aside. Pass [] to clear. A view keeps flat filters only, because that is all the interface shows; OR groups work in query_rows."},
+				"filters":       map[string]any{"type": "array", "items": filterConditionSchema(), "description": "Conditions ANDed together, shaped like query_rows' filter. A board people actually work in usually needs one: without \"status is_not done\" the finished column grows forever and pushes the work aside. Pass [] to clear. A view keeps flat filters only, because that is all the interface shows; OR groups work in query_rows. On a date property a value can be a relative day (today, yesterday, tomorrow, today-1M), resolved on the day each query runs."},
 				"sort":          map[string]any{"type": "string", "description": "\"propertyId:asc\" or \"propertyId:desc\", the same spelling query_rows uses. Pass \"\" to clear."},
 				"hidden":        map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Property ids to hide in this view. Pass [] to show all."},
 			},
@@ -661,9 +663,12 @@ func (s *Server) mcpCall(u *user, name string, rawArgs json.RawMessage, publicBa
 			Values              []string `json:"values"`
 			Value2              string   `json:"value2"`
 		} `json:"filter_groups"`
-		Sort       *string         `json:"sort"`
-		Limit      int             `json:"limit"`
-		Offset     int             `json:"offset"`
+		Sort   *string `json:"sort"`
+		Limit  int     `json:"limit"`
+		Offset int     `json:"offset"`
+		// The agent's current day (YYYY-MM-DD) for relative date words in
+		// query_rows. Empty means the server resolves against its own day.
+		Today      string          `json:"today"`
 		Properties json.RawMessage `json:"properties"`
 		Schema     json.RawMessage `json:"schema"`
 		Body       string          `json:"body"`
@@ -1145,7 +1150,11 @@ func (s *Server) mcpCall(u *user, name string, rawArgs json.RawMessage, publicBa
 			if args.Sort != nil {
 				sort = *args.Sort
 			}
-			return s.mcpQueryRows(u, args.PageID, filters, parsed, sort, args.Limit, args.Offset)
+			var today time.Time
+			if day, ok := parseTodayParam(args.Today); ok {
+				today = day
+			}
+			return s.mcpQueryRows(u, args.PageID, filters, parsed, sort, args.Limit, args.Offset, today)
 		case "set_properties":
 			// One row or many. With updates the central page check does not bite,
 			// so the permissions of EVERY row are checked inside the function.

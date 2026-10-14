@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 // A row set to private in a shared collection was hidden from the row list
@@ -153,7 +154,7 @@ func TestPrivateRowsStayOutOfFilterGroups(t *testing.T) {
 	list, _, err := f.s.collectionRowsQuery(&user{ID: f.member}, f.col, nil, [][]rowFilter{
 		{{Prop: "amount", Op: "gt", Value: "50000"}},
 		{{Prop: "amount", Op: "lt", Value: "15"}},
-	}, "", 100, 0)
+	}, "", 100, 0, time.Time{})
 	if err != nil {
 		t.Fatalf("query: %v", err)
 	}

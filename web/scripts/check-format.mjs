@@ -135,6 +135,33 @@ if (process.env.SALT_FMT_BUNDLE) {
   const west = fmt.formatMoment('2026-07-18T12:00:00Z', 'time');
   check('a moment follows the zone setting', String(east !== west), 'true');
 
+  // ---- Relative days (smart dates) ----
+  //
+  // resolveSmartDate lives in format.ts (not its own module) so that this
+  // script covers it: the words have to name the same days as the Go side
+  // (server/smartdate.go) in every timezone.
+  const plusDays = (day, n) => {
+    const [y, m, d] = day.split('-').map(Number);
+    const t = new Date(y, m - 1, d + n);
+    return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+  };
+  // Fixed anchors, including the month-end cases the two sides disagreed on:
+  // yesterday on March 1 is February 28, minus a month is January 28.
+  check('yesterday-1m on 2026-03-01', fmt.resolveSmartDate('yesterday-1m', '2026-03-01'), '2026-01-28');
+  check('tomorrow+1m on 2026-01-31', fmt.resolveSmartDate('tomorrow+1m', '2026-01-31'), '2026-03-01');
+  check('today-1m on 2026-03-31', fmt.resolveSmartDate('today-1m', '2026-03-31'), '2026-02-28');
+  check('today+1m on 2026-01-31', fmt.resolveSmartDate('today+1m', '2026-01-31'), '2026-02-28');
+  check('plain date passes through', String(fmt.resolveSmartDate('2026-10-09', '2026-03-01')), 'null');
+  check('today- waits', String(fmt.isUnfinishedRelativeDay('today-')), 'true');
+  check('today-1 is complete', String(fmt.isUnfinishedRelativeDay('today-1')), 'false');
+  for (const z of [FAR_EAST, FAR_WEST]) {
+    fmt.setFormatPrefs({ timeZone: z });
+    // The default anchor is today() and follows the zone setting with it.
+    check(`today resolves to today() in ${z}`, fmt.resolveSmartDate('today'), fmt.today());
+    check(`today+7d in ${z}`, fmt.resolveSmartDate('today+7d'), plusDays(fmt.today(), 7));
+  }
+  fmt.setFormatPrefs({});
+
   // A stored zone the browser does not know must degrade, not explode. The
   // server checks only the SHAPE of it (no tzdata in the binary, see
   // prefs.go), so this really can arrive.
