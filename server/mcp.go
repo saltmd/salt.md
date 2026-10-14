@@ -349,7 +349,7 @@ var mcpTools = []map[string]any{
 	},
 	{
 		"name":        "set_view",
-		"description": "Create a view on a database, or change one. Without view_id it creates (type is then required); with view_id it MERGES into the existing view — what you do not pass stays as it is. A board needs group_by (a select OR relation property); a calendar and a timeline need date_prop. A view's type cannot be changed: delete it and create the new one. Call get_collection for the ids.",
+		"description": "Create a view on a database, or change one. Without view_id it creates (type is then required); with view_id it MERGES into the existing view — what you do not pass stays as it is. A board needs group_by (a select, a multiselect or a relation property — a row with several tags appears under each of them); a calendar and a timeline need date_prop. A view's type cannot be changed: delete it and create the new one. Call get_collection for the ids.",
 		"inputSchema": map[string]any{"type": "object",
 			"properties": map[string]any{
 				"page_id":       map[string]any{"type": "string"},

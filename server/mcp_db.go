@@ -138,6 +138,60 @@ func (s *Server) mcpSetProperties(pageID string, properties json.RawMessage, act
 	return fmt.Sprintf("Set %d propert%s on row %s", len(changed), plural(len(changed), "y", "ies"), pageID), nil
 }
 
+// reconcileDefaultViews points the default views at a schema they can actually
+// use. They name the DEFAULT schema's grouping ("status"), and a database made
+// with a schema of the caller's own need not contain any such property — the
+// board then groups by a property that is not there, which renders empty, and a
+// collection that is broken the moment it is created is worse than one with no
+// board in it. The first property a board can group by takes the place; with
+// none of them, the board view goes and the table stays.
+func reconcileDefaultViews(schemaStr string) string {
+	var schema, views []map[string]any
+	if err := json.Unmarshal([]byte(schemaStr), &schema); err != nil {
+		return defaultViews
+	}
+	if err := json.Unmarshal([]byte(defaultViews), &views); err != nil {
+		return defaultViews
+	}
+	groupable := false
+	usable := map[string]bool{}
+	first := ""
+	for _, p := range schema {
+		id, _ := p["id"].(string)
+		if id == "" {
+			continue
+		}
+		switch t, _ := p["type"].(string); t {
+		case "select", "multiselect", "relation":
+			usable[id] = true
+			groupable = true
+			if first == "" {
+				first = id
+			}
+		}
+	}
+	out := make([]map[string]any, 0, len(views))
+	for _, v := range views {
+		if t, _ := v["type"].(string); t == "board" {
+			g, _ := v["groupBy"].(string)
+			if usable[g] {
+				out = append(out, v)
+				continue
+			}
+			if !groupable {
+				continue
+			}
+			v["groupBy"] = first
+		}
+		out = append(out, v)
+	}
+	b, err := json.Marshal(out)
+	if err != nil {
+		return defaultViews
+	}
+	return string(b)
+}
+
 // mcpCreateDatabase creates a collection page with the given (or default) schema.
 func (s *Server) mcpCreateDatabase(u *user, title, parentID, wsID string, schema json.RawMessage) (string, error) {
 	userID := u.ID
@@ -198,7 +252,7 @@ func (s *Server) mcpCreateDatabase(u *user, title, parentID, wsID string, schema
 		id, parent, title, pos, ts, ts, workspaceID, userID); err != nil {
 		return "", err
 	}
-	if _, err := s.db.Exec(`INSERT INTO collections (page_id, schema, views) VALUES (?, ?, ?)`, id, schemaStr, defaultViews); err != nil {
+	if _, err := s.db.Exec(`INSERT INTO collections (page_id, schema, views) VALUES (?, ?, ?)`, id, schemaStr, reconcileDefaultViews(schemaStr)); err != nil {
 		return "", err
 	}
 	s.reindexPage(id)

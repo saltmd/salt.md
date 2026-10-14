@@ -265,3 +265,77 @@ func TestUpdateViewRefusesAReadOnlyToken(t *testing.T) {
 }
 
 func ptr[T any](v T) *T { return &v }
+
+// A filter an agent wrote without a `value` took the whole view down: the row
+// matcher resolves relative days through value.toLowerCase(), and undefined has
+// none ("Cannot read properties of undefined (reading 'toLowerCase')"). The
+// interface always writes a value — even for a condition asked through `values`
+// or through nothing at all — so the stored shape has to come out the same
+// however the filter arrived.
+func TestAFilterIsStoredWithAValueHoweverItArrives(t *testing.T) {
+	s := testServer(t)
+	uid, _ := signedIn(t, s, "filtervalue@example.test")
+	u := &user{ID: uid, Name: "Test"}
+	ws := s.firstWorkspaceOf(t, uid)
+	tasks := tasksCollection(t, s, ws, uid)
+
+	// op + property + values, no value at all: the exact call from the report.
+	if _, err := callTool(t, s, u, "set_view", `{"page_id":"`+tasks+`","name":"Open","type":"board","group_by":"status","filters":[{"property":"status","op":"is","values":["open"]}]}`); err != nil {
+		t.Fatalf("set_view: %v", err)
+	}
+	v := viewByID(t, s, tasks, "open")
+	filters, _ := v["filters"].([]any)
+	if len(filters) != 1 {
+		t.Fatalf("want 1 filter, got %d", len(filters))
+	}
+	f, _ := filters[0].(map[string]any)
+	if _, ok := f["value"]; !ok {
+		t.Errorf("the stored filter has no value — the browser crashes on it: %#v", f)
+	}
+	if vals, _ := f["values"].([]any); len(vals) != 1 {
+		t.Errorf("values lost: %#v", f)
+	}
+
+	// And the same for a condition that carries nothing but its operator.
+	if _, err := s.mcpUpdateView(tasks, "open", viewSpec{
+		Filters: &[]map[string]any{{"property": "system", "op": "is_not_empty"}},
+	}); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	v = viewByID(t, s, tasks, "open")
+	filters, _ = v["filters"].([]any)
+	f, _ = filters[0].(map[string]any)
+	if _, ok := f["value"]; !ok {
+		t.Errorf("is_not_empty without a value: %#v", f)
+	}
+}
+
+// A board makes one column per value, so the property has to be one that HAS
+// values. Grouping by a text column made a single "no category" column holding
+// every row, which reads as data that is wrong rather than a view that cannot
+// work. A multiselect belongs: a row with three tags shows up under all three.
+func TestABoardRefusesAGroupingItCannotMakeColumnsFrom(t *testing.T) {
+	s := testServer(t)
+	uid, _ := signedIn(t, s, "groupby@example.test")
+	u := &user{ID: uid, Name: "Test"}
+	ws := s.firstWorkspaceOf(t, uid)
+	db := s.makeCollection(t, ws, uid, "Topics", `[
+		{"id":"title","name":"Title","type":"text"},
+		{"id":"tags","name":"Tags","type":"multiselect","options":["Food","IT"]},
+		{"id":"kind","name":"Kind","type":"select","options":["A","B"]}]`)
+
+	// "title" is a text column: the board can only ever have one bucket.
+	_, err := callTool(t, s, u, "set_view", `{"page_id":"`+db+`","name":"By title","type":"board","group_by":"title"}`)
+	if err == nil {
+		t.Fatal("a board grouped by a text column must be refused")
+	}
+	for _, want := range []string{"title", "select", "multiselect"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("the refusal should name %q: %v", want, err)
+		}
+	}
+	// The multiselect is a real grouping, not a mistake to hide.
+	if _, err := callTool(t, s, u, "set_view", `{"page_id":"`+db+`","name":"By tag","type":"board","group_by":"tags"}`); err != nil {
+		t.Errorf("a board grouped by a multiselect must work: %v", err)
+	}
+}

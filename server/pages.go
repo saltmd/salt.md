@@ -297,6 +297,21 @@ func (s *Server) handleCreatePage(w http.ResponseWriter, r *http.Request) {
 	if len(body.Props) > 0 && json.Valid(body.Props) {
 		props = string(body.Props)
 	}
+	// A row created WITH its properties — the interface's + button, an agent
+	// creating a row with a link already on it — has to be stored in the same
+	// shape as one whose properties arrive in a later patch. It was not: the
+	// value went in exactly as sent, so `{"based": "Мемное"}` stayed a title and
+	// `{"based": {"id": …}}` stayed an object, and the relation cell rendered an
+	// empty chip for both. Same normalisation, one place (see normalizePropsOf).
+	if body.ParentID != nil && props != "{}" {
+		var patch map[string]json.RawMessage
+		if json.Unmarshal(body.Props, &patch) == nil {
+			s.normalizePropsOf(*body.ParentID, patch)
+			if b, err := json.Marshal(patch); err == nil {
+				props = string(b)
+			}
+		}
+	}
 	userID := requestUser(r).ID
 
 	// A child inherits its parent's workspace; a root page uses the requested

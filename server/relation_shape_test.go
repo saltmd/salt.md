@@ -218,3 +218,58 @@ func (s *Server) addMember(t *testing.T, ws, userID, role string) {
 		t.Fatalf("add member: %v", err)
 	}
 }
+
+// A relation value has to be a page id, and an agent writes one of two other
+// things just as naturally: the title it read somewhere, or the object a read
+// handed back. Neither was touched — the option-name resolution covers only
+// properties that HAVE options — so the title went into the column as a title,
+// `query_rows` reported it back verbatim (the data looked right in a dump), and
+// the cell rendered as a chip with no text at all. Twelve of the thirteen rows
+// in the report that found this were empty, and the one linked through the
+// interface was the only one that read correctly.
+func TestRelationValuesAreStoredAsIds(t *testing.T) {
+	s := testServer(t)
+	uid, _ := signedIn(t, s, "relwrite@example.test")
+	ws := s.firstWorkspaceOf(t, uid)
+
+	// A self-relation: the property points at the collection it lives in, so the
+	// collection has to exist before its schema can name it.
+	db := s.makeCollection(t, ws, uid, "Рилсы", `[]`)
+	if _, err := s.mcpUpdateSchema(db, json.RawMessage(`[
+		{"id":"based","name":"Основано на","type":"relation","relationCollection":"`+db+`"}]`), nil); err != nil {
+		t.Fatalf("schema: %v", err)
+	}
+
+	memnoe := s.makeRow(t, ws, uid, db, "Мемное", `{}`)
+	// Two rows with one title: that title names neither of them, so it must not
+	// be resolved to whichever came first.
+	s.makeRow(t, ws, uid, db, "Дубль", `{}`)
+	s.makeRow(t, ws, uid, db, "Дубль", `{}`)
+
+	byTitle := s.makeRow(t, ws, uid, db, "Заголовок", `{}`)
+	byObject := s.makeRow(t, ws, uid, db, "Объект", `{}`)
+	byId := s.makeRow(t, ws, uid, db, "Id", `{}`)
+	ambiguous := s.makeRow(t, ws, uid, db, "Неоднозначно", `{}`)
+	unknown := s.makeRow(t, ws, uid, db, "Неизвестно", `{}`)
+
+	for _, c := range []struct {
+		row  string
+		raw  string
+		want []string
+	}{
+		{byId, `{"based":["` + memnoe + `"]}`, []string{memnoe}},
+		{byTitle, `{"based":"Мемное"}`, []string{memnoe}},
+		{byObject, `{"based":{"id":"` + memnoe + `","title":"Мемное"}}`, []string{memnoe}},
+		// Nothing to resolve: left exactly as sent, so the cell can show what it
+		// holds instead of nothing.
+		{ambiguous, `{"based":"Дубль"}`, []string{"Дубль"}},
+		{unknown, `{"based":["Нет такого"]}`, []string{"Нет такого"}},
+	} {
+		if _, err := s.mcpSetProperties(c.row, json.RawMessage(c.raw), nil); err != nil {
+			t.Fatalf("set %s: %v", c.raw, err)
+		}
+		if got := s.propsOf(t, c.row)["based"]; !sameList(got, c.want) {
+			t.Errorf("%s → %#v, want %#v", c.raw, got, c.want)
+		}
+	}
+}

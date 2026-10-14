@@ -179,9 +179,25 @@ func (s *Server) saveCollection(pageID string, schema []map[string]any, views []
 	return nil
 }
 
+// translit spells out the letters an id cannot carry. Russian names used to
+// fall straight through slugID's loop and leave nothing behind, so EVERY one of
+// them came out as the same fallback: "prop", then "prop-2", "prop-3". Both the
+// property and its select options are named in that language here, so the ids
+// an agent has to read and pass back were indistinguishable from each other —
+// and from a property id — for no reason at all.
+var translit = map[rune]string{
+	'а': "a", 'б': "b", 'в': "v", 'г': "g", 'д': "d", 'е': "e", 'ё': "e",
+	'ж': "zh", 'з': "z", 'и': "i", 'й': "y", 'к': "k", 'л': "l", 'м': "m",
+	'н': "n", 'о': "o", 'п': "p", 'р': "r", 'с': "s", 'т': "t", 'у': "u",
+	'ф': "f", 'х': "h", 'ц': "ts", 'ч': "ch", 'ш': "sh", 'щ': "shch",
+	'ъ': "", 'ы': "y", 'ь': "", 'э': "e", 'ю': "yu", 'я': "ya",
+	// Ukrainian and Belarusian letters, sharing the alphabet.
+	'і': "i", 'ї': "yi", 'є': "ye", 'ґ': "g", 'ў': "u",
+}
+
 // slugID turns a name into a stable, readable identifier. Readable ids help
 // the agent: "due-date" says more than "p7". On a collision it counts up. The
-// umlaut cases below spell German letters out, because an id carries none.
+// letters below are spelled out because an id carries none of them.
 func slugID(name string, taken map[string]bool) string {
 	var b strings.Builder
 	for _, r := range strings.ToLower(name) {
@@ -198,6 +214,8 @@ func slugID(name string, taken map[string]bool) string {
 			b.WriteString("ss")
 		case r == ' ' || r == '-' || r == '_':
 			b.WriteRune('-')
+		default:
+			b.WriteString(translit[r])
 		}
 	}
 	base := strings.Trim(b.String(), "-")
@@ -235,9 +253,22 @@ func (s *Server) mcpUpdateSchema(pageID string, props json.RawMessage, remove []
 		return "", err
 	}
 	var incoming []map[string]any
+	// Which ids the AGENT named — asked before normalization, because after it
+	// there is no way to tell. normalizeSchema invents an id for a property that
+	// has none (that is what makes `{name:"Сезоны"}` work at all), so a second
+	// `{name:"Сезоны"}` invented "prop" again, found the property that already
+	// had that id, and OVERWROTE it — and the answer called it "changed prop"
+	// rather than anything anyone would recognise as a mistake. No id from the
+	// agent means ADD, whatever the invented id happens to be.
+	named := map[int]string{}
 	if len(props) > 0 {
 		if err := json.Unmarshal(props, &incoming); err != nil {
 			return "", fmt.Errorf("properties must be a list of {id?, name, type, options?}: %v", err)
+		}
+		for i, in := range incoming {
+			if id, _ := in["id"].(string); id != "" {
+				named[i] = id
+			}
 		}
 		if incoming, err = normalizeSchema(incoming); err != nil {
 			return "", err
@@ -249,10 +280,17 @@ func (s *Server) mcpUpdateSchema(pageID string, props json.RawMessage, remove []
 	for _, p := range schema {
 		taken[str(p, "id")] = true
 	}
+	// An id the agent named is spoken for, even before its property is added:
+	// otherwise the new one before it could take the id and this one would
+	// silently become an update of it.
+	for _, id := range named {
+		taken[id] = true
+	}
 
 	added, changed := []string{}, []string{}
-	for _, in := range incoming {
-		name, typ, id := str(in, "name"), str(in, "type"), str(in, "id")
+	for i, in := range incoming {
+		name, typ := str(in, "name"), str(in, "type")
+		id := named[i]
 		if strings.TrimSpace(name) == "" && id == "" {
 			return "", fmt.Errorf("each property needs at least a name")
 		}
@@ -283,10 +321,13 @@ func (s *Server) mcpUpdateSchema(pageID string, props json.RawMessage, remove []
 		if typ == "" {
 			in["type"] = "text"
 		}
+		// A new property. The id has to be free: normalization picked one
+		// against the incoming list alone, and a name it cannot spell (a
+		// Russian one, "Сезоны") lands on the same fallback every time.
 		if id == "" {
 			id = slugID(name, taken)
-			in["id"] = id
 		}
+		in["id"] = id
 		taken[id] = true
 		schema = append(schema, in)
 		added = append(added, id)
@@ -422,6 +463,15 @@ func checkViewFilter(f map[string]any, label string, has func(string) bool) (map
 			entry[k] = v
 		}
 	}
+	// `value` is written ALWAYS, even when the condition is expressed through
+	// `values` (a set) or through nothing at all (is_empty). The interface
+	// writes it that way, and a filter stored without it crashed the browser on
+	// the first read: matching a relative date — "today", "in 3 days" — goes
+	// through value.toLowerCase(), and undefined has none. One shape in, one
+	// shape out, and no reader has to defend against the other.
+	if _, ok := entry["value"]; !ok {
+		entry["value"] = ""
+	}
 	return entry, nil
 }
 
@@ -436,6 +486,18 @@ func applyViewSpec(view map[string]any, spec viewSpec, schema []map[string]any) 
 			}
 		}
 		return false
+	}
+	typeOf := func(id string) string {
+		for _, p := range schema {
+			if pid, _ := p["id"].(string); pid == id {
+				t, _ := p["type"].(string)
+				if t == "" {
+					t = "text"
+				}
+				return t
+			}
+		}
+		return ""
 	}
 	set := func(key string, val *string) error {
 		if val == nil {
@@ -466,8 +528,20 @@ func applyViewSpec(view map[string]any, spec viewSpec, schema []map[string]any) 
 	// mistake in the data instead of in the call.
 	viewType, _ := view["type"].(string)
 	if viewType == "board" {
-		if g, _ := view["groupBy"].(string); g == "" {
+		g, _ := view["groupBy"].(string)
+		if g == "" {
 			return fmt.Errorf("a board needs group_by (the property to make columns from)")
+		}
+		// The property has to be one that HAS values: a column per value is the
+		// whole board. Grouping by a text column does not error on its own — it
+		// makes a single "no category" column with every row in it, which reads
+		// as data that is wrong rather than a view that cannot work. A
+		// multiselect belongs here: a row with three tags shows up under all
+		// three.
+		switch t := typeOf(g); t {
+		case "select", "multiselect", "relation":
+		default:
+			return fmt.Errorf("board group_by: %q is a %s property — a board groups by a select, a multiselect or a relation", g, t)
 		}
 	}
 	if viewType == "calendar" || viewType == "timeline" {
@@ -731,19 +805,33 @@ func (s *Server) normalizePropValues(pageID string, patch map[string]json.RawMes
 	if err := s.db.QueryRow(`SELECT COALESCE(parent_id, '') FROM pages WHERE id = ?`, pageID).Scan(&parentID); err != nil || parentID == "" {
 		return
 	}
-	schema, _, err := s.loadCollection(parentID)
+	s.normalizePropsOf(parentID, patch)
+}
+
+// normalizePropsOf is the same work for a row that does not exist yet: a row
+// created WITH its properties — through the interface's + button, or through an
+// agent writing a link as it creates the row — has to be stored in the same
+// shape as one whose properties arrive in a later patch (see handleCreatePage).
+func (s *Server) normalizePropsOf(collectionID string, patch map[string]json.RawMessage) {
+	schema, _, err := s.loadCollection(collectionID)
 	if err != nil {
 		return
 	}
 	byProp := map[string]map[string]string{} // propID -> lowercased name or id -> id
 	listShaped := map[string]bool{}
+	relations := map[string]string{} // propID -> the collection its rows live in
 	for _, p := range schema {
 		id, _ := p["id"].(string)
 		if id == "" {
 			continue
 		}
 		switch t, _ := p["type"].(string); t {
-		case "relation", "multiselect":
+		case "relation":
+			listShaped[id] = true
+			if target, _ := p["relationCollection"].(string); target != "" {
+				relations[id] = target
+			}
+		case "multiselect":
 			listShaped[id] = true
 		}
 		opts, _ := p["options"].([]any)
@@ -766,6 +854,12 @@ func (s *Server) normalizePropValues(pageID string, patch map[string]json.RawMes
 		byProp[id] = m
 	}
 	for prop, raw := range patch {
+		// A relation value has to be a page id. See normalizeRelationValue: the
+		// option-name resolution below covers only properties that HAVE options,
+		// and a relation has none, so a title or an object went in untouched.
+		if target, ok := relations[prop]; ok {
+			raw = s.normalizeRelationValue(target, raw)
+		}
 		if m, ok := byProp[prop]; ok {
 			// Single value
 			var one string
@@ -805,6 +899,114 @@ func (s *Server) normalizePropValues(pageID string, patch map[string]json.RawMes
 		}
 		patch[prop] = raw
 	}
+}
+
+// normalizeRelationValue rewrites a relation value into page ids.
+//
+// A relation value has to be an id, and an agent naturally writes one of two
+// other things: the title it read somewhere ("Мемное"), or the object a read
+// handed back ({"id": …, "title": …}). Neither was touched, because the
+// option-name resolution next door covers only properties that HAVE options and
+// a relation has none. The value went in exactly as sent, `query_rows` reported
+// the same thing back — so the data looked right in a dump — and the cell
+// rendered as an empty blue chip with no text at all. In the report that found
+// this, twelve of thirteen rows were empty that way and the one that had been
+// linked through the interface was fine.
+//
+// A title that matches exactly one row of the target collection becomes that
+// row's id; an object becomes the id it carries. Anything else is left exactly
+// as sent: the cell then shows what it holds rather than nothing, and says it
+// cannot open it — which is the truth about a value that names no row.
+func (s *Server) normalizeRelationValue(target string, raw json.RawMessage) json.RawMessage {
+	byName := s.relationLookup(target)
+	if len(byName) == 0 {
+		return raw
+	}
+	pick := func(v any) (string, bool) {
+		switch x := v.(type) {
+		case string:
+			if id, ok := byName[strings.ToLower(strings.TrimSpace(x))]; ok {
+				return id, true
+			}
+		case map[string]any:
+			if id, _ := x["id"].(string); id != "" {
+				return id, true
+			}
+			if title, _ := x["title"].(string); title != "" {
+				if id, ok := byName[strings.ToLower(strings.TrimSpace(title))]; ok {
+					return id, true
+				}
+			}
+		}
+		return "", false
+	}
+
+	// One value — a bare string or a bare object, which listShaped turns into a
+	// one-element list after this runs.
+	var one any
+	if json.Unmarshal(raw, &one) == nil {
+		if id, ok := pick(one); ok {
+			if b, err := json.Marshal(id); err == nil {
+				return b
+			}
+		}
+	}
+	var many []any
+	if json.Unmarshal(raw, &many) == nil {
+		out, changed := make([]any, len(many)), false
+		for i, v := range many {
+			out[i] = v
+			if id, ok := pick(v); ok {
+				out[i] = id
+				changed = true
+			}
+		}
+		if changed {
+			if b, err := json.Marshal(out); err == nil {
+				return b
+			}
+		}
+	}
+	return raw
+}
+
+// relationIDs maps whatever a relation value may be written as onto the id of
+// the row it names: the id itself, and the titles of the target collection's
+// rows — a title only where exactly one row carries it, because a title shared
+// by two rows names neither.
+func (s *Server) relationLookup(target string) map[string]string {
+	out := map[string]string{}
+	if target == "" {
+		return out
+	}
+	rows, err := s.db.Query(`SELECT id, COALESCE(title, '') FROM pages WHERE parent_id = ? AND trashed_at IS NULL`, target)
+	if err != nil {
+		return out
+	}
+	defer rows.Close()
+	count := map[string]int{}
+	first := map[string]string{}
+	for rows.Next() {
+		var id, title string
+		if rows.Scan(&id, &title) != nil {
+			continue
+		}
+		out[id] = id
+		key := strings.ToLower(strings.TrimSpace(title))
+		if key == "" {
+			continue
+		}
+		count[key]++
+		if _, ok := first[key]; !ok {
+			first[key] = id
+		}
+	}
+	for key, n := range count {
+		if n == 1 {
+			out[key] = first[key]
+		}
+	}
+	return out
 }
 
 // resolveFilterValues maps filter values written as an option NAME onto the id
