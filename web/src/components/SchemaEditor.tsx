@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type CSSProperties } from 'react';
 import { api } from '../api';
 import type { CollectionConfig, PropDef, PropType, ViewDef } from '../types';
+import { isSystemRef } from '../types';
 import Portal from './Portal';
 import { useExclusiveModal } from '../modal';
 import { OPTION_HEXES, optionPalette } from '../selectOptions';
@@ -77,6 +78,20 @@ export default function SchemaEditor({
   const [dragProperty, setDragProperty] = useState<string | null>(null);
   const [dropProperty, setDropProperty] = useState<{ id: string; after: boolean } | null>(null);
   const [views, setViews] = useState<ViewDef[]>(config.views);
+  // Which template new rows are made from, if any. Templates come from their
+  // own endpoint (see the sidebar): the page tree no longer carries them.
+  const [newFromTemplate, setNewFromTemplate] = useState(config.newFromTemplate ?? '');
+  const [templates, setTemplates] = useState<{ id: string; title: string }[]>([]);
+  useEffect(() => {
+    let alive = true;
+    void api
+      .templates()
+      .then((t) => alive && setTemplates(t.filter((p) => !p.trashed).map((p) => ({ id: p.id, title: p.title }))))
+      .catch(() => alive && setTemplates([]));
+    return () => {
+      alive = false;
+    };
+  }, []);
   useExclusiveModal(onClose);
   const [newName, setNewName] = useState('');
   const [newType, setNewType] = useState<PropType>('select');
@@ -220,12 +235,17 @@ export default function SchemaEditor({
       if (v.type === 'calendar' && !propIds.has(v.dateProp ?? '')) {
         next.dateProp = dateProps[0]?.id ?? '';
       }
-      if (v.filters) next.filters = v.filters.filter((f) => propIds.has(f.property));
-      if (v.sort && !propIds.has(v.sort.property)) next.sort = null;
+      // Conditions and orders that are not columns survive a schema save:
+      // no property id can collide with them, so there is nothing to clean.
+      if (v.filters) next.filters = v.filters.filter((f) => propIds.has(f.property) || isSystemRef(f.property));
+      if (v.sort && !propIds.has(v.sort.property) && !isSystemRef(v.sort.property)) next.sort = null;
       if (v.hidden) next.hidden = v.hidden.filter((id) => propIds.has(id));
       return next;
     });
-    await onSave({ schema: colored, views: fixedViews });
+    // A template chosen above that is gone by now is dropped: new rows must
+    // never point at a dead page (the server re-checks this too).
+    const tpl = templates.some((p) => p.id === newFromTemplate) ? newFromTemplate : undefined;
+    await onSave({ schema: colored, views: fixedViews, ...(tpl ? { newFromTemplate: tpl } : {}) });
     onClose();
   };
 
@@ -642,6 +662,26 @@ export default function SchemaEditor({
               {renderConfig(p)}
             </div>
           ))}
+        </div>
+        <div className="schema-template">
+          <label className="schema-template-row">
+            <span>{t('New rows from template')}</span>
+            <select
+              className="prop-select"
+              value={newFromTemplate}
+              onChange={(e) => setNewFromTemplate(e.target.value)}
+            >
+              <option value="">{t('Blank rows')}</option>
+              {templates.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.title || t('Untitled')}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="dialog-hint">
+            {t('A + button duplicates the template, then fills in what it prescribes — the column, the day. The rest — values, text — comes from the template.')}
+          </div>
         </div>
         <div className="schema-add">
           <input

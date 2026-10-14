@@ -2965,6 +2965,31 @@ body.is-col-resizing {
   width: 90px;
 }
 
+/* Which template new rows are made from: a labelled row above the add-property
+   line, with the explanation underneath it. */
+.schema-template {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.schema-template-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.schema-template-row > span {
+  flex: none;
+  color: var(--muted);
+}
+.schema-template-row .prop-select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.schema-template .dialog-hint {
+  margin-top: 6px;
+}
+
 .schema-add {
   display: flex;
   gap: 8px;

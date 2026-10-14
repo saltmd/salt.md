@@ -19,6 +19,7 @@ import type {
   Sort,
   ViewDef,
 } from '../types';
+import { SORT_CREATED, SORT_UPDATED, TEMPLATE_FILTER } from '../types';
 import PropertyValue, { PersonStack, idList, loadRelationOptions, type RelOption } from './PropertyValue';
 import { openPage, openPageAux } from '../pageOpen';
 import { AgentDot } from './AgentBadge';
@@ -131,6 +132,13 @@ interface Row {
   props: Record<string, unknown>;
   position: number;
   tags?: string[];
+  /** Whether this row is a template: the one filter condition that is not a
+   *  column (see TEMPLATE_FILTER). */
+  isTemplate?: boolean;
+  /** When the row was made / last touched (ISO text): the two orders that are
+   *  not columns (see SORT_CREATED). */
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 const UNSET = '__unset__';
@@ -167,7 +175,20 @@ export function filterIsArmed(f: Filter): boolean {
 }
 
 function matchesFilter(row: Row, f: Filter): boolean {
-  const v = row.props[f.property];
+  // The one condition that is not about a column (see TEMPLATE_FILTER). The
+  // server filters on it too; this is the same answer for the rows it sent.
+  if (f.property === TEMPLATE_FILTER) {
+    if (!filterIsArmed(f)) return true;
+    return String(!!row.isTemplate) === f.value;
+  }
+  // Created and Updated read the row's own timestamps as days — the same days
+  // the server compares — and then answer through the shared operators below.
+  const v =
+    f.property === SORT_CREATED
+      ? (row.createdAt ?? '').slice(0, 10)
+      : f.property === SORT_UPDATED
+        ? (row.updatedAt ?? '').slice(0, 10)
+        : row.props[f.property];
   const op = f.op ?? (f.value === '' ? 'is_not_empty' : 'is');
   if (!filterIsArmed(f)) return true;
   const vals = filterValues(f);
@@ -226,6 +247,12 @@ function applyView(rows: Row[], view: ViewDef): Row[] {
   const sort = view.sort;
   if (sort) {
     out = [...out].sort((a, b) => {
+      if (sort.property === SORT_CREATED || sort.property === SORT_UPDATED) {
+        const ak = sort.property === SORT_CREATED ? (a.createdAt ?? '') : (a.updatedAt ?? '');
+        const bk = sort.property === SORT_CREATED ? (b.createdAt ?? '') : (b.updatedAt ?? '');
+        const cmp = ak < bk ? -1 : ak > bk ? 1 : 0;
+        return sort.dir === 'desc' ? -cmp : cmp;
+      }
       const av = a.props[sort.property];
       const bv = b.props[sort.property];
       const as = Array.isArray(av) ? av.join(',') : String(av ?? '');
@@ -340,6 +367,9 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
         props: r.props || {},
         position: r.position,
         tags: r.tags ?? [],
+        isTemplate: r.isTemplate === true,
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
       }));
       acc = [...acc, ...mapped];
       setTotal(res.total);
@@ -401,6 +431,38 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
     // Deliberately does NOT onNavigate() into the new row: creating an item
     // from a collection view should keep you looking at the collection, same
     // as Notion. Opening it is the same click as any other existing row.
+    // Made from a template when the collection says so: the copy lands under
+    // the collection with what the + button prescribes overwritten on top —
+    // the column on a board, the day on a calendar — and everything else keeps
+    // what the template had. A template that is gone falls back to a blank
+    // row rather than failing the press.
+    const tpl = config?.newFromTemplate;
+    if (tpl) {
+      try {
+        const dup = await api.duplicatePage(tpl, true);
+        if (dup?.id) {
+          try {
+            // A template may live in another workspace; the row belongs to the
+            // collection's, so it moves workspaces first. The server answers a
+            // workspace move without touching anything else, hence two writes.
+            const colWs = pages.get(collectionId)?.workspaceId ?? '';
+            const from = await api.getPage(dup.id);
+            if (colWs && from.workspaceId && from.workspaceId !== colWs) {
+              await api.updatePage(dup.id, { workspaceId: colWs });
+            }
+            await api.updatePage(dup.id, { parentId: collectionId, propsPatch: presetProps ?? {} });
+          } catch {
+            // The copy exists but did not land in the collection: say so
+            // rather than failing the press, let alone making two.
+            toast(t('The template could not be used'));
+          }
+          onPagesChanged();
+          return;
+        }
+      } catch {
+        // Offline, or a template that is gone: the blank row below.
+      }
+    }
     await api.createPage(collectionId, 'Untitled', 'doc', presetProps);
     onPagesChanged();
   };
@@ -1202,9 +1264,22 @@ function FilterSortControls({
   }, [open]);
   const filters = view.filters ?? [];
   const sort = view.sort ?? null;
-  const propName = (id: string) => schema.find((p) => p.id === id)?.name ?? id;
+  const propName = (id: string) =>
+    id === TEMPLATE_FILTER
+      ? t('Template')
+      : id === SORT_CREATED
+        ? t('Created')
+        : id === SORT_UPDATED
+          ? t('Updated')
+          : schema.find((p) => p.id === id)?.name ?? id;
 
   const valuesFor = (propId: string): { value: string; label: string }[] => {
+    if (propId === TEMPLATE_FILTER) {
+      return [
+        { value: 'true', label: t('Is a template') },
+        { value: 'false', label: t('Is not a template') },
+      ];
+    }
     const prop = schema.find((p) => p.id === propId);
     if (!prop) return [];
     if (prop.type === 'select' || prop.type === 'multiselect') {
@@ -1228,12 +1303,25 @@ function FilterSortControls({
     return [];
   };
 
-  // Operators offered per property type. Built during render, never as a module
+  // Operators offered per property type. The template condition is a checkbox
+  // in this respect: is / is not, and nothing else. The two orders are dates:
+  // is, is not, after, before, between, and the emptiness pair. Built during render, never as a module
   // constant: a list of labels resolved once at import keeps its language for
   // the life of the tab. These read `is` / `is not` in a German interface for
   // exactly that reason — they were plain strings, which the checks cannot see
   // inside an object literal.
   const opsFor = (propId: string): { value: FilterOp; label: string }[] => {
+    if (propId === SORT_CREATED || propId === SORT_UPDATED) {
+      return [
+        { value: 'is', label: t('is') },
+        { value: 'is_not', label: t('is not') },
+        { value: 'gt', label: t('after') },
+        { value: 'lt', label: t('before') },
+        { value: 'between', label: t('between') },
+        { value: 'is_empty', label: t('is empty') },
+        { value: 'is_not_empty', label: t('is not empty') },
+      ];
+    }
     const prop = schema.find((p) => p.id === propId);
     const ty = prop?.type;
     const many = takesSeveral(propId);
@@ -1314,7 +1402,8 @@ function FilterSortControls({
               onChange({ filters: next });
             };
             const propType = schema.find((p) => p.id === f.property)?.type;
-            const isDate = propType === 'date';
+            const isDate =
+              propType === 'date' || f.property === SORT_CREATED || f.property === SORT_UPDATED;
             const picked = filterValues(f);
             const several = takesSeveral(f.property) && (op === 'is' || op === 'is_not');
             // A tick list writes `values`, everything else writes `value` — the
@@ -1328,6 +1417,10 @@ function FilterSortControls({
               <div key={i} className="fs-filter">
                 <div className="fs-filter-head">
                   <span className="fs-label">{propName(f.property)}</span>
+                  {/* The template condition is a choice, not an operator plus a
+                      choice: one select says which half, so there is no second
+                      menu underneath repeating the question. */}
+                  {f.property !== TEMPLATE_FILTER && (
                   <select
                     className="prop-select fs-op"
                     value={op}
@@ -1350,6 +1443,7 @@ function FilterSortControls({
                       </option>
                     ))}
                   </select>
+                  )}
                   <button
                     className="icon-btn danger fs-remove"
                     title={t('Remove filter')}
@@ -1435,6 +1529,14 @@ function FilterSortControls({
                 {p.name}
               </option>
             ))}
+            {/* Not a column of the collection: a fact about the page. It
+                sits under its own heading so nobody goes looking for it
+                among the properties. */}
+            <optgroup label={t('System')}>
+              <option value={TEMPLATE_FILTER}>{t('Template')}</option>
+              <option value={SORT_CREATED}>{t('Created')}</option>
+              <option value={SORT_UPDATED}>{t('Updated')}</option>
+            </optgroup>
           </select>
               </>
             )}
@@ -1451,11 +1553,17 @@ function FilterSortControls({
               }
             >
               <option value="">{t('No sort')}</option>
-              {schema.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
+              <optgroup label={t('Columns')}>
+                {schema.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label={t('System')}>
+                <option value={SORT_CREATED}>{t('Created')}</option>
+                <option value={SORT_UPDATED}>{t('Updated')}</option>
+              </optgroup>
             </select>
             {sort && (
               <select

@@ -405,6 +405,9 @@ export const api = {
         position: number;
         props: Record<string, unknown>;
         tags?: string[];
+        isTemplate?: boolean;
+        createdAt?: string;
+        updatedAt?: string;
       }[];
       total: number;
       offset: number;
