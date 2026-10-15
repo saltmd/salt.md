@@ -2,6 +2,7 @@ package server
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
 	"strings"
 )
@@ -22,6 +23,11 @@ type dupRow struct {
 // to it never change the template. Without asTemplate the copy is never a
 // template. Returns the new root id.
 func (s *Server) duplicatePage(rootID, userID string, fromTemplate, asTemplate bool) (string, error) {
+	// Copies land beside the source. Read access to a template does not grant
+	// permission to create content in its workspace or under its parent.
+	if !s.canWrite(userID, rootID) {
+		return "", fmt.Errorf("page is not writable")
+	}
 	ids, err := subtreeIDs(s.db, rootID)
 	if err != nil {
 		return "", err

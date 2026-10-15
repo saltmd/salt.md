@@ -323,6 +323,10 @@ func (s *Server) handleCreatePage(w http.ResponseWriter, r *http.Request) {
 			httpError(w, 403, "not a member of that workspace")
 			return
 		}
+		if s.workspaceRole(userID, workspaceID) == "viewer" {
+			httpError(w, 403, "workspace is read-only")
+			return
+		}
 	}
 	id := newID()
 	ts := now()

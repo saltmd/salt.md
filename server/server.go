@@ -18,11 +18,11 @@ import (
 )
 
 type Server struct {
-	db          *sql.DB
-	mux         *http.ServeMux
-	dataDir     string
+	db      *sql.DB
+	mux     *http.ServeMux
+	dataDir string
 	// name → the markup INSIDE a Lucide <svg>, for the print view.
-	lucide      map[string]string
+	lucide map[string]string
 	// The third-party licence notices, embedded from the repository root.
 	notices     string
 	addr        string
@@ -347,6 +347,25 @@ func New(dataDir string, dist fs.FS) (*Server, error) {
 		// the instance, across workspaces, for any signed-in user. The random
 		// names only protect as long as nobody can enumerate them.
 		if strings.HasSuffix(r.URL.Path, "/") {
+			httpError(w, 404, "not found")
+			return
+		}
+		// An opaque URL is not an authorization boundary. Apply the carrier
+		// page's permissions and the credential's workspace scope to attached
+		// files, just as the file-list endpoint does. Unattached uploads retain
+		// their existing behavior (they have no carrier permission to check).
+		name := strings.TrimPrefix(r.URL.Path, "/files/")
+		if strings.ContainsAny(name, "/\\") {
+			httpError(w, 404, "not found")
+			return
+		}
+		var pageID sql.NullString
+		err := s.db.QueryRow(`SELECT page_id FROM files WHERE file_name = ?`, name).Scan(&pageID)
+		if err != nil && err != sql.ErrNoRows {
+			httpError(w, 404, "not found")
+			return
+		}
+		if pageID.Valid && pageID.String != "" && !s.canReadReq(r, pageID.String) {
 			httpError(w, 404, "not found")
 			return
 		}

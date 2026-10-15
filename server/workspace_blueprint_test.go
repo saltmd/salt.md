@@ -186,3 +186,48 @@ func TestBlueprintRefusesAWorkspaceWithoutDatabases(t *testing.T) {
 		t.Error("a stranger used somebody else's workspace as a blueprint")
 	}
 }
+
+// A member may use a workspace as a blueprint but may not copy collections
+// hidden by a private page, including their names and schemas.
+func TestBlueprintExcludesUnreadableCollections(t *testing.T) {
+	s := testServer(t)
+	owner, _ := signedIn(t, s, "bp-owner@example.test")
+	reader, _ := signedIn(t, s, "bp-reader@example.test")
+	ws := s.firstWorkspaceOf(t, owner)
+	s.addMember(t, ws, reader, "member")
+	private := s.makeCollection(t, ws, owner, "Secret", `[]`)
+	s.db.Exec(`UPDATE pages SET visibility = 'private' WHERE id = ?`, private)
+	child := s.makeCollection(t, ws, owner, "Secret child", `[]`)
+	s.db.Exec(`UPDATE pages SET parent_id = ? WHERE id = ?`, private, child)
+	visible := s.makeCollection(t, ws, owner, "Visible", `[{"id":"secret","name":"Secret link","type":"relation","relationCollection":"`+private+`"}]`)
+	if s.canRead(reader, private) || s.canRead(reader, child) || !s.canRead(reader, visible) {
+		t.Fatal("invalid permission fixture")
+	}
+	out, err := s.blueprintWorkspace(&user{ID: reader}, "Filtered copy", ws)
+	if err != nil {
+		t.Fatal(err)
+	}
+	newWS := strings.Fields(out[strings.Index(out, "with id ")+len("with id "):])[0]
+	var count int
+	s.db.QueryRow(`SELECT COUNT(*) FROM pages WHERE workspace_id = ?`, newWS).Scan(&count)
+	if count != 1 {
+		t.Fatalf("copied %d pages; want only the readable collection", count)
+	}
+	var copied string
+	s.db.QueryRow(`SELECT id FROM pages WHERE workspace_id = ? AND title = 'Visible'`, newWS).Scan(&copied)
+	schema, _, err := s.loadCollection(copied)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if target, _ := schema[0]["relationCollection"].(string); target != "" {
+		t.Fatalf("hidden target survived: %s", target)
+	}
+	s.db.Exec(`UPDATE pages SET visibility = 'private' WHERE id = ?`, visible)
+	if _, err := s.blueprintWorkspace(&user{ID: reader}, "Empty filtered copy", ws); err == nil {
+		t.Fatal("must reject when no readable collection remains")
+	}
+	// Workspace admins retain their documented access to private pages.
+	if _, err := s.blueprintWorkspace(&user{ID: owner}, "Admin copy", ws); err != nil {
+		t.Fatal(err)
+	}
+}

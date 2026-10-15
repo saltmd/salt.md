@@ -55,6 +55,15 @@ func (s *Server) blueprintWorkspace(u *user, name, sourceWS string) (string, err
 		}
 	}
 	rows.Close()
+	// Drain the cursor before checking permissions: the database uses a single
+	// connection. Membership alone does not grant access to private subtrees.
+	readable := sources[:0]
+	for _, c := range sources {
+		if s.canRead(u.ID, c.id) {
+			readable = append(readable, c)
+		}
+	}
+	sources = readable
 	if len(sources) == 0 {
 		return "", fmt.Errorf("workspace %q has no databases to copy: nothing to use as a blueprint", sourceWS)
 	}
