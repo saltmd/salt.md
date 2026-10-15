@@ -2,6 +2,8 @@ module salt
 
 go 1.25.0
 
+toolchain go1.27.2
+
 require (
 	github.com/coder/websocket v1.8.15
 	github.com/ledongthuc/pdf v0.0.0-20250511090121-5959a4027728

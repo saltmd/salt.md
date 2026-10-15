@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api';
+import { collectionDefaults } from '../collectionDefaults';
 import { onRefresh } from '../pwa';
 import Portal from './Portal';
 import { useBoardDrag } from '../boardDrag';
@@ -96,19 +97,21 @@ function propTypeIcon(t: PropDef['type']) {
   }
 }
 
+type EmbedViewOptions = Pick<ViewDef, 'filters' | 'sort' | 'hidden'>;
+
 /** A collection shown inside a document rather than as its own page.
  *
  *  The rows stay the collection's: an edit in an embed is an edit everywhere.
  *  What an embed keeps to itself is how it LOOKS at them — which view, and the
- *  filters and sort it applies there — so filtering the Tasks embedded in
- *  Project A to Project A no longer filters Tasks for everybody, everywhere
+ *  filters, sort and visible columns it applies there — so filtering Tasks in
+ *  Project A no longer filters Tasks for everybody, everywhere
  *  (#26). A view without an entry shows what the collection's view says, which
  *  is every embed written before this existed. */
 export interface EmbedState {
   viewId: string;
-  views: Record<string, { filters?: Filter[]; sort?: ViewDef['sort'] }>;
+  views: Record<string, EmbedViewOptions>;
   onViewId: (viewId: string) => void;
-  onView: (viewId: string, patch: { filters?: Filter[]; sort?: ViewDef['sort'] }) => void;
+  onView: (viewId: string, patch: EmbedViewOptions) => void;
 }
 
 interface Props {
@@ -166,7 +169,7 @@ export function filterIsArmed(f: Filter): boolean {
   return filterValues(f).length > 0;
 }
 
-function matchesFilter(row: Row, f: Filter): boolean {
+function matchesFilter(row: Pick<Row, 'props'>, f: Filter): boolean {
   const v = row.props[f.property];
   const op = f.op ?? (f.value === '' ? 'is_not_empty' : 'is');
   if (!filterIsArmed(f)) return true;
@@ -246,6 +249,8 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
     embed?.onViewId(id);
   };
   const [schemaOpen, setSchemaOpen] = useState(false);
+  const creatingRow = useRef(false);
+  const [isCreatingRow, setIsCreatingRow] = useState(false);
 
   // Open comments per row. Trello shows on every card whether anything was
   // discussed there — on a sales board the course of the conversation sits
@@ -301,7 +306,8 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
   // global page list — a database can have tens of thousands of rows that must
   // not choke the sidebar tree load.
   const savedView = config?.views.find((v) => v.id === viewId) ?? config?.views[0];
-  // In a document, the embed's own filters and sort stand in for the view's.
+  // Missing local settings inherit the collection's view; an explicit empty
+  // hidden list means show all columns, even when the shared view hides some.
   const own = savedView && embed?.views[savedView.id];
   const view0 = savedView && own ? { ...savedView, ...own } : savedView;
   // Server-side filter/sort (real Q25): the view's filters/sort become query
@@ -393,16 +399,28 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
   const schema = config?.schema ?? [];
 
   const saveConfig = async (next: CollectionConfig) => {
-    setConfig(next);
     await api.putCollection(collectionId, next);
+    setConfig(next);
   };
 
   const addRow = async (presetProps?: Record<string, unknown>) => {
-    // Deliberately does NOT onNavigate() into the new row: creating an item
-    // from a collection view should keep you looking at the collection, same
-    // as Notion. Opening it is the same click as any other existing row.
-    await api.createPage(collectionId, 'Untitled', 'doc', presetProps);
-    onPagesChanged();
+    if (creatingRow.current) return;
+    creatingRow.current = true;
+    setIsCreatingRow(true);
+    try {
+      const props = collectionDefaults(schema, view?.filters ?? [], presetProps);
+      const page = await api.createPage(collectionId, 'Untitled', 'doc', props, undefined, true);
+      onPagesChanged();
+      onNavigate(page.id);
+      if ((view?.filters ?? []).some(filter => !matchesFilter(page, filter))) {
+        toast(t('Complete the properties to match this view’s filters.'));
+      }
+    } catch {
+      toast(t('Could not be created'));
+    } finally {
+      creatingRow.current = false;
+      setIsCreatingRow(false);
+    }
   };
 
   // Persist an inline change to a select/multiselect property's options (create,
@@ -463,13 +481,14 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
   if (!config || !view) return <div className="editor-loading" />;
 
   const updateView = (patch: Partial<ViewDef>) => {
-    // An embed keeps its filters and sort to itself (#26): set inside a
+    // An embed keeps filters, sort and column visibility to itself: set inside a
     // document, they must not change the collection's view everywhere else.
-    if (embed && ('filters' in patch || 'sort' in patch)) {
-      const { filters, sort, ...rest } = patch;
+    if (embed && ('filters' in patch || 'sort' in patch || 'hidden' in patch)) {
+      const { filters, sort, hidden, ...rest } = patch;
       embed.onView(view.id, {
         ...('filters' in patch ? { filters } : {}),
         ...('sort' in patch ? { sort } : {}),
+        ...('hidden' in patch ? { hidden } : {}),
       });
       if (Object.keys(rest).length === 0) return;
       patch = rest;
@@ -712,11 +731,11 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
           </select>
         )}
         {view.type !== 'form' && <FilterSortControls schema={schema} view={view} onChange={updateView} />}
-        {/* What the collection IS — its columns, its properties, its views —
+        <ColumnsControl schema={schema} view={view} onChange={updateView} />
+        {/* What the collection IS — its properties and view definitions —
             is edited on its own page. An embed is a window onto the rows, and
             carrying the whole toolbar into a document made it look like a
             second copy of the collection (#22). */}
-        {!embed && <ColumnsControl schema={schema} view={view} onChange={updateView} />}
         {!embed && (
           <button className="btn-sm" onClick={() => setSchemaOpen(true)}>
             <Settings2 size={14} /> {t('Properties')}
@@ -770,7 +789,7 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
         </div>
         )}
         {view.type !== 'form' && (
-          <button className="btn-sm primary" onClick={() => void addRow()}>
+          <button className="btn-sm primary" disabled={isCreatingRow} onClick={() => void addRow()}>
             <Plus size={14} /> {t('New')}
           </button>
         )}

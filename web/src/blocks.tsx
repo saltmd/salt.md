@@ -329,7 +329,7 @@ export const databaseSpec = createReactBlockSpec(
     propSchema: {
       collectionId: { default: '' },
       // This embed's own way of looking at the collection, as JSON: the view
-      // it shows, and per view the filters and sort it applies (#26). Empty
+      // it shows, and per view its filters, sort and hidden columns. Empty
       // means "as the collection's views say" — every embed written before.
       local: { default: '' },
     },

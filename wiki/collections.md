@@ -355,10 +355,31 @@ in place (filter it, add rows, drag cards), with the document's own text above
 and below it. The heading of the block opens it as its own page
 (**Open as page ↗**).
 
-Only a reference is stored. The collection stays one object in one place, the
-same collection can be embedded in several documents, and an edit made in one of
-them shows up in all of them. If the collection is deleted, or lives in a
-workspace the reader may not see, the block says
+The rows and properties belong to the collection: editing a row updates it
+everywhere. Each embedded block saves its own selected view, filters, sort and
+visible columns with the document. Use **Columns** to show or hide properties
+for that block, without changing another embed or the collection's own page.
+Until changed locally, column visibility follows the collection's saved view.
+Two blocks in the same document can also show different columns.
+
+**New** creates and opens a page with the unambiguous equality values from the
+current view's filters, including linked events. The embedded block's filters
+are used rather than the collection's shared filters. Explicit board or calendar
+presets take precedence. Alternative values and inequalities are not guessed;
+complete the new page's properties when a filter needs further input. While
+creation is pending, another click does not create a duplicate.
+
+A newly created, untouched page stays available for as long as it is open.
+Leaving it without editing discards it to the recoverable trash; the filter
+values prefilled by **New** do not count as edits. Once edited, the page is kept.
+Existing blank pages and pages made by imports, forms or templates are not
+subject to this behavior. The session-only `POST /api/pages/{id}/discard-empty`
+checks the original creation baseline, content and references before discarding;
+connected editors, attachments, comments and child pages prevent disposal.
+
+
+
+If the collection is deleted, or lives in a workspace the reader may not see, the block says
 *This collection is no longer available.* rather than breaking the page.
 
 The MCP equivalent appends the block to the end of a document:

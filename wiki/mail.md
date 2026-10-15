@@ -18,10 +18,10 @@ copy links by hand.
 | Emergency access notice | `Emergency access to <workspace name>` | every admin of that workspace | the instance owner takes time-limited read access |
 | Test message | `salt.md test message` | the admin who pressed the button | you press **Send test mail** |
 
-That is the whole list. There are no comment notifications, no mention alerts,
+That is the whole list. There are no comment emails or mention emails,
 no page-change digests, no form-submission emails, and no marketing of any kind.
 The body of a page, the contents of a collection and the files you upload never
-travel by mail.
+travel by mail. Mentions in comments appear only in the internal Notifications inbox.
 
 **The subjects are fixed.** Renaming the instance under *Instance settings →
 General* changes the sign-in page and the browser title, and does not touch

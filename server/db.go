@@ -320,6 +320,29 @@ CREATE TABLE IF NOT EXISTS comments (
 	resolved_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_comment_page ON comments(page_id, created_at);
+CREATE TABLE IF NOT EXISTS mention_notifications (
+ id TEXT PRIMARY KEY,
+ user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+ comment_id TEXT NOT NULL REFERENCES comments(id) ON DELETE CASCADE,
+ created_at TEXT NOT NULL,
+ read_at TEXT,
+ UNIQUE(user_id, comment_id)
+);
+CREATE INDEX IF NOT EXISTS idx_mention_notifications_user ON mention_notifications(user_id, created_at);
+CREATE TABLE IF NOT EXISTS page_mention_notifications (
+ id TEXT PRIMARY KEY,
+ page_id TEXT NOT NULL REFERENCES pages(id) ON DELETE CASCADE,
+ mention_id TEXT NOT NULL,
+ user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+ author_id TEXT NOT NULL,
+ author_name TEXT NOT NULL,
+ created_at TEXT NOT NULL,
+ read_at TEXT,
+ UNIQUE(page_id, mention_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_page_mentions_user ON page_mention_notifications(user_id, created_at);
+
+
 `
 
 // ensureColumn adds a column to an existing table if it is missing
@@ -357,6 +380,15 @@ func openDB(path string) (*sql.DB, error) {
 	db.SetMaxOpenConns(1)
 	if _, err := db.Exec(schema); err != nil {
 		return nil, fmt.Errorf("migrate: %w", err)
+	}
+	if err := ensureColumn(db, "comments", "mentions", `mentions TEXT NOT NULL DEFAULT '[]'`); err != nil {
+		return nil, err
+	}
+	if err := ensureColumn(db, "comments", "request_id", `request_id TEXT`); err != nil {
+		return nil, err
+	}
+	if _, err := db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_comment_request ON comments(author_id, request_id)`); err != nil {
+		return nil, err
 	}
 	if err := ensureColumn(db, "pages", "type", `type TEXT NOT NULL DEFAULT 'doc'`); err != nil {
 		return nil, fmt.Errorf("migrate pages.type: %w", err)

@@ -2139,22 +2139,6 @@ body:has(.icon-picker) .bn-side-menu {
   max-height: min(560px, 70vh);
 }
 
-/* An embed is a window onto the rows, not a second copy of the collection
-   (#22): its toolbar keeps to filter, sort and New, and steps back until the
-   pointer comes to the embed. Only where there IS a pointer (on a touch screen
-   nothing would ever bring it back), and never while a filter of the embed's
-   own is on: rows quietly missing from a table are worse than a toolbar. */
-@media (hover: hover) {
-  .collection-scroll.is-embed:not(.is-filtered) .collection-actions {
-    opacity: 0;
-    transition: opacity 0.15s;
-  }
-  .bn-db-embed:hover .collection-scroll.is-embed .collection-actions,
-  .bn-db-embed:focus-within .collection-scroll.is-embed .collection-actions {
-    opacity: 1;
-  }
-}
-
 /* Widened from 272px. At that width a normal task title broke after three or
    four words and a card with five faces plus an agent had almost no line left —
    the board read as cramped before anyone had put much in it. The columns are
@@ -10217,3 +10201,56 @@ body:has(.live-down) .update-banner {
 .prop-url-open { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 24px; height: 24px; color: var(--muted); border-radius: 4px; }
 .prop-url-open:hover { color: var(--accent); background: var(--hover); }
 .prop-url-value :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Selected account mentions and the personal inbox. */
+.person-mention { color: var(--accent); background: var(--hover); border-radius: 4px; padding: 1px 3px; font-weight: 600; }
+.cp-item.is-mentioned { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 6px; }
+.mention-people { max-height: 220px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); margin: 6px 0; }
+.mention-people button { display: flex; align-items: center; gap: 8px; width: 100%; border: 0; background: transparent; color: inherit; padding: 8px 10px; text-align: left; cursor: pointer; }
+.mention-people button[aria-selected="true"], .mention-people button:hover { background: var(--hover); }
+.mention-people p { padding: 8px 10px; font-size: 12px; }
+.mention-notifications { color: var(--fg); background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 0; width: min(480px, calc(100vw - 24px)); max-height: min(700px, 85vh); box-shadow: 0 12px 48px #0003; }
+.mention-notifications::backdrop { background: #0005; }
+.mention-notifications h2 { margin: 0; font-size: 17px; }
+.notification-list { padding: 12px; overflow-wrap: anywhere; }
+.notification-item { display: flex; flex-direction: column; gap: 6px; width: 100%; padding: 14px; margin-bottom: 8px; text-align: left; color: inherit; background: transparent; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }
+.notification-item.is-unread { border-left: 3px solid var(--accent); background: var(--hover); }
+.notification-item:hover { background: var(--hover); }
+.notification-excerpt { white-space: pre-wrap; font-size: 13px; opacity: .85; }
+.notification-item small { opacity: .7; }
+
+.page-person-mention { white-space: nowrap; }
+.page-person-mention.is-mentioned { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Embedded collections follow the document width, not the viewport. Keep all
+   actions visible and wrap inside narrow document panes on any screen. */
+.bn-db-embed .collection-toolbar {
+  padding: 8px 14px;
+  flex-wrap: wrap;
+  overflow: visible;
+  flex: none;
+}
+
+.bn-db-embed .view-tabs {
+  flex: 1 1 260px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.bn-db-embed .view-tab-wrap {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.bn-db-embed .view-tab {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.bn-db-embed .collection-actions {
+  flex: 0 1 auto;
+  min-width: 0;
+  flex-wrap: wrap;
+  opacity: 1;
+}

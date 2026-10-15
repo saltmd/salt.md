@@ -68,7 +68,7 @@ func collectInlineText(items []any, b *strings.Builder) {
 			b.WriteString(s)
 			b.WriteString(" ")
 		}
-		if it["type"] == "pageLink" {
+		if it["type"] == "pageLink" || it["type"] == "userMention" {
 			if props, ok := it["props"].(map[string]any); ok {
 				if label, ok := props["label"].(string); ok {
 					b.WriteString(label)

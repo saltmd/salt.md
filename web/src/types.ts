@@ -140,7 +140,19 @@ export interface Revision {
   title: string;
 }
 
+export interface CommentMention {
+  userId: string;
+  start: number;
+  end: number;
+  label: string;
+}
+export interface MentionPerson { id: string; name: string; avatar: string }
+export interface MentionNotification {
+  id: string; pageId: string; pageTitle: string; commentId: string; mentionId?: string;
+  authorName: string; body: string; createdAt: string; read: boolean;
+}
 export interface Comment {
+  mentions?: CommentMention[];
   id: string;
   blockId: string;
   authorId: string;

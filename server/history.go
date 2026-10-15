@@ -128,13 +128,14 @@ func (s *Server) handleRestoreRevision(w http.ResponseWriter, r *http.Request) {
 // ---- Comments ----
 
 type commentJSON struct {
-	ID         string  `json:"id"`
-	BlockID    string  `json:"blockId"`
-	AuthorID   string  `json:"authorId"`
-	AuthorName string  `json:"authorName"`
-	Body       string  `json:"body"`
-	CreatedAt  string  `json:"createdAt"`
-	ResolvedAt *string `json:"resolvedAt"`
+	Mentions   []commentMention `json:"mentions"`
+	ID         string           `json:"id"`
+	BlockID    string           `json:"blockId"`
+	AuthorID   string           `json:"authorId"`
+	AuthorName string           `json:"authorName"`
+	Body       string           `json:"body"`
+	CreatedAt  string           `json:"createdAt"`
+	ResolvedAt *string          `json:"resolvedAt"`
 	// The author's colour/picture, so the same person looks the same
 	// everywhere — the comment column used to roll a colour out of the name
 	// that had nothing to do with the real user colour.
@@ -145,7 +146,7 @@ type commentJSON struct {
 func (s *Server) pageComments(pageID string) ([]commentJSON, error) {
 	// LEFT JOIN: the author may be deleted — the comment stays.
 	rows, err := s.db.Query(`SELECT c.id, c.block_id, c.author_id, c.author_name, c.body, c.created_at, c.resolved_at,
-		COALESCE(u.color, ''), COALESCE(u.avatar, '')
+		COALESCE(u.color, ''), COALESCE(u.avatar, ''), c.mentions
 		FROM comments c LEFT JOIN users u ON u.id = c.author_id
 		WHERE c.page_id = ? ORDER BY c.created_at`, pageID)
 	if err != nil {
@@ -155,8 +156,10 @@ func (s *Server) pageComments(pageID string) ([]commentJSON, error) {
 	list := []commentJSON{}
 	for rows.Next() {
 		var c commentJSON
+		var mentions string
 		var resolved sql.NullString
-		rows.Scan(&c.ID, &c.BlockID, &c.AuthorID, &c.AuthorName, &c.Body, &c.CreatedAt, &resolved, &c.AuthorColor, &c.AuthorAvatar)
+		rows.Scan(&c.ID, &c.BlockID, &c.AuthorID, &c.AuthorName, &c.Body, &c.CreatedAt, &resolved, &c.AuthorColor, &c.AuthorAvatar, &mentions)
+		json.Unmarshal([]byte(mentions), &c.Mentions)
 		if resolved.Valid {
 			c.ResolvedAt = &resolved.String
 		}
@@ -177,38 +180,6 @@ func (s *Server) handleListComments(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, list)
-}
-
-func (s *Server) handleCreateComment(w http.ResponseWriter, r *http.Request) {
-	pageID := r.PathValue("id")
-	u := requestUser(r)
-	if !s.canWriteReq(r, pageID) {
-		httpError(w, 403, "forbidden")
-		return
-	}
-	var body struct {
-		Body    string `json:"body"`
-		BlockID string `json:"blockId"`
-	}
-	if err := decodeJSON(w, r, &body); err != nil {
-		httpError(w, 400, "invalid JSON")
-		return
-	}
-	if strings.TrimSpace(body.Body) == "" {
-		httpError(w, 400, "comment body is required")
-		return
-	}
-	if len([]rune(body.Body)) > maxCommentLen {
-		httpError(w, 400, "comment is too long")
-		return
-	}
-	id := newID()
-	if _, err := s.db.Exec(`INSERT INTO comments (id, page_id, block_id, author_id, author_name, body, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		id, pageID, body.BlockID, u.ID, u.Name, strings.TrimSpace(body.Body), now()); err != nil {
-		httpError(w, 500, err.Error())
-		return
-	}
-	writeJSON(w, map[string]string{"id": id})
 }
 
 // handleResolveComment toggles a comment's resolved state.

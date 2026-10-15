@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { withFixture } from './fixture.mjs';
+import { eventually, withFixture } from './fixture.mjs';
 
 await withFixture(async ({ page, open, chip, field, read, assertRows, schema }) => {
   await open();
@@ -24,14 +24,14 @@ await withFixture(async ({ page, open, chip, field, read, assertRows, schema }) 
   await chip(1, 'To do').click();
   await field.fill('Ready label');
   await field.press('Escape');
-  assert.deepEqual((await read()).schema, schema, 'Editing must stay local until Save');
-  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await eventually(async () => (await read()).schema[1].options[0].name === 'Ready label');
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
   await open();
-  await chip(0, 'To do').click();
+  await chip(0, 'Ready').click();
   await field.fill('Ready');
   await page.getByRole('button', { name: 'Green', exact: true }).click();
-  await chip(0, 'Ready').press('Alt+ArrowRight');
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await chip(0, 'Ready').press('Alt+ArrowLeft');
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
   await page.getByRole('heading', { name: 'Collection properties' }).waitFor({ state: 'hidden' });
   await page.reload();
   const persisted = await read();
@@ -46,17 +46,17 @@ await withFixture(async ({ page, open, chip, field, read, assertRows, schema }) 
   await chip(0, 'Ready').click();
   await page.getByRole('button', { name: 'Delete option', exact: true }).click();
   await dialog.getByRole('button', { name: 'Delete option', exact: true }).click();
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
   await page.getByRole('heading', { name: 'Collection properties' }).waitFor({ state: 'hidden' });
   assert(!(await read()).schema[0].options.some(option => option.id === 'todo'));
   await assertRows();
   await open();
   await page.setViewportSize({ width: 375, height: 500 });
-  await chip(1, 'To do').click();
+  await chip(1, 'Ready label').click();
   await field.fill('A very long option name that must remain inside the viewport');
   const narrow = await page.locator('.schema-option-editor').boundingBox();
   assert(narrow.x >= 7 && narrow.x + narrow.width <= 368);
   await page.getByRole('button', { name: 'Red', exact: true }).click();
-  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
 });
 console.log('Select option browser regressions passed.');

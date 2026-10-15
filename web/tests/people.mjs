@@ -63,7 +63,7 @@ await withFixture(async ({ page, api, workspace, path, read }) => {
   // And the setting itself, from the Properties dialog.
   await page.getByRole('button', { name: 'Properties', exact: true }).click();
   await page.getByRole('checkbox', { name: 'Several people' }).check();
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
   await eventually(async () => (await read()).schema.find((p) => p.id === 'team')?.personMultiple === true);
 
   console.log('People: several per cell, only the named ones offered, and back to one.');

@@ -19,7 +19,7 @@ both sides.
 3. Fill in whatever the type needs: a select needs options, a relation needs
    **Links to**, a rollup needs four answers. Those fields appear under the
    property as soon as you pick the type.
-4. Click **Save**. Nothing is written until you do; **Cancel** discards the lot.
+4. Changes save automatically after a short pause. **Close** waits for pending changes; a failed save keeps the dialog open with **Retry**.
 
 Rename a property by typing over its name. Change its type with the dropdown
 beside it. **Changing the type does not delete anything**: the values stay in
@@ -143,7 +143,7 @@ Red) or delete it. Choosing the option that is already set clears the cell.
 In **Properties**, click an option chip to edit its **Option name**. Names update in the dialog as you type. Blank names and names already used by another
 option are not accepted. Drag an option chip before or after another chip to change its position in
 pickers and board columns (or focus it and press Alt + Left/Right); the red **Delete option** trash icon asks for confirmation before removing its definition. Colours
-are available in the same panel. Names, colours and option order stay local until **Save**; **Cancel** discards
+are available in the same panel. Names, colours and option order save automatically; **Close** waits for
 them. Escape closes the option panel. Invalid names are not applied. The panel starts at its original 150px width and expands
 for longer names, within the viewport. This also works for multi-select options.
 
@@ -632,7 +632,7 @@ backrelation missing either of its two coordinates is refused as well. See
 ## Reordering properties
 
 In **Collection properties**, drag a property's grip above or below another
-property, then choose **Save**. **Cancel** discards the new order. This order is
+property. The new order saves automatically. This order is
 shared by the collection's views, while each view keeps its hidden fields,
 filters, and sorting. Reordering does not change property IDs, options, or row
 values.

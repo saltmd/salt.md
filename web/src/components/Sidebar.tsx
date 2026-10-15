@@ -1,3 +1,4 @@
+import Notifications from './Notifications';
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { api } from '../api';
 import type { FontPref } from '../App';
@@ -1371,6 +1372,7 @@ export default function Sidebar({
           )}
         </div>
       </div>
+      <Notifications key={user.id} />
       <button className="sidebar-search" onClick={onOpenSearch}>
         <span className="sidebar-item-label"><Search size={15} /> {t('Search')}</span>
         {/* Was hardcoded to ⌘K, which was simply wrong everywhere search.open

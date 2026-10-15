@@ -305,7 +305,7 @@ closes the other: two columns in that width would leave neither usable.
 
 Two triggers, one result:
 
-- **`@`**: mention a page
+- **`@`**: mention a person or link a page
 - **`[[`**: the same thing, for wiki-link muscle memory
 
 Both open the same list: up to twelve pages whose title contains what you have

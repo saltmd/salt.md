@@ -70,6 +70,13 @@ func styleText(text string, styles map[string]any) string {
 	return text
 }
 
+func checkboxSymbol(props map[string]any) string {
+	if truthy(props["checked"]) {
+		return "☑"
+	}
+	return "☐"
+}
+
 func renderInline(raw json.RawMessage) string {
 	var items []mdInline
 	if len(raw) == 0 || json.Unmarshal(raw, &items) != nil {
@@ -80,6 +87,10 @@ func renderInline(raw json.RawMessage) string {
 		switch it.Type {
 		case "link":
 			b.WriteString("[" + renderInline(it.Content) + "](" + it.Href + ")")
+		case "inlineCheckbox":
+			b.WriteString(checkboxSymbol(it.Props))
+		case "userMention":
+			b.WriteString("@" + strProp(it.Props, "label", ""))
 		case "pageLink":
 			label := strProp(it.Props, "label", "Untitled")
 			id := strProp(it.Props, "pageId", "")
@@ -100,6 +111,10 @@ func plainInline(raw json.RawMessage) string {
 	for _, it := range items {
 		if it.Type == "link" {
 			b.WriteString(plainInline(it.Content))
+		} else if it.Type == "inlineCheckbox" {
+			b.WriteString(checkboxSymbol(it.Props))
+		} else if it.Type == "userMention" {
+			b.WriteString("@" + strProp(it.Props, "label", ""))
 		} else {
 			b.WriteString(it.Text)
 		}
@@ -260,7 +275,7 @@ func walkText(v any, b *strings.Builder) {
 			b.WriteString(" ")
 		}
 		// Index the visible label of a page mention too.
-		if t["type"] == "pageLink" {
+		if t["type"] == "pageLink" || t["type"] == "userMention" {
 			if props, ok := t["props"].(map[string]any); ok {
 				if label, ok := props["label"].(string); ok {
 					b.WriteString(label)

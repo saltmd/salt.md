@@ -58,6 +58,41 @@ The ⋯ menu also always carries **To the comments**, at every width. That one
 always opens the panel rather than toggling it: an entry that toggles would be
 a no-op half the times somebody reaches for it.
 
+### Mentioning a colleague
+
+Type **@** in the comment box, then choose a person from the list. Use the
+arrow keys and Enter, or click their name. Only active members who can read
+this page are offered. Selecting a person links the mention to their account;
+typing a name without selecting it remains ordinary text. Editing inside a
+selected name removes its link, so select it again if you change it.
+
+Sending creates one internal notification per mentioned colleague, even if the
+same person is mentioned twice. Mentioning yourself does not notify you.
+Retrying the same draft after a connection failure does not create another
+comment or notification. The label keeps the spelling used when posted; the
+recipient is identified by account ID even after a rename.
+
+Open **Notifications** (the bell in the sidebar) to see who mentioned you and
+where. Choosing an item marks it read and opens the exact comment, including a
+resolved comment. Notifications refresh every 15 seconds while Salt is visible,
+and when you return to the window. There are no mention emails. Losing access
+to a page hides its notifications; deleting the comment deletes its notifications.
+
+### Mentioning someone in the page itself
+
+In the document body, type **@** and choose a colleague from **People**. The
+same menu keeps page links under **Pages**; `[[` continues to offer page links.
+The selected name becomes an inline chip linked to the person's account.
+A notification is created when the page autosaves, and opens that exact chip.
+Only people with access are offered, and access is checked again by the server.
+
+Each chip has a stable identity: more edits, another collaborator saving the
+page, or undo/redo do not resend its notification. Removing the chip hides its
+notification; restoring it brings back its previous read state. Inserting a
+fresh mention creates a new notification. Copying an existing chip or page does
+not send a new invitation. Mentions remain readable in text and HTML exports.
+Assigning a Person property still does not notify.
+
 ### Writing one
 
 1. Press the speech-bubble button. The panel opens with the cursor already in

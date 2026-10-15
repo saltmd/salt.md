@@ -1,4 +1,6 @@
+import './inlineCheckbox.css';
 import { BlockNoteSchema, defaultBlockSpecs, defaultInlineContentSpecs } from '@blocknote/core';
+import { t } from './i18n';
 import { createReactInlineContentSpec } from '@blocknote/react';
 import { bookmarkSpec, databaseSpec, calloutSpec, tocSpec, subpagesSpec, columnsSpec, mermaidSpec } from './blocks';
 
@@ -33,6 +35,65 @@ export const pageLinkSpec = createReactInlineContentSpec(
   },
 );
 
+// Inline content works in paragraphs and table cells. Updating the node through
+// BlockNote keeps toggles in the same persistence, collaboration and undo flow.
+export const inlineCheckboxSpec = createReactInlineContentSpec(
+  {
+    type: 'inlineCheckbox',
+    propSchema: { checked: { default: false } },
+    content: 'none',
+  } as const,
+  {
+    render: ({ inlineContent, updateInlineContent, editor }) => (
+      <span className="inline-checkbox" contentEditable={false}>
+        <input
+          type="checkbox"
+          aria-label={t('Inline checkbox')}
+          checked={inlineContent.props.checked}
+          disabled={!editor.isEditable}
+          onMouseDown={(event) => event.preventDefault()}
+          onChange={(event) => {
+            if (editor.isEditable) updateInlineContent({ type: 'inlineCheckbox', props: { checked: event.target.checked } });
+          }}
+        />
+      </span>
+    ),
+    toExternalHTML: ({ inlineContent }) => (
+      <span data-inline-checkbox={inlineContent.props.checked ? 'true' : 'false'}>
+        {inlineContent.props.checked ? '☑' : '☐'}
+      </span>
+    ),
+    parse: (element) => {
+      const checked = element.getAttribute('data-inline-checkbox');
+      return checked === null ? undefined : { checked: checked === 'true' };
+    },
+  },
+);
+
+// Account mentions are atomic inline nodes, so editing around a name cannot
+// silently change its recipient. Labels are readable in exports without IDs.
+export const userMentionSpec = createReactInlineContentSpec(
+  {
+    type: 'userMention',
+    propSchema: {
+      userId: { default: '' },
+      label: { default: '' },
+      mentionId: { default: '' },
+      authorId: { default: '' },
+      originPageId: { default: '' },
+    },
+    content: 'none',
+  } as const,
+  {
+    render: ({ inlineContent }) => (
+      <span className="person-mention page-person-mention" contentEditable={false} tabIndex={-1}
+        data-person-mention-id={inlineContent.props.mentionId}>
+        {'@' + inlineContent.props.label}
+      </span>
+    ),
+  },
+);
+
 // Schema = the default blocks plus our own (callout, table of contents,
 // sub-pages, bookmark/embed, embedded database, columns) and the pageLink inline content.
 // createReactBlockSpec returns a factory in 0.51 — call it.
@@ -56,6 +117,8 @@ export const saltSchema =
     inlineContentSpecs: {
       ...defaultInlineContentSpecs,
       pageLink: pageLinkSpec,
+      userMention: userMentionSpec,
+      inlineCheckbox: inlineCheckboxSpec,
     },
   });
 

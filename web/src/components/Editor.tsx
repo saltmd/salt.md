@@ -1,3 +1,4 @@
+import { commentTarget, OPEN_COMMENT, newMentionID, pageMentionTarget, clearPageMentionTarget, OPEN_PAGE_MENTION } from '../commentMentions';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   useCreateBlockNote,
@@ -7,6 +8,7 @@ import {
 import { filterSuggestionItems, insertOrUpdateBlockForSlashMenu } from '@blocknote/core';
 import { en as coreEn } from '@blocknote/core/locales';
 import { BlockNoteView } from '@blocknote/mantine';
+import { keepNewPage } from '../newPageDrafts';
 import { api } from '../api';
 import { toast } from '../toast';
 import type { Backlink, CollectionConfig, Page, PageMeta, PropOption, User } from '../types';
@@ -95,6 +97,17 @@ export default function Editor(props: EditorProps) {
       setStructurePanelOpen(false);
     }
   };
+  useEffect(() => {
+    const reveal = () => {
+      if (commentTarget()?.pageId === props.pageId) showComments(true);
+    };
+    reveal();
+    window.addEventListener(OPEN_COMMENT, reveal);
+    return () => window.removeEventListener(OPEN_COMMENT, reveal);
+    // The event only opens the panel; it never reads its previous state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.pageId]);
+
   const toggleStructure = () => showStructure(!structureOpen);
 
   // Same rule as the other single letters (see App.tsx): only while nothing is
@@ -226,6 +239,7 @@ export default function Editor(props: EditorProps) {
       </PageHeader>
       {commentsOpen && canComment && (
         <CommentsPanel
+          key={page.id}
           pageId={page.id}
           myUserId={props.user.id}
           open
@@ -678,6 +692,7 @@ function PageHeader({
   };
 
   const saveMeta = (patch: { title?: string; icon?: string; cover?: string; tags?: string[]; description?: string }) => {
+    keepNewPage(pageId);
     onMetaChange(pageId, patch);
     onLocalMeta(patch);
     // Accumulate across fields so a title edit followed quickly by a cover
@@ -1608,6 +1623,16 @@ function BlockContent({
   const getSlashItems = async (query: string) => {
     const custom = [
       {
+        title: t('Inline checkbox'),
+        subtext: t('A clickable checkbox inside text or a table cell'),
+        aliases: ['checkbox', 'inline', 'casella', 'spunta', 'kontrollkästchen'], // i18n-ok: search aliases
+        group: 'Basic blocks',
+        icon: <Check size={18} />,
+        onItemClick: () => editor.insertInlineContent([
+          { type: 'inlineCheckbox', props: { checked: false } },
+        ]),
+      },
+      {
         title: t('Diagram'),
         subtext: t('A flow chart written as text'),
         aliases: ['diagram', 'diagramm', 'mermaid', 'flow', 'flussdiagramm', 'graph'], // i18n-ok: search aliases, deliberately multi
@@ -1679,13 +1704,23 @@ function BlockContent({
         onItemClick: () => insertOrUpdateBlockForSlashMenu(editor, { type: 'subpages' } as never),
       },
     ];
-    return filterSuggestionItems(
+    const matches = filterSuggestionItems(
       [
         ...getDefaultReactSlashMenuItems(editor),
         ...custom,
       ],
       query,
     );
+    // The menu keys headings by group. Repeated, non-adjacent groups create
+    // duplicate React keys and leave stale headings behind when filtering.
+    // Keep each group contiguous, with the first occurrence defining its order.
+    const groups = new Map<string | undefined, typeof matches>();
+    for (const item of matches) {
+      const group = groups.get(item.group);
+      if (group) group.push(item);
+      else groups.set(item.group, [item]);
+    }
+    return [...groups.values()].flat();
   };
 
   // Page-link menu (shared by the "@" mention trigger and the "[[" wiki-link
@@ -1726,7 +1761,25 @@ function BlockContent({
     return items;
   };
 
-  const getMentionItems = (query: string) => buildLinkItems(query);
+  const getMentionItems = async (query: string) => {
+    const [links, people] = await Promise.all([
+      buildLinkItems(query),
+      api.mentionPeople(provider.pageId).catch(() => []),
+    ]);
+    const matches = people.filter(person => person.name.toLowerCase().includes(query.toLowerCase())).slice(0, 8);
+    return [
+      ...matches.map(person => ({
+        title: person.name,
+        subtext: t('Mention a person'),
+        group: t('People'),
+        onItemClick: () => editor.insertInlineContent([
+          { type: 'userMention', props: { userId: person.id, label: person.name, mentionId: newMentionID(), authorId: user.id, originPageId: provider.pageId } },
+          ' ',
+        ]),
+      })),
+      ...links.map(item => ({ ...item, group: t('Pages') })),
+    ];
+  };
   // Wiki-links: the trigger is "[", and BlockNote has no real concept of a
   // two-character one — passing it "[[" never fires on ordinary typing,
   // since its match compares the WHOLE trigger string against (n trailing
@@ -1779,6 +1832,28 @@ function BlockContent({
     }
   }, [editor, provider, seed]);
 
+  // A notification can arrive before this editor mounts or while it is
+  // already open. Wait for the CRDT to render, then reveal the exact chip.
+  useEffect(() => {
+    const reveal = () => {
+      const target = pageMentionTarget();
+      if (target?.pageId !== provider.pageId) return;
+      const element = Array.from(document.querySelectorAll<HTMLElement>('[data-person-mention-id]'))
+        .find(node => node.dataset.personMentionId === target.mentionId);
+      if (!element) return;
+      document.querySelectorAll('.page-person-mention.is-mentioned').forEach(node => node.classList.remove('is-mentioned'));
+      element.classList.add('is-mentioned');
+      element.scrollIntoView({ block: 'center' });
+      element.focus({ preventScroll: true });
+      clearPageMentionTarget();
+    };
+    reveal();
+    const observer = new MutationObserver(reveal);
+    observer.observe(document.body, { childList: true, subtree: true });
+    window.addEventListener(OPEN_PAGE_MENTION, reveal);
+    return () => { observer.disconnect(); window.removeEventListener(OPEN_PAGE_MENTION, reveal); };
+  }, [provider]);
+
   // Persist a materialized copy to pages.content so search, export, backlinks
   // and the Markdown/MCP API see current text. Debounced; skips the CRDT reset.
   const matTimer = useRef<number | undefined>(undefined);
@@ -1808,6 +1883,7 @@ function BlockContent({
       }
     };
     const persist = () => {
+      if (!seedFailed.current && !isEffectivelyEmpty(editor.document)) keepNewPage(provider.pageId);
       dirty.current = true;
       window.clearTimeout(matTimer.current);
       matTimer.current = window.setTimeout(() => flush(false), 1500);

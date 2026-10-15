@@ -16,11 +16,7 @@ await withFixture(async ({ page, open, read, assertRows }) => {
   await open();
   await drag(0, 1, true);
   assert.deepEqual(await names(), ['Labels', 'Status']);
-  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
-  assert.deepEqual((await read()).schema, initial.schema);
-  await open();
-  await drag(0, 1, true);
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
   await page.getByRole('heading', { name: 'Collection properties' }).waitFor({ state: 'hidden' });
   assert.deepEqual((await read()).schema, [...initial.schema].reverse());
   assert.deepEqual((await read()).views, initial.views);
@@ -42,7 +38,7 @@ await withFixture(async ({ page, open, read, assertRows }) => {
   assert.deepEqual(await names(), ['Owner', 'Status', 'Labels', 'Deadline']);
   await drag(0, 3, true);
   assert.deepEqual(await names(), ['Status', 'Labels', 'Deadline', 'Owner']);
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
   await page.getByRole('heading', { name: 'Collection properties' }).waitFor({ state: 'hidden' });
   assert.deepEqual((await read()).schema.map(p => p.name), ['Status', 'Labels', 'Deadline', 'Owner']);
   // The name carries the shortcut since #8 ("Collapse the sidebar ([)").
@@ -52,4 +48,4 @@ await withFixture(async ({ page, open, read, assertRows }) => {
   assert(await items.first().locator('.schema-drag-handle').isVisible());
   assert(await page.locator('.dialog.wide').evaluate(dialog => dialog.scrollWidth <= dialog.clientWidth));
 });
-console.log('Property order: drag, save/cancel, reload, unchanged data and narrow layout passed.');
+console.log('Property order: drag, autosave, reload, unchanged data and narrow layout passed.');

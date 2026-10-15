@@ -592,6 +592,10 @@ func (s *Server) handleUpdatePage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Only the creator's own materialization delivers a page mention. Another
+	// collaborator can save the same CRDT first without taking authorship.
+	pageMentions := s.eligiblePageMentions(id, body.Content, requestUser(r))
+
 	// Cycle check and update must be atomic: with concurrent moves a
 	// check-then-act on separate statements can persist A<->B cycles.
 	// The transaction holds the single DB connection until commit.
@@ -701,6 +705,10 @@ func (s *Server) handleUpdatePage(w http.ResponseWriter, r *http.Request) {
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
 		httpError(w, 404, "page not found")
+		return
+	}
+	if err := insertPageMentions(tx, id, pageMentions, requestUser(r)); err != nil {
+		httpError(w, 500, "could not save page mentions")
 		return
 	}
 	if err := tx.Commit(); err != nil {

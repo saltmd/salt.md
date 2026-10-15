@@ -17,6 +17,7 @@ import type {
   Workspace,
 } from './types';
 import { t } from './i18n';
+import { rememberNewPage, keepNewPage } from './newPageDrafts';
 import type { Prefs } from './i18n';
 import { formatBytes } from './format';
 import { serverMessage } from './serverErrors';
@@ -301,10 +302,14 @@ export const api = {
     type: 'doc' | 'collection' = 'doc',
     props?: Record<string, unknown>,
     workspaceId?: string,
+    discardIfUntouched = false,
   ) =>
     req<Page>('/api/pages', {
       method: 'POST',
       body: JSON.stringify({ parentId, title, type, props, workspaceId }),
+    }).then(page => {
+      if (discardIfUntouched) rememberNewPage(page);
+      return page;
     }),
   getPage: (id: string) => req<Page>(`/api/pages/${id}`),
   updatePage: (
@@ -327,11 +332,13 @@ export const api = {
       workspaceId: string;
     }>,
     opts?: { materialize?: boolean },
-  ) =>
-    req<Page>(`/api/pages/${id}${opts?.materialize ? '?materialize=1' : ''}`, {
+  ) => {
+    if (Object.keys(patch).some(key => key !== 'content' && key !== 'position')) keepNewPage(id);
+    return req<Page>(`/api/pages/${id}${opts?.materialize ? '?materialize=1' : ''}`, {
       method: 'PATCH',
       body: JSON.stringify(patch),
-    }),
+    });
+  },
   trashPage: (id: string) => req<{ ok: boolean }>(`/api/pages/${id}`, { method: 'DELETE' }),
   // fromTemplate: instantiate a template (copy keeps the title).
   // asTemplate: save as template — the COPY becomes the template (snapshot),
@@ -435,16 +442,19 @@ export const api = {
   restoreRevision: (pageId: string, revId: string) =>
     req<{ ok: boolean }>(`/api/pages/${pageId}/revisions/${revId}/restore`, { method: 'POST' }),
 
+  mentionPeople: (pageId: string) => req<import('./types').MentionPerson[]>(`/api/pages/${pageId}/mention-people`),
+  notifications: () => req<{ items: import('./types').MentionNotification[]; unread: number }>('/api/notifications'),
+  readNotification: (id: string) => req<{ ok: boolean }>(`/api/notifications/${id}/read`, { method: 'POST' }),
   listComments: (pageId: string) => req<import('./types').Comment[]>(`/api/pages/${pageId}/comments`),
   // Open comments per page of a workspace, in one go — for the counters on
   // kanban cards. Deliberately not part of the page list (see
   // handleCommentCounts).
   commentCounts: (workspaceId: string) =>
     req<Record<string, number>>(`/api/comment-counts?workspaceId=${encodeURIComponent(workspaceId)}`),
-  createComment: (pageId: string, body: string, blockId = '') =>
+  createComment: (pageId: string, body: string, blockId = '', mentions: import('./types').CommentMention[] = [], requestId?: string) =>
     req<{ id: string }>(`/api/pages/${pageId}/comments`, {
       method: 'POST',
-      body: JSON.stringify({ body, blockId }),
+      body: JSON.stringify({ body, blockId, mentions, requestId }),
     }),
   resolveComment: (id: string, resolved: boolean) =>
     req<{ ok: boolean }>(`/api/comments/${id}/resolve`, {

@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node callout-colors.mjs && node property-order.mjs && node select-options.mjs && node menus-and-arrows.mjs && node shortcuts.mjs && node embeds.mjs && node people.mjs && node tabs.mjs"
+    "test": "node callout-colors.mjs && node property-order.mjs && node select-options.mjs && node menus-and-arrows.mjs && node shortcuts.mjs && node embeds.mjs && node collection-create.mjs && node empty-pages.mjs && node people.mjs && node tabs.mjs && node properties-autosave.mjs && node comment-mentions.mjs && node page-mentions.mjs && node inline-checkbox.mjs && node trash-navigation.mjs && node mermaid.mjs"
   },
   "devDependencies": {
     "playwright": "1.63.0"

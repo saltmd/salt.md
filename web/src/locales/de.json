@@ -147,6 +147,7 @@
   "Copied": "Kopiert",
   "Copied ✓": "Kopiert ✓",
   "Copies the databases with their columns, options and views, plus the workspace rules. Rows and documents stay where they are.": "Kopiert die Datenbanken mit ihren Spalten, Optionen und Ansichten sowie die Regeln des Workspace. Zeilen und Dokumente bleiben, wo sie sind.",
+  "Complete the properties to match this view’s filters.": "Ergänze die Eigenschaften, damit die Seite den Filtern dieser Ansicht entspricht.",
   "Copy": "Kopieren",
   "Copy MCP command": "MCP-Befehl kopieren",
   "Copy Markdown link": "Markdown-Link kopieren",
@@ -1088,5 +1089,17 @@
   "New link": "Neuer Link",
   "Anyone with this link can view this page (read-only).": "Jeder mit diesem Link kann die Seite ansehen (nur lesen).",
   "Expires:": "Läuft ab:",
-  "Creating…": "Wird erstellt…"
+  "Creating…": "Wird erstellt…",
+  "Could not save changes.": "Änderungen konnten nicht gespeichert werden.",
+  "Delete property “{name}”?": "Eigenschaft „{name}“ löschen?",
+  "Mention a person": "Eine Person erwähnen",
+  "No people with access to this page match.": "Keine passende Person mit Zugriff auf diese Seite.",
+  "Type @ to mention someone": "@ eingeben, um jemanden zu erwähnen",
+  "Could not load notifications.": "Benachrichtigungen konnten nicht geladen werden.",
+  "No mentions yet.": "Noch keine Erwähnungen.",
+  "{name} mentioned you": "{name} hat dich erwähnt",
+  "Unread": "Ungelesen",
+  "People": "Personen",
+  "Inline checkbox": "Inline-Kontrollkästchen",
+  "A clickable checkbox inside text or a table cell": "Ein anklickbares Kontrollkästchen im Text oder in einer Tabellenzelle"
 }
