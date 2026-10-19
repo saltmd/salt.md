@@ -430,16 +430,20 @@ browser problem; the two are stamped from one value on purpose. See
 **If the interface stays old across reloads**, the browser is holding a cached
 copy of the document that names the previous build's files. The document itself
 is served as `no-cache`, so this resolves on the next load; a hard reload forces
-it. The service worker keeps only the app shell (no API responses, no files, no
-shared pages), so nothing you see as *data* can be stale that way.
+it. The service worker keeps the app shell and snapshots of the pages,
+collections, session and workspace list you have already opened (network-first,
+so the server wins whenever it answers), but no files and no shared pages. A
+stale snapshot is marked on screen as an offline copy; anything else is live.
 
 ## Live editing
 
 **The faces of your colleagues vanished.** That is your connection, not theirs.
 Editing continues into your own copy and is pushed across when the socket comes
 back: automatically, with a backoff that starts inside a second and tops out at
-thirty. The one way to lose that work is closing the tab while it is
-disconnected.
+thirty. A copy of your edits is also kept in this browser, so closing the tab
+while disconnected no longer loses them — they are pushed on your next visit.
+If the page was replaced meanwhile (a restore, an agent rewrite, an import),
+your edit may still lose to the replacement: check the version history.
 
 **The editor reloaded itself in the middle of a sentence.** Something replaced
 the page rather than merging into it: a restored version, an agent writing the

@@ -279,11 +279,12 @@ func (s *Server) markShared(list []pageMeta) {
 
 func (s *Server) handleCreatePage(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		ParentID    *string         `json:"parentId"`
-		Title       string          `json:"title"`
-		Type        string          `json:"type"`
-		Props       json.RawMessage `json:"props"`
-		WorkspaceID string          `json:"workspaceId"`
+		ParentID       *string         `json:"parentId"`
+		Title          string          `json:"title"`
+		Type           string          `json:"type"`
+		Props          json.RawMessage `json:"props"`
+		WorkspaceID    string          `json:"workspaceId"`
+		IdempotencyKey string          `json:"idempotencyKey"`
 	}
 	if err := decodeJSON(w, r, &body); err != nil {
 		httpError(w, 400, "invalid JSON")
@@ -302,6 +303,17 @@ func (s *Server) handleCreatePage(w http.ResponseWriter, r *http.Request) {
 	}
 	u := requestUser(r)
 	userID := u.ID
+
+	// Exactly-once creates for retried requests (offline outbox flushes from
+	// two tabs replay the same op): a repeated key returns the first answer
+	// instead of a second page. Scoped per user like the MCP keys.
+	if body.IdempotencyKey != "" {
+		if cached, ok := s.idempotentResult(userID + "\x00" + body.IdempotencyKey); ok {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(cached))
+			return
+		}
+	}
 
 	// A child inherits its parent's workspace; a root page uses the requested
 	// (or the user's default) workspace. Membership is enforced either way, and
@@ -367,6 +379,11 @@ func (s *Server) handleCreatePage(w http.ResponseWriter, r *http.Request) {
 	s.pagesChanged()
 	s.rowChanged(id)
 	s.fireWebhook("page.created", id)
+	if body.IdempotencyKey != "" {
+		if b, err := json.Marshal(p); err == nil {
+			s.storeIdempotent(userID+"\x00"+body.IdempotencyKey, string(b))
+		}
+	}
 	writeJSON(w, p)
 }
 

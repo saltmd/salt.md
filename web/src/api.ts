@@ -328,10 +328,11 @@ export const api = {
     type: 'doc' | 'collection' = 'doc',
     props?: Record<string, unknown>,
     workspaceId?: string,
+    idempotencyKey?: string,
   ) =>
     req<Page>('/api/pages', {
       method: 'POST',
-      body: JSON.stringify({ parentId, title, type, props, workspaceId }),
+      body: JSON.stringify({ parentId, title, type, props, workspaceId, idempotencyKey }),
     }),
   getPage: (id: string) => req<Page>(`/api/pages/${id}`),
   updatePage: (
