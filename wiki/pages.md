@@ -10,7 +10,13 @@ linking it, attaching files to it, copying it, printing it. What goes *inside*
 the body is [Editor blocks](editor-blocks.md).
 
 Every page has an address of the form `/p/<id>`, and that is what the browser
-shows while you read it.
+shows while you read it — with a readable prefix when the page has a title:
+`/p/<slug>-<id>`, e.g. `/p/moonlit-garden-notes-23fef292b33fcc3a840241b995608bca`.
+The slug is a transliterated title for convenient typing and changes with the
+title; only the trailing `<id>` identifies the page, so an old link keeps
+working and the address bar is corrected to the fresh slug without a reload.
+Private pages never carry a slug: the address bar is copied into chats and
+tickets, and a title there would leak it.
 
 ## Creating a page
 

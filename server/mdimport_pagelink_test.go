@@ -21,6 +21,9 @@ func TestMarkdownLinkToOwnPageBecomesAPageLink(t *testing.T) {
 		{"an absolute URL, which is what share_page hands out", "https://salt.example/p/" + id},
 		{"with a trailing slash", "/p/" + id + "/"},
 		{"behind a port", "http://localhost:8420/p/" + id},
+		{"a slug-prefixed path, the address bar form", "/p/moonlit-garden-notes-" + id},
+		{"a slug-prefixed absolute URL", "https://salt.example/p/moonlit-garden-notes-" + id},
+		{"a slug-prefixed path with a trailing slash", "/p/some-title-" + id + "/"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -55,6 +58,7 @@ func TestOrdinaryLinksAreLeftAlone(t *testing.T) {
 		"https://example.com/p/not-an-id",
 		"/p/short",
 		"/p/6430997b50672ea702cab5f43a31794cEXTRA",
+		"/p/slug-without-dash6430997b50672ea702cab5f43a31794c",
 		"mailto:someone@example.com",
 		"/files/abc123.pdf",
 	} {

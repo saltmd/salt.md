@@ -8,7 +8,7 @@ import (
 )
 
 // spaHandler serves the embedded frontend build and falls back to index.html
-// for client-side routes like /p/<id>.
+// for client-side routes like /p/<id> and /p/<slug>-<id>.
 func spaHandler(dist fs.FS) http.Handler {
 	fileServer := http.FileServer(http.FS(dist))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

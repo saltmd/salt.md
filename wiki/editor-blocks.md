@@ -529,8 +529,9 @@ page**. The importer understands headings, bullet, numbered and check lists
 (nested by indentation), quotes, fenced code with a language, images, tables,
 paragraphs, and the inline styles bold, italic, strike, code and links.
 
-A Markdown link pointing at a page of **this** instance (`/p/<id>`, or the full
-address that sharing hands out) comes back as a real page link rather than a
+A Markdown link pointing at a page of **this** instance (`/p/<id>`, or the
+`/p/<slug>-<id>` form from the address bar, or the full address that sharing
+hands out) comes back as a real page link rather than a
 plain one. That is what closes the round trip: export a page, import it
 elsewhere, and its internal links are still links in the graph.
 
