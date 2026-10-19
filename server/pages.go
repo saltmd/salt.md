@@ -302,6 +302,21 @@ func (s *Server) handleCreatePage(w http.ResponseWriter, r *http.Request) {
 	}
 	u := requestUser(r)
 	userID := u.ID
+	// A row created WITH its properties — the interface's + button, an agent
+	// creating a row with a link already on it — has to be stored in the same
+	// shape as one whose properties arrive in a later patch. It was not: the
+	// value went in exactly as sent, so `{"based": "Мемное"}` stayed a title and
+	// `{"based": {"id": …}}` stayed an object, and the relation cell rendered an
+	// empty chip for both. Same normalisation, one place (see normalizePropsOf).
+	if body.ParentID != nil && props != "{}" {
+		var patch map[string]json.RawMessage
+		if json.Unmarshal(body.Props, &patch) == nil {
+			s.normalizePropsOf(*body.ParentID, patch, u)
+			if b, err := json.Marshal(patch); err == nil {
+				props = string(b)
+			}
+		}
+	}
 
 	// A child inherits its parent's workspace; a root page uses the requested
 	// (or the user's default) workspace. Membership is enforced either way, and
@@ -612,6 +627,25 @@ func (s *Server) handleUpdatePage(w http.ResponseWriter, r *http.Request) {
 	// Cycle check and update must be atomic: with concurrent moves a
 	// check-then-act on separate statements can persist A<->B cycles.
 	// The transaction holds the single DB connection until commit.
+	//
+	// Normalize first, outside the transaction: relation titles resolve to ids
+	// here exactly as on create (see normalizePropsOf), and the pool holds a
+	// single connection, so a query inside the open transaction below would
+	// block forever.
+	if len(body.PropsPatch) > 0 {
+		var patch map[string]json.RawMessage
+		if err := json.Unmarshal(body.PropsPatch, &patch); err != nil {
+			httpError(w, 400, "propsPatch must be a JSON object")
+			return
+		}
+		var parentID string
+		if err := s.db.QueryRow(`SELECT COALESCE(parent_id, '') FROM pages WHERE id = ?`, id).Scan(&parentID); err == nil && parentID != "" {
+			s.normalizePropsOf(parentID, patch, requestUser(r))
+			if b, err := json.Marshal(patch); err == nil {
+				body.PropsPatch = b
+			}
+		}
+	}
 	tx, err := s.db.Begin()
 	if err != nil {
 		httpError(w, 500, err.Error())
