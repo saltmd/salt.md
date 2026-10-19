@@ -285,12 +285,19 @@ export function normalizeCollectionConfig(cfg: CollectionConfig): CollectionConf
   return cfg;
 }
 
+/** Visible span of calendar and timeline views. */
+export type SpanMode = 'day' | 'week' | 'month' | '2months' | 'year';
+
 export interface ViewDef {
   id: string;
   name: string;
   type: 'table' | 'board' | 'list' | 'gallery' | 'calendar' | 'form' | 'timeline';
   groupBy?: string;
   dateProp?: string; // calendar/timeline view: date property (timeline: start)
+  /** Timeline view: which window it shows. Defaults to a month. */
+  tlMode?: SpanMode;
+  /** Timeline view: the sticky title column is collapsed, leaving the axis. */
+  tlHideLabels?: boolean;
   endDateProp?: string; // timeline view: optional end-date property (else 1-day bar)
   hidden?: string[]; // property ids hidden in this view
   filters?: Filter[];
