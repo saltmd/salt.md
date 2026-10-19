@@ -13,6 +13,7 @@ import type { Backlink, CollectionConfig, Page, PageMeta, PropOption, User } fro
 import { SaltProvider } from '../collab';
 import { plural, t } from '../i18n';
 import PropertyValue from './PropertyValue';
+import type { PageOpeners } from '../pageOpen';
 import { saltSchema } from '../pageLink';
 import IconPicker from './IconPicker';
 import { PageIcon } from '../pageIcon';
@@ -381,11 +382,15 @@ function RowProperties({
   parentId,
   initialProps,
   canEdit,
+  onOpen,
+  openers,
 }: {
   pageId: string;
   parentId: string;
   initialProps: Record<string, unknown>;
   canEdit: boolean;
+  onOpen?: (id: string) => void;
+  openers?: PageOpeners;
 }) {
   const [config, setConfig] = useState<CollectionConfig | null>(null);
   const [props, setProps] = useState<Record<string, unknown>>(initialProps ?? {});
@@ -443,6 +448,8 @@ function RowProperties({
               onChange={canEdit ? (v) => setProp(p.id, v) : undefined}
               onOptionsChange={canEdit ? (o) => setOptions(p.id, o) : undefined}
               readOnly={!canEdit}
+              onOpen={onOpen}
+              openers={openers}
             />
           </div>
         </div>
@@ -463,6 +470,7 @@ function PageHeader({
   onToggleFavorite,
   onMetaChange,
   onNavigate,
+  onOpenInNewTab,
   onTrash,
   onLocalMeta,
   onPagesChanged,
@@ -1375,6 +1383,8 @@ function PageHeader({
             parentId={page.parentId}
             initialProps={page.props}
             canEdit={canEdit}
+            onOpen={onOpenInNewTab ?? onNavigate}
+            openers={{ onNavigate, onOpenInNewTab }}
           />
         )}
       </div>

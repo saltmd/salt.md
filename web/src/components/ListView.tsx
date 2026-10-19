@@ -77,6 +77,8 @@ export default function ListView({
                   compact
                   onChange={(v) => onSetProp(r.id, p.id, v)}
                   onOptionsChange={(opts) => onSetOptions(p.id, opts)}
+                  onOpen={onOpenInNewTab ?? onNavigate}
+                  openers={{ onNavigate, onOpenInNewTab }}
                 />
               ))}
             </span>
