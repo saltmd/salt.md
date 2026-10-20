@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api';
 import { onRefresh } from '../pwa';
 import Portal from './Portal';
@@ -474,6 +474,45 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
     }
   };
 
+  // Moving a card between cards, in a view with no sort. The board hands over
+  // the target column's order with the dragged card where it lands; the
+  // position is a fraction between the neighbours, so no other row moves and
+  // the order survives reloads, which a local shuffle would not.
+  const moveCard = async (rowId: string, curOrder: string[], newOrder: string[]) => {
+    if (curOrder.length === newOrder.length && curOrder.every((id, i) => newOrder[i] === id)) return;
+    const posOf = new Map(rows.map((r) => [r.id, r.position]));
+    const at = newOrder.indexOf(rowId);
+    if (at < 0) return;
+    const prev = at > 0 ? newOrder[at - 1] : undefined;
+    const next = at < newOrder.length - 1 ? newOrder[at + 1] : undefined;
+    if (prev === undefined && next === undefined) return; // alone in its column
+    const pv = prev !== undefined ? posOf.get(prev) : undefined;
+    const nv = next !== undefined ? posOf.get(next) : undefined;
+    const position =
+      pv !== undefined && nv !== undefined ? (pv + nv) / 2 : nv !== undefined ? nv - 1 : (pv ?? 0) + 1;
+    setRows((prevRows) => {
+      const without = prevRows.filter((r) => r.id !== rowId);
+      const moved = prevRows.find((r) => r.id === rowId);
+      if (!moved) return prevRows;
+      const tagged = { ...moved, position };
+      if (next !== undefined) {
+        const i = without.findIndex((r) => r.id === next);
+        if (i >= 0) return [...without.slice(0, i), tagged, ...without.slice(i)];
+      } else if (prev !== undefined) {
+        const i = without.findIndex((r) => r.id === prev);
+        if (i >= 0) return [...without.slice(0, i + 1), tagged, ...without.slice(i + 1)];
+      }
+      return [...without, tagged];
+    });
+    // Persisted like every other row write; a failure toasts but keeps the
+    // optimistic order on screen.
+    try {
+      await api.updatePage(rowId, { position });
+    } catch {
+      toast(t('Change not saved'));
+    }
+  };
+
   if (!config || !view) return <div className="editor-loading" />;
 
   const updateView = (patch: Partial<ViewDef>) => {
@@ -823,6 +862,10 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
           onSetOptions={setPropOptions}
           onDrop={(rowId, groupBy, optId) => {
             void setGroupValue(rowId, groupBy, optId);
+          }}
+          manualOrder={!view.sort}
+          onMoveCard={(rowId, curOrder, newOrder) => {
+            void moveCard(rowId, curOrder, newOrder);
           }}
           onTrashRow={trashRow}
           onAddInColumn={(groupBy, optId) =>
@@ -1554,12 +1597,31 @@ function BoardCardProps({
     (p) => (p.type === 'select' || p.type === 'multiselect') && isBlank(row.props[p.id]),
   );
 
-  const factRow = (p: PropDef) => (
-    <span key={p.id} className="card-fact">
-      {needsLabel(p, plan.facts.length) && <span className="card-fact-label">{p.name}</span>}
-      <PropertyValue def={p} value={row.props[p.id]} readOnly compact />
-    </span>
-  );
+  const factRow = (p: PropDef) => {
+    // A checkbox or a checklist is something you tick, not something you read:
+    // it stays live in the compact row, where every other fact is display only
+    // — a disabled checkbox on a card reads as a broken one.
+    const tickable = p.type === 'checkbox' || p.type === 'checklist';
+    return (
+      <span
+        key={p.id}
+        className="card-fact"
+        /* A tick is a tick. The card's own click opens the row, so without
+           this the tick and the open happen together. Only the tickable facts
+           claim the click — pressing any other one still opens the card. */
+        onClick={tickable ? (e) => e.stopPropagation() : undefined}
+      >
+        {needsLabel(p, plan.facts.length) && <span className="card-fact-label">{p.name}</span>}
+        <PropertyValue
+          def={p}
+          value={row.props[p.id]}
+          readOnly={!tickable}
+          compact
+          onChange={(nv) => onSetProp(row.id, p.id, nv)}
+        />
+      </span>
+    );
+  };
 
   const contactIcon = (p: PropDef) => {
     const kind = contactKind(p, row.props[p.id]);
@@ -1646,6 +1708,8 @@ function BoardView({
   onDrop,
   onTrashRow,
   onAddInColumn,
+  onMoveCard,
+  manualOrder,
 }: {
   rows: Row[];
   schema: PropDef[];
@@ -1659,6 +1723,15 @@ function BoardView({
   onDrop: (rowId: string, groupBy: string, optId: string) => void;
   onTrashRow: (id: string, title: string) => Promise<void>;
   onAddInColumn: (groupBy: string, optId: string) => void;
+  // A drag that lands between cards: the target column's ids with the dragged
+  // card where it was (curOrder) and where it lands (newOrder). Only fires
+  // meaningfully when manualOrder is on; otherwise drops only ever change the
+  // column, through onDrop.
+  onMoveCard: (rowId: string, curOrder: string[], newOrder: string[]) => void;
+  // True when the view has no sort: the rows stand in the order they were put
+  // in, so there is an order to change. A sorted view keeps its order however
+  // the cards are dragged.
+  manualOrder: boolean;
 }) {
   // Keyed by "columnId:rowId" so a card that appears in multiple columns
   // (multiselect grouping) opens only the tapped copy's menu.
@@ -1668,9 +1741,21 @@ function BoardView({
   // opened card is a glance, not a setting.
   const [openCards, setOpenCards] = useState<Set<string>>(new Set());
   // Zeiger-basiertes Ziehen statt des ruckeligen nativen Drags (siehe boardDrag).
-  const { drag, armedRow, startDrag, consumeClick } = useBoardDrag((rowId, toCol) =>
-    onDrop(rowId, groupBy, toCol),
-  );
+  const { drag, armedRow, startDrag, consumeClick } = useBoardDrag((rowId, fromCol, toCol, beforeId, before, overSelf) => {
+    // The column always changes through onDrop; the position only moves when
+    // the view stands in manual order. curOrder/newOrder are the target
+    // column's ids with the dragged card where it was / where it lands.
+    if (toCol !== fromCol) onDrop(rowId, groupBy, toCol);
+    if (!manualOrder) return;
+    const ids = rowsFor(toCol).map((r) => r.id);
+    const curOrder = toCol === fromCol ? ids : ids.filter((id) => id !== rowId);
+    const without = ids.filter((id) => id !== rowId);
+    let at = beforeId ? without.indexOf(beforeId) + (before ? 0 : 1) : without.length;
+    if (at < 0 || at > without.length) at = without.length;
+    const newOrder = [...without.slice(0, at), rowId, ...without.slice(at)];
+    if (overSelf && toCol === fromCol) return;
+    onMoveCard(rowId, curOrder, newOrder);
+  });
   // When grouping by a relation, the columns are the rows of the target
   // collection. Loaded through the same cache the relation cells use, so the
   // column heading and the cell always say the same thing.
@@ -1765,8 +1850,12 @@ function BoardView({
           </div>
           <div className="board-cards">
             {rowsFor(col.id).map((r) => (
+              <Fragment key={r.id}>
+              {manualOrder && drag?.overRow === r.id && drag.before && (
+                <div className="board-drop-line" aria-hidden="true" />
+              )}
               <div
-                key={r.id}
+                data-row={r.id}
                 className={
                   'board-card' +
                   (drag?.rowId === r.id && drag.fromCol === col.id ? ' is-dragging' : '') +
@@ -1909,6 +1998,10 @@ function BoardView({
                   onSetOptions={onSetOptions}
                 />
               </div>
+              {manualOrder && drag?.overRow === r.id && !drag.before && (
+                <div className="board-drop-line" aria-hidden="true" />
+              )}
+              </Fragment>
             ))}
           </div>
         </div>

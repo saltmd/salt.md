@@ -23,6 +23,9 @@ export interface DragState {
   dx: number;
   dy: number;
   over: string | null; // column under the pointer
+  overRow: string | null; // card under the pointer, for the insertion point
+  before: boolean; // ...above its middle (vs below)
+  overSelf: boolean; // the pointer is over the dragged card's own spot
 }
 
 const START_THRESHOLD = 5; // px before a click becomes a drag
@@ -35,7 +38,9 @@ const TOUCH_HOLD_MS = 320;
 // a swipe, and the drag is never armed in the first place.
 const TOUCH_HOLD_SLOP = 10;
 
-export function useBoardDrag(onMove: (rowId: string, toCol: string) => void) {
+export function useBoardDrag(
+  onMove: (rowId: string, fromCol: string, toCol: string, beforeId: string | null, before: boolean, overSelf: boolean) => void,
+) {
   const [drag, setDrag] = useState<DragState | null>(null);
   // Which card is armed after the hold but has not moved yet. On the iPhone
   // there is no navigator.vibrate — without a visible signal nothing at all
@@ -56,6 +61,9 @@ export function useBoardDrag(onMove: (rowId: string, toCol: string) => void) {
     startY: number;
     started: boolean;
     over: string | null;
+    overRow: string | null;
+    before: boolean;
+    overSelf: boolean;
     touch: boolean;
     // armed: on a finger only true after TOUCH_HOLD_MS. Before that every
     // movement belongs to scrolling.
@@ -95,6 +103,29 @@ export function useBoardDrag(onMove: (rowId: string, toCol: string) => void) {
         draggedRef.current = true;
       }
       l.over = colUnder(e.clientX, e.clientY);
+      // The card under the pointer, for dropping between cards rather than
+      // just into a column. The dragged card's own spot counts as itself, so
+      // dropping it back where it was reads as the no-op it is.
+      let overRow: string | null = null;
+      let before = false;
+      let overSelf = false;
+      for (const el of document.elementsFromPoint(e.clientX, e.clientY)) {
+        const card = (el as HTMLElement).closest?.('.board-card[data-row]');
+        if (!card) continue;
+        const id = card.getAttribute('data-row');
+        if (!id) continue;
+        if (id === l.rowId) {
+          overSelf = true;
+          break;
+        }
+        overRow = id;
+        const r = (card as HTMLElement).getBoundingClientRect();
+        before = e.clientY < r.top + r.height / 2;
+        break;
+      }
+      l.overRow = overRow;
+      l.before = before;
+      l.overSelf = overSelf;
       setDrag({
         rowId: l.rowId,
         fromCol: l.fromCol,
@@ -105,6 +136,9 @@ export function useBoardDrag(onMove: (rowId: string, toCol: string) => void) {
         dx: l.dx,
         dy: l.dy,
         over: l.over,
+        overRow: l.overRow,
+        before: l.before,
+        overSelf: l.overSelf,
       });
 
       // Scroll along at the top and bottom edge of a column, so cards can be
@@ -125,8 +159,8 @@ export function useBoardDrag(onMove: (rowId: string, toCol: string) => void) {
       live.current = null;
       setDrag(null);
       setArmedRow(null);
-      if (l && l.started && l.over && l.over !== l.fromCol) {
-        onMove(l.rowId, l.over);
+      if (l && l.started && l.over) {
+        onMove(l.rowId, l.fromCol, l.over, l.overRow, l.before, l.overSelf);
       }
       // draggedRef stays set until the next click, so the card's click
       // handler can suppress navigation.
@@ -172,6 +206,9 @@ export function useBoardDrag(onMove: (rowId: string, toCol: string) => void) {
         startY: e.clientY,
         started: false,
         over: fromCol,
+        overRow: null,
+        before: false,
+        overSelf: false,
         touch,
         armed: !touch, // mouse: armed at once. Finger: only after the hold.
         holdTimer: null,

@@ -2185,6 +2185,16 @@ body:has(.icon-picker) .bn-side-menu {
 }
 .board-card.is-dragging * { pointer-events: none; }
 
+/* Where the dragged card will land: a line between cards, in the accent
+   colour, only while a view with no sort is being rearranged. */
+.board-drop-line {
+  flex: none;
+  height: 2px;
+  margin: 3px 2px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
 /* No text selection during a drag, and the grabbing cursor everywhere. */
 .board.is-dragging, .board.is-dragging * {
   user-select: none;
