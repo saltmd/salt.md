@@ -5,13 +5,16 @@ Who may see and do what. salt.md has two sets of roles that do not overlap:
 **workspace roles** decide who reads and writes content. An instance admin is not
 automatically allowed into your workspace, and a workspace admin has no power
 over the instance. This page has the exact consequence of every role, what a
-private page means, what an API token can and cannot do compared with a
-signed-in browser, and how the owner gets a look inside a workspace they are
-not in.
+private page means, what an API token can and cannot do compared
+with a signed-in browser, and how the owner gets a look inside a workspace they
+are not in.
 
-The short version: **access is per workspace, not per page.** If you need "these
-three people and nobody else", the answer is a workspace. See
-[Workspaces](workspaces.md).
+The short version: **access starts per workspace, and a private page can be
+narrowed to chosen members.** If you need "these three people and nobody
+else", share the private page with them; if you need a standing boundary
+between teams, the answer is still a workspace. See
+[Workspaces](workspaces.md) and [Private pages shared with chosen
+members](#private-pages-shared-with-chosen-members).
 
 ## The four levels
 
@@ -179,6 +182,7 @@ the table below than the API alone would suggest.
 | edit a page, upload, move, trash, restore | no | yes | yes |
 | write a comment, resolve one, add a `note` | no | yes | yes |
 | create a public share link | no | yes | yes |
+| narrow a page to chosen members, manage its access list | no | own pages only | yes |
 | read other people's private pages | no | no | **yes** |
 | see the member list | API only | API only | yes |
 | add, remove or re-role members | no | no | yes |
@@ -300,6 +304,43 @@ and becomes invisible to them unless they are a workspace admin.
 yourself, is interrupted with the count: *"You have 3 private page(s) here. They
 stay in the workspace and will only be visible to its admins afterwards."* The
 question is then **Leave anyway?** or **Remove anyway?**.
+
+## Private pages shared with chosen members
+
+A private page can be opened to chosen members instead of nobody. The lock
+button in the topbar opens the **Page access** panel under itself: **Everyone
+in the workspace**, or **Only me and chosen members** with the member list
+underneath.
+
+What that means exactly:
+
+- A shared private page is readable by **its owner** (the account that created
+  it), by the **workspace admins**, and by the members it was explicitly
+  shared with (**Can view** or **Can edit** each). Nobody else: not in the
+  sidebar, not in [search](search.md), not in collection rows, relations,
+  tags, the file list, exports, or over MCP. An unreachable page answers "not
+  found", never "forbidden", so ids cannot be probed.
+- **Sharing is inherited by the whole subtree**, like privacy. A grant on a
+  page covers everything under it, until a nested private page narrows it
+  again: sharing the "Finance" section does not open the "Salaries" page
+  inside it unless that one is shared too.
+- **A grant never raises the workspace role.** A viewer shared with "Can edit"
+  stays read-only; sharing is opening, not promotion. It is not management
+  either: a granted editor may read and write content, but may not change
+  visibility, publish links, move the page, or hand out grants. Those stay
+  with the owner and the admins.
+- **Only a workspace admin or the page's owner** can share or unshare it, and
+  only with members of the same workspace. The access list itself is visible to
+  those two and to nobody else.
+- **Opening the page drops its own grants.** Making the page workspace-visible
+  again does not keep the old list armed for a later re-privatise; grants on
+  sub-pages belong to those pages and stay.
+
+Two things that follow and are easy to miss: a viewer member who sees only the
+pages shared with them works exactly like a guest account elsewhere — there is
+no separate guest role. And emergency access does not open shared private
+pages, just as it never opened other people's private ones: it reads the open
+pages of a workspace, nothing narrowed.
 
 ## Personal spaces
 

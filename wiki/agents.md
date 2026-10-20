@@ -152,7 +152,7 @@ REST API.
 more, and often less.** Three limits stack, in this order:
 
 1. **The person.** A viewer cannot write. Someone else's private pages are
-   invisible. A page in a workspace the person is not a member of does not exist
+   invisible unless shared with them. A page in a workspace the person is not a member of does not exist
    as far as the agent is concerned. See [Permissions](permissions.md).
 2. **The credential.** A read-only credential refuses every writing tool with
    `this API token is read-only`. A credential granted particular workspaces

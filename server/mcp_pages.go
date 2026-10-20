@@ -20,7 +20,7 @@ import (
 // — the same fields as PATCH /api/pages/{id}. Before this an agent could only
 // change title and icon, and was shut out of tags, cover and visibility even
 // though the interface offers them.
-func (s *Server) mcpUpdatePageMeta(pageID, title, icon, cover, description, visibility string, tags *[]string) (string, error) {
+func (s *Server) mcpUpdatePageMeta(userID, pageID, title, icon, cover, description, visibility string, tags *[]string) (string, error) {
 	sets := []string{"updated_at = ?"}
 	sqlArgs := []any{now()}
 	changed := []string{}
@@ -55,6 +55,11 @@ func (s *Server) mcpUpdatePageMeta(pageID, title, icon, cover, description, visi
 	if visibility != "" {
 		if visibility != "workspace" && visibility != "private" {
 			return "", fmt.Errorf("visibility must be %q or %q", "workspace", "private")
+		}
+		// Changing visibility is page management, not content editing (see
+		// handleUpdatePage): an edit grant is not enough.
+		if !s.canManageShares(userID, pageID) {
+			return "", fmt.Errorf("page %q not found", pageID)
 		}
 		add("visibility", visibility, "visibility")
 	}

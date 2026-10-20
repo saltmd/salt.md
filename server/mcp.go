@@ -153,7 +153,7 @@ var mcpTools = []map[string]any{
 				"icon":         map[string]any{"type": "string", "description": "Emoji, \"lucide:Name\", \"mdi:Name\" or an image URL"},
 				"cover":        map[string]any{"type": "string", "description": "Image URL or \"gradient:linear-gradient(...)\""},
 				"description":  map[string]any{"type": "string"},
-				"visibility":   map[string]any{"type": "string", "description": "\"workspace\" (everyone in the workspace) or \"private\" (only you)"},
+				"visibility":   map[string]any{"type": "string", "description": "\"workspace\" (everyone in the workspace) or \"private\" (only you, plus members you grant in the Page access menu)"},
 				"tags":         map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Replaces all tags on the page"},
 				"parent_id":    map[string]any{"type": "string", "description": "Move under this page. Pass \"\" to move it to the top level."},
 				"workspace_id": map[string]any{"type": "string", "description": "Move the page and its whole sub-tree into this workspace. Takes precedence over parent_id."},
@@ -941,7 +941,7 @@ func (s *Server) mcpCall(u *user, name string, rawArgs json.RawMessage, publicBa
 			// through mcpUpdatePageMeta so the cover is validated and the tags
 			// normalised exactly as they are everywhere else.
 			if args.Cover != "" || args.Description != "" || args.Tags != nil {
-				if _, err := s.mcpUpdatePageMeta(id, "", "", args.Cover, args.Description, "", args.Tags); err != nil {
+				if _, err := s.mcpUpdatePageMeta(userID, id, "", "", args.Cover, args.Description, "", args.Tags); err != nil {
 					return "", fmt.Errorf("page created (%s) but its metadata failed: %w", id, err)
 				}
 			}
@@ -983,7 +983,7 @@ func (s *Server) mcpCall(u *user, name string, rawArgs json.RawMessage, publicBa
 			hasMeta := args.Title != "" || args.Icon != "" || args.Cover != "" ||
 				args.Description != "" || args.Visibility != "" || args.Tags != nil
 			if hasMeta {
-				msg, err := s.mcpUpdatePageMeta(args.PageID, args.Title, args.Icon, args.Cover,
+				msg, err := s.mcpUpdatePageMeta(userID, args.PageID, args.Title, args.Icon, args.Cover,
 					args.Description, args.Visibility, args.Tags)
 				if err != nil {
 					return "", err
@@ -1185,7 +1185,7 @@ func (s *Server) mcpCall(u *user, name string, rawArgs json.RawMessage, publicBa
 		case "comments":
 			return s.mcpComments(u, args.PageID, args.Action, args.Body, args.BlockID, args.CommentID, args.Resolved)
 		case "set_sharing":
-			return s.mcpSetSharing(requestBase{publicBase}, args.PageID, args.Public, args.ExpiresInDays, args.Password)
+			return s.mcpSetSharing(requestBase{publicBase}, userID, args.PageID, args.Public, args.ExpiresInDays, args.Password)
 		case "set_trashed":
 			return s.mcpSetTrashed(args.PageID, args.Trashed)
 		case "get_links":

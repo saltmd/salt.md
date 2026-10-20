@@ -120,14 +120,14 @@ func (s *Server) mcpComments(u *user, pageID, action, body, blockID, commentID s
 
 // mcpSetSharing replaces share_page and unshare_page. One boolean rather than
 // two tools: "is this page public" is one piece of state.
-func (s *Server) mcpSetSharing(base requestBase, pageID string, public *bool, expiresInDays int, password string) (string, error) {
+func (s *Server) mcpSetSharing(base requestBase, userID, pageID string, public *bool, expiresInDays int, password string) (string, error) {
 	if public == nil {
 		return "", fmt.Errorf("public is required (true to create a public link, false to revoke it)")
 	}
 	if *public {
-		return s.mcpSharePage(base, pageID, expiresInDays, password)
+		return s.mcpSharePage(base, userID, pageID, expiresInDays, password)
 	}
-	return s.mcpUnsharePage(pageID)
+	return s.mcpUnsharePage(userID, pageID)
 }
 
 // --- trash ------------------------------------------------------------------

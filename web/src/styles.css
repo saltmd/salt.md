@@ -2014,6 +2014,44 @@ body:has(.icon-picker) .bn-side-menu {
   font-family: inherit;
 }
 
+/* One-line add row in the Page access dialog: member picker, access picker,
+   action. The generic prop-select is borderless and full-width (it is made
+   for table cells), so the form carries its own bordered variant. */
+.share-add {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+  margin-top: 4px;
+}
+
+.share-add select {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13.5px;
+  background: var(--bg);
+  color: var(--fg);
+  outline: none;
+  font-family: inherit;
+  width: auto;
+  max-width: 100%;
+}
+
+.share-add select[name='share-member'] {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.share-add select[name='share-access'] {
+  flex: none;
+}
+
+.share-add button {
+  flex: none;
+}
+
 .check-label {
   display: flex;
   align-items: center;
@@ -4946,6 +4984,112 @@ body.is-col-resizing {
   color: var(--muted);
 }
 
+/* Boxed dropdowns draw their own chevron: the native one sits glued to the
+   edge and no padding moves it. appearance:none plus a painted chevron with
+   a fixed inset keeps every dropdown identical in both themes. The :hover
+   and :focus twins are required — several contexts re-set `background:`
+   (the shorthand), which would otherwise wipe the image on interaction. */
+.access-menu select,
+.share-menu select,
+.index-controls .prop-select,
+.settings-grid .prop-select,
+.form-view select,
+.access-menu select:hover,
+.share-menu select:hover,
+.index-controls .prop-select:hover,
+.settings-grid .prop-select:hover,
+.form-view select:hover,
+.access-menu select:focus,
+.share-menu select:focus,
+.index-controls .prop-select:focus,
+.settings-grid .prop-select:focus,
+.form-view select:focus {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2385857f' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 14px 14px;
+  padding-right: 34px;
+}
+
+/* ---------- Access menu (Page access, hangs off the lock button) ---------- */
+
+.access-wrap {
+  position: relative;
+}
+
+.access-menu {
+  top: 30px;
+  width: 330px;
+  max-width: calc(100vw - 32px);
+  max-height: min(70vh, 560px);
+  overflow-y: auto;
+  padding: 12px;
+  gap: 8px;
+}
+
+.access-title {
+  font-size: 15px;
+  margin: 0;
+  padding: 2px 8px;
+}
+
+/* The dialog this replaces had room to spare; the menu does not. Explanatory
+   lines drop to hint size, and a member row wraps: identity on the first
+   line (long emails ellipsize instead of pushing the controls off), access
+   picker and Remove on the second. */
+.access-menu .prop-empty {
+  font-size: 12.5px;
+  margin: 0;
+  padding: 2px 8px;
+}
+.access-menu .user-row {
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+.access-menu .user-row-name {
+  min-width: 0;
+}
+.access-menu .user-row-email {
+  margin-left: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.access-menu .user-row-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex: 1 1 100%;
+}
+.access-menu .user-row-controls select.prop-select {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
+}
+.access-menu .user-row-controls .btn-sm {
+  flex: none;
+}
+.access-menu .share-add {
+  flex-wrap: wrap;
+}
+.access-menu .share-add select[name='share-member'] {
+  flex: 1 1 100%;
+}
+.access-menu .share-add select[name='share-access'] {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.access-menu .share-actions-full {
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+.access-menu .share-actions-full .prop-empty {
+  flex: 1 1 100%;
+}
+
 .share-input {
   width: 100%;
   border: 1px solid var(--border);
@@ -4962,6 +5106,14 @@ body.is-col-resizing {
   flex-wrap: wrap;
   gap: 6px;
   justify-content: flex-end;
+}
+
+/* A lone closing action (Done) spans the dialog's width. */
+.share-actions-full {
+  margin-top: 14px;
+}
+.share-actions-full .btn-sm {
+  flex: 1;
 }
 
 /* ---------- Toaster ---------- */

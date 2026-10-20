@@ -263,6 +263,17 @@ func (s *Server) mcpGraph(u *user, wsID string, kinds []string, includeNodes boo
 	for _, w := range ws {
 		admin[w] = s.isWorkspaceAdmin(u.ID, w)
 	}
+	// Direct grants of this user, loaded once for the private walk below.
+	grants := map[string]string{}
+	if grows, err := s.db.Query(`SELECT page_id, access FROM page_grants WHERE user_id = ? AND subject_type = 'user'`, u.ID); err == nil {
+		for grows.Next() {
+			var pid, access string
+			if grows.Scan(&pid, &access) == nil {
+				grants[pid] = access
+			}
+		}
+		grows.Close()
+	}
 	// Same rule as forbiddenPrivateAncestor, walked over the map we already have.
 	readable := map[string]bool{}
 	visible := func(id string) bool {
@@ -282,8 +293,10 @@ func (s *Server) mcpGraph(u *user, wsID string, kinds []string, includeNodes boo
 			for cur := p; cur != nil && !seen[cur.id]; cur = pages[cur.parent] {
 				seen[cur.id] = true
 				if cur.visibility == "private" && cur.owner != u.ID {
-					ok = false
-					break
+					if a := grants[cur.id]; a != grantView && a != grantEdit {
+						ok = false
+						break
+					}
 				}
 				if cur.parent == "" {
 					break

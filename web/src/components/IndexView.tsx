@@ -136,9 +136,9 @@ export default function IndexView({
         case 'favorites':
           return favSet.has(p.id);
         case 'shared':
-          return p.visibility !== 'private';
+          return p.visibility === 'workspace';
         case 'private':
-          return p.visibility === 'private';
+          return p.visibility !== 'workspace';
         case 'recent':
           return recents.includes(p.id);
         default:
@@ -189,8 +189,8 @@ export default function IndexView({
     return {
       recent: live.filter((p) => recents.includes(p.id)).length,
       favorites: live.filter((p) => favSet.has(p.id)).length,
-      shared: live.filter((p) => p.visibility !== 'private').length,
-      private: live.filter((p) => p.visibility === 'private').length,
+      shared: live.filter((p) => p.visibility === 'workspace').length,
+      private: live.filter((p) => p.visibility !== 'workspace').length,
       all: live.length,
       tree: live.length,
     } as Record<Mode, number>;

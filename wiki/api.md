@@ -294,7 +294,9 @@ would have no parent in the list. Trashed pages are included, marked
 
 `POST /api/pages` takes `parentId`, `title`, `type`, `props` and `workspaceId`.
 `PATCH` accepts `title`, `icon`, `cover`, `content`, `props`, `propsPatch`,
-`parentId`, `position`, `visibility` (`"workspace"` or `"private"`),
+`parentId`, `position`, `visibility` (`"workspace"` or `"private"` — a private
+page can be shared with chosen members, see
+[Permissions](permissions.md#private-pages-shared-with-chosen-members)),
 `isTemplate`, `tags`, `description` and `workspaceId`. Five things about it are
 worth knowing before you write a script:
 

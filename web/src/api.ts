@@ -611,6 +611,18 @@ export const api = {
     }),
   unsharePage: (id: string) =>
     req<{ ok: boolean }>(`/api/pages/${id}/share`, { method: 'DELETE' }),
+  // Private-page member shares (fork): who else may see this page subtree.
+  listPageShares: (id: string) =>
+    req<{ userId: string; name: string; email: string; access: 'view' | 'edit' }[]>(
+      `/api/pages/${id}/shares`,
+    ),
+  grantPageShare: (id: string, userId: string, access: 'view' | 'edit') =>
+    req<{ ok: boolean }>(`/api/pages/${id}/shares`, {
+      method: 'POST',
+      body: JSON.stringify({ userId, access }),
+    }),
+  revokePageShare: (id: string, userId: string) =>
+    req<{ ok: boolean }>(`/api/pages/${id}/shares/${userId}`, { method: 'DELETE' }),
 
   // Resolved external base URL (public_base_url > HTTPS-Domain > Tunnel > Host).
   publicBase: () => req<{ base: string }>('/api/public-base'),

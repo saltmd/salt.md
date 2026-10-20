@@ -78,7 +78,7 @@ func TestCoverOverMCPIsValidated(t *testing.T) {
 		"/files/../../etc/passwd'); background: url('https://tracker.example/x",
 	}
 	for _, c := range refused {
-		if _, err := s.mcpUpdatePageMeta(pid, "", "", c, "", "", nil); err == nil {
+		if _, err := s.mcpUpdatePageMeta(uid, pid, "", "", c, "", "", nil); err == nil {
 			t.Errorf("cover %q was accepted over MCP — every viewer of the page would fetch from that host", c)
 		}
 	}
@@ -88,7 +88,7 @@ func TestCoverOverMCPIsValidated(t *testing.T) {
 		"/files/abc123.jpg",
 	}
 	for _, c := range accepted {
-		if _, err := s.mcpUpdatePageMeta(pid, "", "", c, "", "", nil); err != nil {
+		if _, err := s.mcpUpdatePageMeta(uid, pid, "", "", c, "", "", nil); err != nil {
 			t.Errorf("cover %q should be allowed: %v", c, err)
 		}
 	}

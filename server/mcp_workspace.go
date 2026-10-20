@@ -324,7 +324,12 @@ func (s *Server) mcpGetPermissions(u *user, pageID string) (string, error) {
 // mcpSharePage creates a public read link. Deliberately identical to the
 // interface: one live share per page, and sharing again replaces the old token
 // (otherwise a link believed revoked would stay valid).
-func (s *Server) mcpSharePage(r requestBase, pageID string, expiresInDays int, password string) (string, error) {
+func (s *Server) mcpSharePage(r requestBase, userID, pageID string, expiresInDays int, password string) (string, error) {
+	// Publishing a public link is page management, not content editing (see
+	// handleSharePage): an edit grant is not enough.
+	if !s.canManageShares(userID, pageID) {
+		return "", fmt.Errorf("page %q not found", pageID)
+	}
 	var expiresAt any
 	if expiresInDays > 0 {
 		expiresAt = time.Now().UTC().AddDate(0, 0, expiresInDays).Format(time.RFC3339Nano)
@@ -356,7 +361,10 @@ func (s *Server) mcpSharePage(r requestBase, pageID string, expiresInDays int, p
 }
 
 // mcpUnsharePage revokes the public link.
-func (s *Server) mcpUnsharePage(pageID string) (string, error) {
+func (s *Server) mcpUnsharePage(userID, pageID string) (string, error) {
+	if !s.canManageShares(userID, pageID) {
+		return "", fmt.Errorf("page %q not found", pageID)
+	}
 	res, err := s.db.Exec(`DELETE FROM share_links WHERE page_id = ? AND mode != 'form'`, pageID)
 	if err != nil {
 		return "", err
