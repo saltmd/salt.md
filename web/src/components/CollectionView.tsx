@@ -66,7 +66,7 @@ import {
   SquareArrowOutUpRight,
   ExternalLink,
   ArrowLeft,
-  ArrowRight, History} from 'lucide-react';
+  ArrowRight, History, Pin} from 'lucide-react';
 
 // Small type glyph shown next to each property (Notion-style visibility panel).
 function propTypeIcon(t: PropDef['type']) {
@@ -874,6 +874,14 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
         <TableView
           rows={viewRows}
           schema={visibleSchema}
+          stuckCols={view.stuckCols ?? []}
+          onToggleStuck={(key) =>
+            updateView({
+              stuckCols: (view.stuckCols ?? []).includes(key)
+                ? (view.stuckCols ?? []).filter((k) => k !== key)
+                : [...(view.stuckCols ?? []), key],
+            })
+          }
           emptyLabel={emptyLabel}
           tagColors={tagColors}
           subItemProp={
@@ -1942,14 +1950,32 @@ function ColHead({
   label,
   onResize,
   onReset,
+  stuck,
+  onToggleStuck,
 }: {
   label: string;
   onResize: (e: React.PointerEvent<HTMLSpanElement>) => void;
   onReset: () => void;
+  stuck?: boolean;
+  onToggleStuck?: () => void;
 }) {
   return (
     <span className="th-inner">
       {label}
+      {onToggleStuck && (
+        <button
+          className={'col-stick' + (stuck ? ' is-on' : '')}
+          title={stuck ? t('Unpin column') : t('Pin column')}
+          aria-label={stuck ? t('Unpin column') : t('Pin column')}
+          aria-pressed={!!stuck}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleStuck();
+          }}
+        >
+          <Pin size={12} />
+        </button>
+      )}
       <span
         className="col-resize"
         title={t('Drag to resize, double-click to fit the content')}
@@ -1975,6 +2001,8 @@ function TableView({
   tagColors,
   subItemProp,
   colWidths,
+  stuckCols,
+  onToggleStuck,
   onSetColWidths,
   onNavigate,
   onOpenInNewTab,
@@ -1987,6 +2015,8 @@ function TableView({
   tagColors: Record<string, string>;
   subItemProp?: string;
   colWidths?: Record<string, number>;
+  stuckCols?: string[];
+  onToggleStuck?: (key: string) => void;
   onSetColWidths: (next: Record<string, number>) => void;
   onNavigate: (id: string) => void;
   onOpenInNewTab?: (id: string) => void;
@@ -2001,6 +2031,42 @@ function TableView({
 
   const widthOf = (key: string) =>
     drag?.key === key ? drag.px : colWidths?.[key];
+
+  // Columns pinned to the left edge. Distinct from a *dragged* width, which the
+  // comment below calls pinned too: this one is about staying on screen while
+  // the table scrolls sideways.
+  const stuckSet = new Set(stuckCols ?? []);
+  const tableRef = useRef<HTMLTableElement>(null);
+  // Sticky needs a left offset per column, and only the browser knows how wide
+  // an un-resized column came out — so the offsets are measured after layout and
+  // written straight onto the cells.
+  useLayoutEffect(() => {
+    const table = tableRef.current;
+    if (!table) return;
+    let acc = 0;
+    for (const key of [TITLE_COL, ...schema.map((p) => p.id)]) {
+      const th = table.querySelector<HTMLElement>(`th[data-col="${key}"]`);
+      if (!th) continue;
+      const cells = table.querySelectorAll<HTMLElement>(`[data-col="${key}"]`);
+      if (stuckSet.has(key)) {
+        cells.forEach((el) => {
+          // The exact width, not a rounded one: rounding down leaves a sliver
+          // of the column behind showing between two pinned columns.
+          el.style.left = `${acc}px`;
+          // The column at the scrollport's edge draws the table's own left
+          // line; the ones after it must not, or two pinned columns would
+          // share a 2px line (see the pseudo-element in styles.css).
+          el.classList.toggle('is-stuck-first', acc === 0);
+        });
+        acc += th.getBoundingClientRect().width;
+      } else {
+        cells.forEach((el) => {
+          el.style.left = '';
+          el.classList.remove('is-stuck-first');
+        });
+      }
+    }
+  });
 
   // A dragged column is pinned: width alone is a suggestion under auto layout,
   // so the three together are what actually hold it.
@@ -2110,15 +2176,36 @@ function TableView({
 
   return (
     <div className="table-wrap">
-      <table className="db-table">
+      <table className="db-table" ref={tableRef}>
         <thead>
           <tr>
-            <th className="db-title-col" style={colStyle(TITLE_COL)}>
-              <ColHead label={t('Name')} onResize={startResize(TITLE_COL)} onReset={resetCol(TITLE_COL)} />
+            <th
+              data-col={TITLE_COL}
+              className={'db-title-col' + (stuckSet.has(TITLE_COL) ? ' is-stuck' : '')}
+              style={colStyle(TITLE_COL)}
+            >
+              <ColHead
+                label={t('Name')}
+                onResize={startResize(TITLE_COL)}
+                onReset={resetCol(TITLE_COL)}
+                stuck={stuckSet.has(TITLE_COL)}
+                onToggleStuck={onToggleStuck && (() => onToggleStuck(TITLE_COL))}
+              />
             </th>
             {schema.map((p) => (
-              <th key={p.id} style={colStyle(p.id)}>
-                <ColHead label={p.name} onResize={startResize(p.id)} onReset={resetCol(p.id)} />
+              <th
+                key={p.id}
+                data-col={p.id}
+                className={stuckSet.has(p.id) ? 'is-stuck' : undefined}
+                style={colStyle(p.id)}
+              >
+                <ColHead
+                  label={p.name}
+                  onResize={startResize(p.id)}
+                  onReset={resetCol(p.id)}
+                  stuck={stuckSet.has(p.id)}
+                  onToggleStuck={onToggleStuck && (() => onToggleStuck(p.id))}
+                />
               </th>
             ))}
           </tr>
@@ -2126,7 +2213,11 @@ function TableView({
         <tbody>
           {ordered.map(({ row: r, depth, hasKids }) => (
             <tr key={r.id}>
-              <td className="db-title-col" style={colStyle(TITLE_COL)}>
+              <td
+                data-col={TITLE_COL}
+                className={'db-title-col' + (stuckSet.has(TITLE_COL) ? ' is-stuck' : '')}
+                style={colStyle(TITLE_COL)}
+              >
                 <span className="db-title-inner" style={depth ? { paddingLeft: depth * 20 } : undefined}>
                   {subItemProp ? (
                     hasKids ? (
@@ -2164,7 +2255,12 @@ function TableView({
                 )}
               </td>
               {schema.map((p) => (
-                <td key={p.id} style={colStyle(p.id)}>
+                <td
+                  key={p.id}
+                  data-col={p.id}
+                  className={stuckSet.has(p.id) ? 'is-stuck' : undefined}
+                  style={colStyle(p.id)}
+                >
                   <PropertyValue
                     def={p}
                     value={r.props[p.id]}

@@ -2505,8 +2505,20 @@ body:has(.icon-picker) .bn-side-menu {
 /* Table */
 
 .table-wrap {
-  padding: 12px 48px 40px;
-  overflow-x: auto;
+  /* Spacing as MARGIN, never padding: a sticky heading (top) or a pinned
+     column (left) stops at the content edge of a padded scroller, leaving a
+     strip of the padding where the rows sliding underneath stay visible —
+     above the heading and to the side of the pinned columns. A margin sits
+     outside the scrollport, so the stuck elements cover the box edge to edge.
+     Keep the phone rule below in step: same values, same property. */
+  padding: 0;
+  margin: 12px 48px 40px;
+  /* The table scrolls inside its own box rather than with the page, because a
+     heading row can only stay put within the scroller it lives in: an
+     `overflow-x: auto` box is a scroll container in BOTH axes, so the sticky
+     heading stuck to a box that was itself sliding up the page and appeared
+     not to stick at all. */
+  overflow: auto;
   flex: 1;
   overscroll-behavior-x: contain;
 }
@@ -2609,10 +2621,25 @@ body:has(.icon-picker) .bn-side-menu {
 
 .db-table th {
   background: var(--sidebar-bg);
+  /* What the stuck cells fill their collapsed-border bands with — see the
+     pseudo-element below. */
+  --cell-bg: var(--sidebar-bg);
   font-weight: 600;
   color: var(--muted);
   font-size: 12.5px;
   position: relative;
+}
+/* The heading row stays put while the table scrolls: with a dozen columns it is
+   the only thing that says which column you are looking at. A sticky row cannot
+   keep a collapsed border, so the line under it is a shadow instead. The paint
+   is opaque on purpose: without a background the rows sliding underneath show
+   straight through it. */
+.db-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--sidebar-bg);
+  box-shadow: inset 0 -1px 0 var(--border);
 }
 
 /* The heading's own box, which is what the grip is positioned against — see
@@ -2620,6 +2647,9 @@ body:has(.icon-picker) .bn-side-menu {
 .th-inner {
   position: relative;
   display: block;
+  /* The pin lives here on hover: this reserves its seat up front, so appearing
+     never shoves the label or lands on top of its last word. */
+  padding-right: 22px;
 }
 
 /* The grip on a column's right edge. -10px is the cell's own horizontal padding,
@@ -2664,6 +2694,108 @@ body.is-col-resizing {
 /* The identity column earns more room than the generic floor above gives it, and
    needs the same specificity to say so — as a plain `.db-title-col` it lost to
    `.db-table th, .db-table td` and titles started wrapping over two lines. */
+/* A pinned column: it stays at the left edge while the table scrolls sideways.
+   The offset comes from the layout effect that measures the columns before it.
+   The cell's own lines are drawn by the pseudo-element below — see there for
+   why a border or a shadow will not do. */
+.db-table th.is-stuck,
+.db-table td.is-stuck {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--bg);
+  --cell-bg: var(--bg);
+}
+.db-table thead th.is-stuck {
+  z-index: 4;
+  background: var(--sidebar-bg);
+  /* The heading keeps its own colour in the strips the pseudo-element paints. */
+  --cell-bg: var(--sidebar-bg);
+}
+/* The lines the browser does not draw for a stuck cell.
+ *
+ * With `border-collapse: collapse` the line between two cells belongs to the
+ * table, and a cell's background stops short of it: the collapsed border keeps
+ * a 1px band along every edge. A browser skips a STUCK cell's own collapsed
+ * borders, and those bands are neither inside the padding box a box-shadow
+ * reaches nor outside the border box a shadow offset reaches — so they stay
+ * empty, and the columns sliding under a pinned column and the rows sliding
+ * under the stuck heading show through them. Where a line IS drawn, it is the
+ * neighbouring cell's — and `--border` is 11% opaque, so that line is a window
+ * onto what is behind it rather than a line.
+ *
+ * So a stuck cell fills those bands itself: an element laid over its border box
+ * (-1px on each side is what the collapsed border takes), opaque exactly on the
+ * bands and transparent between them — the middle stays clear so the cell's own
+ * text, the heading's bottom shadow and the collapsed lines the browser does
+ * draw all keep showing where they are. z-index -1 puts it over everything
+ * sliding underneath (which is outside this cell's stacking context) and under
+ * the cell's own content. The cell's own lines are then drawn over it, solid.
+ */
+.db-table thead th::after,
+.db-table th.is-stuck::after,
+.db-table td.is-stuck::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(var(--cell-bg, var(--bg)), var(--cell-bg, var(--bg))),
+    linear-gradient(var(--cell-bg, var(--bg)), var(--cell-bg, var(--bg))),
+    linear-gradient(var(--cell-bg, var(--bg)), var(--cell-bg, var(--bg)));
+  background-size: 1px 100%, 1px 100%, 100% 1px;
+  background-position: left top, right top, left bottom;
+  background-repeat: no-repeat;
+  /* border-box, not the default padding-box: the strips belong on the collapsed
+     border's 1px, which is the border box's edge. */
+  background-origin: border-box;
+}
+/* The line down a pinned column, and the line under its rows — the browser
+   paints neither. Not the left one except at the scrollport's edge
+   (is-stuck-first): between two pinned columns the left one's right line is
+   already there, and two lines read as a thicker grid. */
+.db-table th.is-stuck::after,
+.db-table td.is-stuck::after {
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.db-table th.is-stuck-first::after,
+.db-table td.is-stuck-first::after {
+  border-left: 1px solid var(--border);
+}
+/* The stuck heading draws the line under itself: the row below draws one while
+   it is where it belongs, but not once it has slid up behind the heading. The
+   inset shadow on `.db-table thead th` is the same line, 1px inside the
+   heading — that pair is the heading's own look and is left alone. */
+.db-table thead th::after {
+  border-bottom: 1px solid var(--border);
+}
+/* The pin sits 16px from the right edge of the heading: 6px of its own offset
+   plus the 10px the heading cell pads itself with. Clear of the resize grip
+   riding the very edge. */
+.col-stick {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 1px;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+.th-inner:hover .col-stick,
+.col-stick.is-on {
+  display: inline-flex;
+}
+.col-stick.is-on {
+  color: var(--accent);
+}
 .db-table .db-title-col {
   min-width: 200px;
   max-width: 420px;
@@ -4791,7 +4923,8 @@ body.is-col-resizing {
   }
 
   .table-wrap {
-    padding: 12px 14px calc(40px + env(safe-area-inset-bottom));
+    padding: 0;
+    margin: 12px 14px calc(40px + env(safe-area-inset-bottom));
   }
 
   .gallery {
