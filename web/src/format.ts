@@ -204,6 +204,12 @@ export function formatMonth(year: number, monthIndex: number, style: 'short' | '
   ).format(d);
 }
 
+export function formatMonthYear(year: number, monthIndex: number): string {
+  const d = new Date(year, monthIndex, 1);
+  if (year === new Date().getFullYear()) return dtf({ month: 'short' }).format(d);
+  return dtf({ month: 'short', year: 'numeric' }).format(d);
+}
+
 /** Whole days from today to a stored calendar date; negative when it has
  *  passed. Both sides are built as local midnight, so "due today" stays true
  *  all day and does not flip at 01:00 the way a UTC comparison would.

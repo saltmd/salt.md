@@ -106,14 +106,19 @@ func TestPrivateRowsStayOutOfAPublicCollection(t *testing.T) {
 		t.Fatalf("share: %d %s", rec.Code, rec.Body.String())
 	}
 
-	// Nobody signed in: not even the member's own private row belongs on a
-	// page anybody with the link can read.
-	rec = httptest.NewRecorder()
-	f.s.ServeHTTP(rec, httptest.NewRequest("GET", "/public/"+share.Token, nil))
-	if rec.Code != 200 {
-		t.Fatalf("public view: %d", rec.Code)
+	// Nobody signed in: not even the member's own private row belongs on
+	// a page anybody with the link can read. Collections render client-side
+	// now, so the JSON rows endpoint is what must not leak.
+	if _, err := f.s.db.Exec(`UPDATE collections SET views = ? WHERE page_id = ?`,
+		`[{"id":"v1","name":"Table","type":"table"}]`, f.col); err != nil {
+		t.Fatal(err)
 	}
-	assertRows(t, "public page", rec.Body.String(), []string{"Shared row"}, []string{"Member secret", "Admin secret"})
+	rec = httptest.NewRecorder()
+	f.s.ServeHTTP(rec, httptest.NewRequest("GET", "/api/public/c/"+share.Token+"/rows?viewId=v1", nil))
+	if rec.Code != 200 {
+		t.Fatalf("public rows: %d %s", rec.Code, rec.Body.String())
+	}
+	assertRows(t, "public rows", rec.Body.String(), []string{"Shared row"}, []string{"Member secret", "Admin secret"})
 }
 
 func TestPrivateRowsStayOutOfTheCalendarFeed(t *testing.T) {

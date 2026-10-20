@@ -209,27 +209,20 @@ configured public address, so a link created on the local network still works fo
 somebody outside it. If no public address is configured, the link is built from
 the address you are on, which will be the local one. See [Domain](domain.md).
 
-### The link is on screen once, and only once
+### The link is remembered in the browser that made it
 
-The URL box disappears the moment you leave the page. Come back to the form later
-and the bar reads **Public** / **Copy link** / **Revoke** with no URL under it:
-the instance can confirm that a live link exists, and cannot tell you what it is.
+Only a hash of the token is stored, so the existing link cannot be read back
+out of the instance. What the bar shows instead is the copy this browser kept
+when the link was created — the same deal as a read-only page share. So keep
+working in the same browser and the URL stays under the bar; open the form
+from another browser and it reads **Public** with **Create a new link** and
+**Revoke** but no URL.
 
-That is not an oversight (see the next section for why), but it is the situation
-that makes people press **Copy link** to "get the link back", which is the one
-button on this page that does not do that.
-
-### Copy link mints a new link
-
-**This is the one thing on this page that can bite you.** Only a hash of the token
-is stored, so the existing link cannot be read back out. **Copy link** therefore
-does the same thing **Share publicly** did: it revokes the current link and
-creates a fresh one. Anybody still holding the old URL gets *Form not found* from
-that moment.
-
-So keep the link somewhere the moment you create it: a page in your workspace,
-the message you sent it in. Pressing **Copy link** is how you *rotate* a link that
-went to the wrong person, not how you look one up.
+**Copy link** copies that remembered address and never touches the link
+itself. It is safe to press any number of times. The one button that replaces
+the link is **Create a new link**: it revokes the current one and mints a
+fresh address, which is how you rotate a link that went to the wrong person.
+Anybody still holding the old URL gets *Form not found* from that moment.
 
 ## What a visitor sees
 

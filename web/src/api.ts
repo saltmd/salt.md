@@ -9,6 +9,7 @@ import type {
   Page,
   PageMeta,
   PublicFormConfig,
+  PublicCollectionConfig,
   SaltFile,
   SearchResult,
   UpdateInfo,
@@ -604,13 +605,52 @@ export const api = {
       `/api/workspaces/${workspaceId}/members/${userId}${confirmPrivate ? '?confirmPrivate=1' : ''}`,
       { method: 'DELETE' },
     ),
-  sharePage: (id: string, expiresInDays = 0, password = '') =>
+  sharePage: (id: string, expiresInDays = 0, password = '', allowedViews?: string[], allowDetail?: boolean) =>
     req<{ token: string; url: string }>(`/api/pages/${id}/share`, {
       method: 'POST',
-      body: JSON.stringify({ expiresInDays, password }),
+      body: JSON.stringify({ expiresInDays, password, allowedViews: allowedViews ?? [], allowDetail: !!allowDetail }),
+    }),
+  shareStatus: (id: string) =>
+    req<{ shared: boolean; allowedViews?: string[]; allowDetail?: boolean; hasPassword?: boolean; expiresAt?: string }>(`/api/pages/${id}/share`),
+  patchShare: (id: string, patch: { allowedViews?: string[]; allowDetail?: boolean; expiresInDays?: number; password?: string; removePassword?: boolean }) =>
+    req<{ ok: boolean; allowedViews?: string[]; allowDetail?: boolean; hasPassword?: boolean }>(`/api/pages/${id}/share`, {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
     }),
   unsharePage: (id: string) =>
     req<{ ok: boolean }>(`/api/pages/${id}/share`, { method: 'DELETE' }),
+
+  // Public collection sharing (anonymous side). Password travels in
+  // X-Share-Password, same as the single-page public API.
+  publicCollection: (token: string, password?: string) =>
+    req<PublicCollectionConfig>(`/api/public/c/${token}`, {
+      headers: password ? { 'X-Share-Password': password } : undefined,
+    }),
+  publicCollectionRows: (
+    token: string,
+    viewId: string,
+    offset = 0,
+    password?: string,
+  ) => {
+    const p = new URLSearchParams();
+    if (viewId) p.set('viewId', viewId);
+    p.set('limit', '200');
+    if (offset) p.set('offset', String(offset));
+    return req<{
+      rows: { id: string; title: string; icon: string; cover: string; position: number; props: Record<string, unknown>; tags?: string[] }[];
+      total: number;
+      related: Record<string, { title: string; icon: string }>;
+    }>(`/api/public/c/${token}/rows?${p.toString()}`, {
+      headers: password ? { 'X-Share-Password': password } : undefined,
+    });
+  },
+  publicCollectionRow: (token: string, rowId: string, viewId: string, password?: string) => {
+    const p = new URLSearchParams();
+    if (viewId) p.set('viewId', viewId);
+    return req<{ id: string; title: string; icon: string; cover: string; content: string; props: Record<string, unknown> }>(`/api/public/c/${token}/row/${rowId}?${p.toString()}`, {
+      headers: password ? { 'X-Share-Password': password } : undefined,
+    });
+  },
 
   // Resolved external base URL (public_base_url > HTTPS-Domain > Tunnel > Host).
   publicBase: () => req<{ base: string }>('/api/public-base'),

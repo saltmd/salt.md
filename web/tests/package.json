@@ -3,7 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
+<<<<<<< HEAD
     "test": "node callout-colors.mjs && node property-order.mjs && node select-options.mjs && node menus-and-arrows.mjs && node shortcuts.mjs && node embeds.mjs && node people.mjs && node tabs.mjs && node share-menu.mjs && node collection-config.mjs && node slash-menu.mjs && node trash-navigation.mjs"
+=======
+    "test": "node callout-colors.mjs && node property-order.mjs && node select-options.mjs && node menus-and-arrows.mjs && node shortcuts.mjs && node embeds.mjs && node people.mjs && node tabs.mjs && node public-sharing.mjs"
+>>>>>>> 6ecbd5e (Public shares: close the anonymous read surface)
   },
   "devDependencies": {
     "playwright": "1.63.0"
