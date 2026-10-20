@@ -2,9 +2,11 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { api } from '../api';
 import { onRefresh } from '../pwa';
 import Portal from './Portal';
+import AnchoredMenu from './AnchoredMenu';
+import { useMenuDismiss } from '../modal';
 import { useBoardDrag } from '../boardDrag';
 import { tagColorClass } from '../tags';
-import { compare, firstWeekday, formatMonth, toDayString, weekdayNames } from '../format';
+import { compare, firstWeekday, formatDay, formatMonth, formatMonthYear, toDayString, weekdayNames } from '../format';
 import { plural, t } from '../i18n';
 import { confirm, promptText } from '../dialog';
 import type {
@@ -17,10 +19,12 @@ import type {
   PropOption,
   PropType,
   Sort,
+  SpanMode,
   ViewDef,
 } from '../types';
 import PropertyValue, { PersonStack, idList, loadRelationOptions, type RelOption } from './PropertyValue';
 import { openPage, openPageAux } from '../pageOpen';
+import { ModePicker, useSettingsHint } from '../viewSpan';
 import { AgentDot } from './AgentBadge';
 import { planCard, isBlank, zoneOf, contactKind, needsLabel } from '../cardLayout';
 import SchemaEditor from './SchemaEditor';
@@ -66,7 +70,7 @@ import {
   SquareArrowOutUpRight,
   ExternalLink,
   ArrowLeft,
-  ArrowRight, History} from 'lucide-react';
+  ArrowRight, History, PanelLeftOpen, PanelLeftClose} from 'lucide-react';
 
 // Small type glyph shown next to each property (Notion-style visibility panel).
 function propTypeIcon(t: PropDef['type']) {
@@ -278,6 +282,10 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
   const [addViewOpen, setAddViewOpen] = useState(false);
   const addViewBtnRef = useRef<HTMLButtonElement>(null);
   const [viewMenuFor, setViewMenuFor] = useState<string | null>(null);
+  // A view created right now opens its own settings: a timeline with no start
+  // property picked yet is an empty grid until one is chosen, so the menu that
+  // picks it opens itself. One shot — the flag clears the first time it shows.
+  const [settingsFor, setSettingsFor] = useState<string | null>(null);
   const [addViewPos, setAddViewPos] = useState<React.CSSProperties | null>(null);
   // A right-click on a view's tab opens the same actions the ⋯ holds, for THAT
   // view, at the pointer (#24). The ⋯ only ever acted on the view you are on.
@@ -555,6 +563,7 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
     void saveConfig({ ...config, views: [...config.views, nv] });
     setViewId(nv.id);
     setAddViewOpen(false);
+    if (type === 'timeline') setSettingsFor(nv.id);
   };
 
   const viewRows = applyView(rows, view);
@@ -579,7 +588,8 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
   // Relation props that point back at this same collection — candidates for the
   // sub-item (task hierarchy) relation that the table can render as a tree.
   const selfRelProps = schema.filter((p) => p.type === 'relation' && p.relationCollection === collectionId);
-  // Date props — the timeline's Start/End pickers choose from these.
+  // Date props — the timeline's and the calendar's Start/End pickers choose
+  // from these, and each view's settings popover is where they live.
   const dateProps = schema.filter((p) => p.type === 'date');
 
   const viewSwitcher = (
@@ -845,9 +855,15 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
           rows={viewRows}
           schema={visibleSchema}
           dateProp={view.dateProp || schema.find((p) => p.type === 'date')?.id || ''}
+          endDateProp={view.endDateProp || ''}
           tagColors={tagColors}
           onNavigate={onNavigate}
           onOpenInNewTab={onOpenInNewTab}
+          mode={view.calMode ?? 'month'}
+          onModeChange={(m) => updateView({ calMode: m })}
+          onViewChange={updateView}
+          onAddRow={(preset) => addRow(preset)}
+          onSetDate={(rowId, propId, iso) => void setRowProp(rowId, propId, iso)}
         />
       ) : view.type === 'list' ? (
         <ListView
@@ -869,6 +885,15 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
           tagColors={tagColors}
           onNavigate={onNavigate}
           onOpenInNewTab={onOpenInNewTab}
+          mode={view.tlMode ?? 'month'}
+          onModeChange={(m) => updateView({ tlMode: m })}
+          onViewChange={updateView}
+          onAddRow={(preset) => addRow(preset)}
+          onSetDate={(rowId, propId, iso) => void setRowProp(rowId, propId, iso)}
+          hideLabels={view.tlHideLabels ?? false}
+          onToggleLabels={() => updateView({ tlHideLabels: !view.tlHideLabels })}
+          startWithSettings={settingsFor === view.id}
+          onSettingsShown={() => setSettingsFor(null)}
         />
       ) : (
         <TableView
@@ -2021,9 +2046,14 @@ function TableView({
     const widthAt = (clientX: number) => Math.max(64, Math.round(from + clientX - x0));
     document.body.classList.add('is-col-resizing');
     const move = (ev: PointerEvent) => setDrag({ key, px: widthAt(ev.clientX) });
-    const up = (ev: PointerEvent) => {
+    // `pointercancel` as well as `pointerup`: on touch the browser can take the
+    // gesture over (a long press, an OS swipe) and sends the cancel instead of
+    // the up. Without it the body would keep `is-col-resizing` — no text
+    // selectable anywhere — until a reload.
+    const end = (ev: PointerEvent) => {
       document.removeEventListener('pointermove', move);
-      document.removeEventListener('pointerup', up);
+      document.removeEventListener('pointerup', end);
+      document.removeEventListener('pointercancel', end);
       document.body.classList.remove('is-col-resizing');
       const px = widthAt(ev.clientX);
       setDrag(null);
@@ -2035,7 +2065,8 @@ function TableView({
       }
     };
     document.addEventListener('pointermove', move);
-    document.addEventListener('pointerup', up);
+    document.addEventListener('pointerup', end);
+    document.addEventListener('pointercancel', end);
   };
 
   // Double-click gives a column back to the content: the entry is REMOVED
@@ -2313,6 +2344,15 @@ function TimelineView({
   endProp,
   onNavigate,
   onOpenInNewTab,
+  mode,
+  onModeChange,
+  onViewChange,
+  onAddRow,
+  onSetDate,
+  hideLabels,
+  onToggleLabels,
+  startWithSettings,
+  onSettingsShown,
 }: {
   rows: Row[];
   schema: PropDef[];
@@ -2321,20 +2361,37 @@ function TimelineView({
   tagColors: Record<string, string>;
   onNavigate: (id: string) => void;
   onOpenInNewTab?: (id: string) => void;
+  mode: SpanMode;
+  onModeChange: (m: SpanMode) => void;
+  onViewChange: (patch: Partial<ViewDef>) => void;
+  onAddRow: (presetProps?: Record<string, unknown>) => void;
+  onSetDate: (rowId: string, propId: string, iso: string) => void;
+  hideLabels?: boolean;
+  onToggleLabels?: () => void;
+  startWithSettings?: boolean;
+  onSettingsShown?: () => void;
 }) {
-  if (!startProp || !schema.some((p) => p.id === startProp && p.type === 'date')) {
-    return (
-      <div className="board-empty">
-        {t('This timeline needs a {type} property as its start. Open ⚙ Properties to add one.', { type: t('Date') })}
-      </div>
-    );
-  }
-
   const DAY = 26; // px per day
+  const YEARW = 140; // px per month in year mode
   const LABELW = 190; // sticky title column width
+  // Collapsed, the title column takes no room at all and the grid keeps the
+  // width: the bars carry their own titles, so the axis is what is left to look
+  // at. `onToggleLabels` is absent where nothing may be collapsed (a public
+  // link shows the owner's choice).
+  const labelW = hideLabels ? 0 : LABELW;
   const dayNum = (iso: string) => {
     const [y, m, d] = iso.slice(0, 10).split('-').map(Number);
     return Math.floor(Date.UTC(y, m - 1, d) / 86400000);
+  };
+  const isoDay = (n: number) => new Date(n * 86400000).toISOString().slice(0, 10);
+  // A date property may carry a time ("2026-06-12T14:30"). Stretching or
+  // carrying a bar changes the DAY only: the time the row already had must
+  // survive, or a 14:30 meeting dragged an afternoon silently becomes
+  // midnight. The day is written through this so the suffix rides along.
+  const isoDayKeepTime = (row: Row, propId: string, n: number) => {
+    const raw = row.props[propId];
+    const day = isoDay(n);
+    return typeof raw === 'string' && raw.length > 10 ? day + raw.slice(10) : day;
   };
 
   type Item = { row: Row; start: number; end: number };
@@ -2351,6 +2408,70 @@ function TimelineView({
     items.push({ row: r, start, end });
   }
 
+  const today = dayNum(ymd(new Date()));
+  const dataMin = items.length ? Math.min(...items.map((i) => i.start)) : today;
+  const dataMax = items.length ? Math.max(...items.map((i) => i.end)) : today;
+  const [cursor, setCursor] = useState(() =>
+    today < dataMin - 3 ? dataMin : today > dataMax + 4 ? dataMax : today,
+  );
+  const [hovered, setHovered] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(!!startWithSettings);
+  const [settingsHint, settingsSeen] = useSettingsHint('timeline-settings');
+  // A click outside the settings popover closes it — the wrap holds the button
+  // and the menu together, so the button's own click still toggles.
+  const tlSettingsRef = useRef<HTMLDivElement>(null);
+  useMenuDismiss(settingsOpen, tlSettingsRef, () => setSettingsOpen(false));
+  // The flag belongs to the moment the view was made, not to the view: once the
+  // popover has been open, a later remount must not open it again.
+  useEffect(() => {
+    if (startWithSettings) onSettingsShown?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startWithSettings]);
+  // Edge-resize drag: which row, which edge, which day it is over right now.
+  // Persisted on pointer-up only; until then the bar is drawn from this.
+  const [drag, setDrag] = useState<{ id: string; edge: 'start' | 'end' | 'move'; day: number } | null>(null);
+  // Mirrored in a ref, so the end of a gesture reads the day it had reached from
+  // here rather than from React state — see finish, which must not read a day
+  // the NEXT gesture has already put into the state.
+  const dragRef = useRef<typeof drag>(null);
+  const setDragBoth = (v: typeof drag) => {
+    dragRef.current = v;
+    setDrag(v);
+  };
+  // A resize ends in a click: the browser sends one after the gesture even when
+  // the finger barely moved, and cancelling the pointerdown does not reliably
+  // stop it on touch. That click must not open the row whose edge was held. A
+  // timestamp rather than a flag, because on touch the click may never arrive at
+  // all — a flag left armed would then swallow the NEXT honest tap, which is a
+  // bug of its own. The window is short and re-armed when the gesture ends, so
+  // it covers a press of any length and expires on its own.
+  const navGuard = useRef(0);
+  const swallowClick = () => Date.now() - navGuard.current < 700;
+  // The live gesture's own way out. A browser that takes a gesture over without
+  // saying so leaves the previous drag running: its window listeners stay
+  // attached, so it keeps following the NEXT finger and its finish can fire
+  // during the next gesture. Starting one drag therefore ends any other first,
+  // which is also why the handle below can promise "one at a time".
+  const dragCleanup = useRef<((armGuard: boolean) => void) | null>(null);
+  // While an edge is held, nothing on the page may start a text selection: the
+  // browser would take the gesture over (see finish below) and, on iOS, leave a
+  // callout sitting on top of the interface that swallows taps. The class goes
+  // on the body rather than the bar so a drag that wanders off the bar is
+  // covered, and the cleanup takes it off on unmount too — a stuck
+  // `user-select: none` is exactly the bug it prevents.
+  useEffect(() => {
+    document.body.classList.toggle('is-tl-resizing', !!drag);
+    return () => document.body.classList.remove('is-tl-resizing');
+  }, [drag]);
+
+  if (!startProp || !schema.some((p) => p.id === startProp && p.type === 'date')) {
+    return (
+      <div className="board-empty">
+        {t('This timeline needs a {type} property as its start. Open ⚙ Properties to add one.', { type: t('Date') })}
+      </div>
+    );
+  }
+
   if (items.length === 0) {
     return (
       <div className="board-empty">
@@ -2359,80 +2480,607 @@ function TimelineView({
     );
   }
 
-  const today = dayNum(ymd(new Date()));
-  const min = Math.min(today, ...items.map((i) => i.start)) - 3;
-  const max = Math.max(today, ...items.map((i) => i.end)) + 4;
-  const totalDays = max - min + 1;
-  const gridWidth = totalDays * DAY;
-
-  // Month header segments across the visible range.
-  const months: { label: string; left: number; width: number }[] = [];
-  let cursor = min;
-  while (cursor <= max) {
-    const d = new Date(cursor * 86400000);
-    const y = d.getUTCFullYear();
-    const mo = d.getUTCMonth();
-    const nextMonthDay = Math.floor(Date.UTC(y, mo + 1, 1) / 86400000);
-    const segEnd = Math.min(nextMonthDay - 1, max);
-    months.push({
-      label: formatMonth(y, mo, 'short'),
-      left: (cursor - min) * DAY,
-      width: (segEnd - cursor + 1) * DAY,
-    });
-    cursor = nextMonthDay;
+  // Visible window per mode. Day modes count days; year mode counts
+  // fixed-width months.
+  const yearOf = (n: number) => new Date(n * 86400000).getUTCFullYear();
+  const monthOf = (n: number) => new Date(n * 86400000).getUTCMonth();
+  let dayCols: number[] = [];
+  let monthCols: { y: number; mo: number }[] = [];
+  if (mode === 'day') {
+    dayCols = [cursor];
+  } else if (mode === 'week') {
+    const ws = cursor - ((new Date(cursor * 86400000).getUTCDay() - firstWeekday() + 7) % 7);
+    dayCols = Array.from({ length: 7 }, (_, k) => ws + k);
+  } else if (mode === 'year') {
+    const y = yearOf(cursor);
+    monthCols = Array.from({ length: 12 }, (_, mo) => ({ y, mo }));
+  } else {
+    const nMonths = mode === '2months' ? 2 : 1;
+    const m0 = { y: yearOf(cursor), mo: monthOf(cursor) };
+    const firstDay = Math.floor(Date.UTC(m0.y, m0.mo, 1) / 86400000);
+    const lastDay = Math.floor(Date.UTC(m0.y, m0.mo + nMonths, 1) / 86400000) - 1;
+    dayCols = Array.from({ length: lastDay - firstDay + 1 }, (_, k) => firstDay + k);
   }
-  const todayLeft = (today - min) * DAY;
+  const isYear = monthCols.length > 0;
+  // Grid geometry is proportional so spans narrower than a month stretch to
+  // the full width: day columns share the track equally (never narrower than
+  // 26px — below that the track scrolls), year columns split it in twelve.
+  const gridMin = isYear ? monthCols.length * YEARW : dayCols.length * DAY;
+  // Handles live only on day-granular spans of a ranged timeline: without an
+  // end property there is nothing to stretch to, and month columns are too
+  // coarse for day precision.
+  const resizable = !!endProp && !isYear;
+  // One gesture, three meanings: pulling the left edge, pulling the right edge,
+  // or carrying the whole bar. `move` is the delta in days, the other two are
+  // the day the edge has reached.
+  const beginBarDrag = (e: React.PointerEvent, id: string, edge: 'start' | 'end' | 'move') => {
+    // A control on the bar is pressed, not carried.
+    if (edge === 'move' && (e.target as HTMLElement).closest('button, .tl-resize')) return;
+    e.stopPropagation();
+    // On a finger the drag starts with a hold, exactly like a board card: a
+    // swipe that starts on a bar is a scroll of the axis, not a move, and the
+    // fingers that scroll must never feel a bar stick to them. The timer below
+    // arms the same gesture a mouse starts at once.
+    // The React event is dead by the time the timer below runs (its
+    // currentTarget reads null), so capture what the armed half needs now.
+    const press = {
+      track: (e.currentTarget as HTMLElement).closest('.tl-track') as HTMLElement | null,
+      pointerType: e.pointerType,
+      x: e.clientX,
+    };
+    if (e.pointerType === 'touch' || e.pointerType === 'pen') {
+      const x0 = press.x;
+      const y0 = e.clientY;
+      let settled = false;
+      const disarm = () => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timer);
+        window.removeEventListener('pointermove', watch);
+        window.removeEventListener('pointerup', giveUp);
+        window.removeEventListener('pointercancel', giveUp);
+      };
+      const watch = (ev: PointerEvent) => {
+        // Past the wobble: it was a scroll, and the browser — whose
+        // touch-action lets it scroll from here — already owns it.
+        if (Math.hypot(ev.clientX - x0, ev.clientY - y0) > 10) disarm();
+      };
+      const giveUp = () => disarm();
+      const timer = window.setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        window.removeEventListener('pointermove', watch);
+        window.removeEventListener('pointerup', giveUp);
+        window.removeEventListener('pointercancel', giveUp);
+        beginArmed(press, id, edge);
+      }, 320);
+      window.addEventListener('pointermove', watch);
+      window.addEventListener('pointerup', giveUp);
+      window.addEventListener('pointercancel', giveUp);
+      return;
+    }
+    beginArmed(press, id, edge);
+  };
+  // What a mouse starts at once and a finger starts after the hold above.
+  // Plain values, never the React event: the finger's half runs a hold later,
+  // when the event's currentTarget already reads null.
+  const beginArmed = (
+    press: { track: HTMLElement | null; pointerType: string; x: number },
+    id: string,
+    edge: 'start' | 'end' | 'move',
+  ) => {
+    // Deliberately NOT preventDefault, for the same reason the table's column
+    // resize does not: cancelling a pointerdown cancels the compatibility events
+    // behind it, and on a phone it is one more thing between the finger and the
+    // browser's own gesture handling. What it used to hold off is held off
+    // elsewhere — `touch-action` lets the axis scroll from a bar or a handle
+    // until the hold arms the drag, `user-select: none` stops the selection,
+    // and the click guard below stops the click.
+    // Whatever was dragging stops here (see dragCleanup): one gesture at a time,
+    // so a leaked one cannot ride along with this one. No click guard from that
+    // end — the click that follows belongs to this press.
+    dragCleanup.current?.(false);
+    // An edge press is never a click, so the guard goes up at the press — even
+    // if the end of the gesture is never reported. A press in the middle of a
+    // bar is a move, and a move that goes nowhere is just a click: the guard
+    // for that one is armed at the end, and only if the bar actually moved.
+    if (edge !== 'move') navGuard.current = Date.now();
+    const { track } = press;
+    const it = items.find((i) => i.row.id === id);
+    if (!track || !it) return;
+    const rect = track.getBoundingClientRect();
+    const rawEnd = endProp ? it.row.props[endProp] : undefined;
+    const rowHasEnd = typeof rawEnd === 'string' && !!rawEnd;
+    const fixed = edge === 'start' ? it.end : it.start;
+    const x0 = press.x;
+    setDragBoth({ id, edge, day: edge === 'move' ? 0 : edge === 'start' ? it.start : it.end });
+    const move = (ev: PointerEvent) => {
+      if (edge === 'move') {
+        const perDay = rect.width / dayCols.length;
+        setDragBoth({ id, edge, day: Math.round((ev.clientX - x0) / perDay) });
+        return;
+      }
+      const n = Math.min(
+        dayCols[dayCols.length - 1],
+        Math.max(dayCols[0], dayCols[0] + Math.floor(((ev.clientX - rect.left) / rect.width) * dayCols.length)),
+      );
+      setDragBoth({ id, edge, day: edge === 'start' ? Math.min(n, fixed) : Math.max(n, fixed) });
+    };
+    // The stretched bar and the date badge are drawn from `drag` alone, so every
+    // way this gesture can end has to clear it. A finger lifting is `pointerup`;
+    // the browser taking the gesture over — a long press that turns into a text
+    // selection, a phone call, an OS swipe — is `pointercancel`, and on touch it
+    // arrives INSTEAD of the up. Listening for one and not the other leaves the
+    // bar stuck mid-drag with its badge hanging over the timeline, and the next
+    // stray touch keeps moving it. Where the drag got to is what the user saw,
+    // so a cancelled drag stores the day it had reached, exactly like a lift.
+    //
+    // `blur` and a hidden document are the same story one level down: the gesture
+    // is over the moment the app stops being what the finger is on.
+    const finish = (armGuard: boolean) => {
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', onEnd);
+      window.removeEventListener('pointercancel', onEnd);
+      window.removeEventListener('blur', onEnd);
+      window.removeEventListener('pointerdown', onOtherDown, true);
+      document.removeEventListener('visibilitychange', onHide);
+      if (dragCleanup.current === finish) dragCleanup.current = null;
+      // The click that follows a gesture belongs to it and must not open the row
+      // whose edge was held — so the guard is armed here as well as at the press,
+      // which covers a press of any length. Not when the gesture was ended by a
+      // NEW press though: the click that follows that one is that press's own.
+      // The move decides for itself, above.
+      if (armGuard && edge !== 'move') navGuard.current = Date.now();
+      // Read from the ref, not from the state updater: React may run an updater
+      // more than once and this one writes to the server, and — the reason this
+      // is a ref at all — a gesture that ends late must not commit whatever the
+      // NEXT gesture has put into the state in the meantime.
+      const reached = dragRef.current && dragRef.current.id === id ? dragRef.current : null;
+      setDragBoth(null);
+      if (!reached) return;
+      if (reached.edge === 'move') {
+        // Nothing moved: the click that follows is an honest one.
+        if (reached.day === 0) {
+          navGuard.current = 0;
+          return;
+        }
+        navGuard.current = Date.now();
+        void onSetDate(id, startProp, isoDayKeepTime(it.row, startProp, it.start + reached.day));
+        // A move keeps whatever the row already had: a one-day row stays one
+        // day instead of growing an end nobody asked for.
+        if (endProp && rowHasEnd) void onSetDate(id, endProp, isoDayKeepTime(it.row, endProp, it.end + reached.day));
+        return;
+      }
+      const movedProp = reached.edge === 'start' ? startProp : endProp;
+      void onSetDate(id, movedProp, isoDayKeepTime(it.row, movedProp, reached.day));
+      // Pulling the start of a one-day row makes it a range: the end keeps the
+      // day the row started on, so the bar grows rather than slides.
+      if (reached.edge === 'start' && endProp && !rowHasEnd) {
+        void onSetDate(id, endProp, isoDay(it.start));
+      }
+    };
+    const onEnd = () => finish(true);
+    const onHide = () => {
+      if (document.hidden) finish(true);
+    };
+    // A gesture can also end without the browser ever saying so — a phone that
+    // takes the touch over for a system swipe, a lost pointerup — and then the
+    // badge hangs over the timeline and the bar follows the next finger, which
+    // reads as "nothing on the page answers any more" until a reload. A finger
+    // that is gone cannot press again, so ANY press that starts after this one
+    // proves the old gesture is over: it ends here, and that press goes on to do
+    // whatever it was meant to do. (No pointer-id comparison: a press is a press,
+    // and the ids of a finger and a mouse are not comparable anyway.)
+    const onOtherDown = () => finish(false);
+    dragCleanup.current = finish;
+    // An armed finger drag must not scroll along with the pointer. This cannot
+    // go through `touch-action` — read when the gesture begins, changing it
+    // later does nothing to the running gesture — so the hard way, like the
+    // board's: passive false, so preventDefault is allowed.
+    const touchArmed = press.pointerType === 'touch' || press.pointerType === 'pen';
+    const onTouchMove = (ev: TouchEvent) => {
+      ev.preventDefault();
+    };
+    if (touchArmed) window.addEventListener('touchmove', onTouchMove, { passive: false });
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', onEnd);
+    window.addEventListener('pointercancel', onEnd);
+    window.addEventListener('blur', onEnd);
+    window.addEventListener('pointerdown', onOtherDown, true);
+    document.addEventListener('visibilitychange', onHide);
+  };
+
+  // Month header segments across the visible range, in percent of the grid.
+  const months: { label: string; left: string; width: string; from: number; to: number }[] = [];
+  if (!isYear) {
+    const min = dayCols[0];
+    const max = dayCols[dayCols.length - 1];
+    const n = dayCols.length;
+    let c = min;
+    while (c <= max) {
+      const d = new Date(c * 86400000);
+      const y = d.getUTCFullYear();
+      const mo = d.getUTCMonth();
+      const nextMonthDay = Math.floor(Date.UTC(y, mo + 1, 1) / 86400000);
+      const segEnd = Math.min(nextMonthDay - 1, max);
+      months.push({
+        label: formatMonthYear(y, mo),
+        left: `${((c - min) / n) * 100}%`,
+        width: `${((segEnd - c + 1) / n) * 100}%`,
+        from: c,
+        to: segEnd,
+      });
+      c = nextMonthDay;
+    }
+  } else {
+    monthCols.forEach((m, i) => {
+      const from = Math.floor(Date.UTC(m.y, m.mo, 1) / 86400000);
+      const to = Math.floor(Date.UTC(m.y, m.mo + 1, 1) / 86400000) - 1;
+      months.push({
+        label: formatMonthYear(m.y, m.mo),
+        left: `${(i / monthCols.length) * 100}%`,
+        width: `${(1 / monthCols.length) * 100}%`,
+        from,
+        to,
+      });
+    });
+  }
+  // Saturday and Sunday, in the same UTC day-number space as everything else
+  // here: the weekend a Gantt is read against, whatever a region calls the start
+  // of its week.
+  const isWeekend = (n: number) => {
+    const wd = new Date(n * 86400000).getUTCDay();
+    return wd === 0 || wd === 6;
+  };
+  // The weekends of the visible range, as runs, so the body draws one band per
+  // weekend instead of one per day. Percent of the grid, like every other
+  // position here — the day columns share the track equally.
+  const weekends: { left: string; width: string }[] = [];
+  if (!isYear) {
+    const n = dayCols.length;
+    let i = 0;
+    while (i < n) {
+      if (!isWeekend(dayCols[i])) {
+        i++;
+        continue;
+      }
+      let j = i;
+      while (j + 1 < n && isWeekend(dayCols[j + 1])) j++;
+      weekends.push({ left: `${(i / n) * 100}%`, width: `${((j - i + 1) / n) * 100}%` });
+      i = j + 1;
+    }
+  }
+  const todayLeft = ((): string | null => {
+    if (!isYear) {
+      if (today < dayCols[0] || today > dayCols[dayCols.length - 1]) return null;
+      return `${((today - dayCols[0]) / dayCols.length) * 100}%`;
+    }
+    const mi = monthCols.findIndex((m) => m.y === yearOf(today) && m.mo === monthOf(today));
+    if (mi < 0) return null;
+    const mStart = Math.floor(Date.UTC(monthCols[mi].y, monthCols[mi].mo, 1) / 86400000);
+    const mDays = Math.floor(Date.UTC(monthCols[mi].y, monthCols[mi].mo + 1, 1) / 86400000) - mStart;
+    return `${((mi + (today - mStart) / mDays) / monthCols.length) * 100}%`;
+  })();
+
+  const title =
+    mode === 'day'
+      ? formatDay(isoDay(cursor))
+      : mode === 'week'
+        ? formatDay(isoDay(dayCols[0])) + ' - ' + formatDay(isoDay(dayCols[dayCols.length - 1]))
+        : mode === 'year'
+          ? String(yearOf(cursor))
+          : dayCols.length > 0 && monthOf(dayCols[0]) === monthOf(dayCols[dayCols.length - 1])
+            ? formatMonth(yearOf(dayCols[0]), monthOf(dayCols[0]), 'long')
+            : formatMonth(yearOf(dayCols[0]), monthOf(dayCols[0]), 'long') +
+              ' - ' +
+              formatMonth(yearOf(dayCols[dayCols.length - 1]), monthOf(dayCols[dayCols.length - 1]), 'long');
+  const step = (delta: number) => {
+    if (mode === 'day') setCursor((c) => c + delta);
+    else if (mode === 'week') setCursor((c) => c + delta * 7);
+    else if (mode === 'year')
+      setCursor((c) => {
+        const d = new Date(c * 86400000);
+        return Math.floor(Date.UTC(d.getUTCFullYear() + delta, d.getUTCMonth(), 1) / 86400000);
+      });
+    // Month modes always slide by one month — even showing two — so no month
+    // is ever skipped over.
+    else
+      setCursor((c) => {
+        const d = new Date(c * 86400000);
+        return Math.floor(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + delta, 1) / 86400000);
+      });
+  };
+  const goToday = () => setCursor(today);
+
+  // Bar geometry in percent of the grid, clamped to the window. Null when
+  // the item is fully outside.
+  const barGeom = (it: Item) => {
+    if (!isYear) {
+      const n = dayCols.length;
+      const s = Math.max(it.start, dayCols[0]);
+      const e = Math.min(it.end, dayCols[n - 1]);
+      if (e < s) return null;
+      return { left: `${((s - dayCols[0]) / n) * 100}%`, width: `calc(${(((e - s + 1) / n) * 100).toFixed(4)}% - 4px)` };
+    }
+    const ser = (n: number) => yearOf(n) * 12 + monthOf(n);
+    const base = yearOf(cursor) * 12;
+    const a = Math.max(0, ser(it.start) - base);
+    const b = Math.min(11, ser(it.end) - base);
+    if (b < a) return null;
+    return { left: `${(a / 12) * 100}%`, width: `calc(${(((b - a + 1) / 12) * 100).toFixed(4)}% - 4px)` };
+  };
+  const covers = (it: Item, n: number) =>
+    isYear
+      ? yearOf(n) * 12 + monthOf(n) >= yearOf(it.start) * 12 + monthOf(it.start) &&
+        yearOf(n) * 12 + monthOf(n) <= yearOf(it.end) * 12 + monthOf(it.end)
+      : n >= it.start && n <= it.end;
+  const hoveredItem = hovered ? items.find((i) => i.row.id === hovered) ?? null : null;
+  // While resizing, the highlight follows the dragged edge rather than the
+  // stored span.
+  const spanItem = drag
+    ? (() => {
+        const base = items.find((i) => i.row.id === drag.id);
+        if (!base) return hoveredItem;
+        return {
+          ...base,
+          start: drag.edge === 'start' ? drag.day : base.start,
+          end: drag.edge === 'end' ? drag.day : base.end,
+        };
+      })()
+    : hoveredItem;
+  const tipFor = (row: Row, it: Item) => {
+    const sv = typeof row.props[startProp] === 'string' ? (row.props[startProp] as string) : '';
+    const ev = endProp && typeof row.props[endProp] === 'string' ? (row.props[endProp] as string) : '';
+    return (
+      (row.title || t('Untitled')) +
+      (sv ? ' - ' + formatDay(sv) + (it.end !== it.start && ev ? ' → ' + formatDay(ev) : '') : '')
+    );
+  };
+
+  const dateProps = schema.filter((p) => p.type === 'date');
 
   return (
     <div className="timeline">
+      <div className="tl-controls">
+        {onToggleLabels && (
+          <button
+            className="btn-sm tl-collapse"
+            onClick={onToggleLabels}
+            aria-label={hideLabels ? t('Show the title column') : t('Hide the title column')}
+            title={hideLabels ? t('Show the title column') : t('Hide the title column')}
+          >
+            {hideLabels ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}
+          </button>
+        )}
+        <button className="btn-sm" onClick={() => step(-1)} aria-label={t('Previous month')}>‹</button>
+        <span className="tl-title">{title}</span>
+        <button className="btn-sm" onClick={() => step(1)} aria-label={t('Next month')}>›</button>
+        <button className="btn-sm" onClick={goToday}>{t('Today')}</button>
+        <div className="tl-right">
+          <div className="tl-settings-wrap" ref={tlSettingsRef}>
+            <button
+              className={'btn-sm' + (settingsHint ? ' has-dot' : '')}
+              title={t('Timeline settings: start and end')}
+              onClick={() => {
+                setSettingsOpen((o) => !o);
+                settingsSeen();
+              }}
+              aria-expanded={settingsOpen}
+            >
+              <Settings2 size={14} />
+            </button>
+            {settingsOpen && (
+              <AnchoredMenu className="menu tl-settings-menu">
+                <div className="tl-menu-head">{t('Timeline settings')}</div>
+                <label className="tl-settings-row">
+                  <span>{t('Start')}</span>
+                  <select
+                    className="subitems-select"
+                    value={startProp}
+                    onChange={(e) => onViewChange({ dateProp: e.target.value || undefined })}
+                  >
+                    <option value="">{t('Start: —')}</option>
+                    {dateProps.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="tl-settings-row">
+                  <span>{t('End')}</span>
+                  <select
+                    className="subitems-select"
+                    value={endProp}
+                    onChange={(e) => onViewChange({ endDateProp: e.target.value || undefined })}
+                  >
+                    <option value="">{t('End: (none)')}</option>
+                    {dateProps.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </AnchoredMenu>
+            )}
+          </div>
+          <ModePicker mode={mode} onChange={onModeChange} />
+        </div>
+      </div>
       <div className="tl-scroll">
-        <div className="tl-inner" style={{ width: LABELW + gridWidth }}>
+        <div className="tl-inner" style={{ minWidth: labelW + gridMin }}>
           <div className="tl-header">
-            <div className="tl-corner" style={{ width: LABELW }} />
-            <div className="tl-months" style={{ width: gridWidth }}>
-              {months.map((m, i) => (
-                <div key={i} className="tl-month" style={{ left: m.left, width: m.width }}>
-                  {m.label}
+            <div className="tl-corner" style={{ width: labelW }} />
+            <div className="tl-head-right">
+              <div className="tl-months">
+                {months.map((m, i) => (
+                  <div
+                    key={i}
+                    className="tl-month"
+                    style={{ left: m.left, width: m.width }}
+                  >
+                    {m.label}
+                  </div>
+                ))}
+                {todayLeft && <div className="tl-today-tick" style={{ left: todayLeft }} title={t('Today')} />}
+              </div>
+              {!isYear && (
+                <div
+                  className="tl-days"
+                  style={{ gridTemplateColumns: `repeat(${dayCols.length}, minmax(26px, 1fr))` }}
+                >
+                  {dayCols.map((n) => (
+                    <div
+                      key={n}
+                      className={
+                        'tl-day' +
+                        (isWeekend(n) ? ' is-weekend' : '') +
+                        (n === today ? ' is-today' : '') +
+                        (spanItem && covers(spanItem, n) ? ' is-span' : '') +
+                        (spanItem && covers(spanItem, n) && !covers(spanItem, n - 1) ? ' is-span-first' : '') +
+                        (spanItem && covers(spanItem, n) && !covers(spanItem, n + 1) ? ' is-span-last' : '')
+                      }
+                    >
+                      {new Date(n * 86400000).getUTCDate()}
+                    </div>
+                  ))}
                 </div>
-              ))}
-              <div className="tl-today-tick" style={{ left: todayLeft }} title={t('Today')} />
+              )}
             </div>
           </div>
           <div className="tl-body">
-            {items.map(({ row, start, end }) => {
-              const left = (start - min) * DAY;
-              const width = Math.max(DAY - 4, (end - start + 1) * DAY - 4);
-              return (
-                <div key={row.id} className="tl-row">
-                  <div
-                    className="tl-label"
-                    style={{ width: LABELW }}
-                    onClick={(e) => openPage(e, row.id, { onNavigate, onOpenInNewTab })}
-                    onAuxClick={(e) => openPageAux(e, row.id, { onNavigate, onOpenInNewTab })}
-                    title={row.title}
-                  >
-                    {row.icon && (
-                      <span className="inline-icon">
-                        <PageIcon icon={row.icon} size={14} />
-                      </span>
-                    )}
-                    <span className="tl-label-text">{row.title || 'Untitled'}</span>
+            {items.map((it) => {
+              const { row } = it;
+              const label = (
+                <div
+                  className={'tl-label' + (hovered === row.id ? ' is-hovered' : '')}
+                  style={{ width: labelW }}
+                  onClick={(e) => openPage(e, row.id, { onNavigate, onOpenInNewTab })}
+                  onAuxClick={(e) => openPageAux(e, row.id, { onNavigate, onOpenInNewTab })}
+                  // The mirror of the bar's hover below: lighting the title
+                  // lights the bar, so the pair reads as one thing from either
+                  // end.
+                  onMouseEnter={() => setHovered(row.id)}
+                  onMouseLeave={() => setHovered((h) => (h === row.id ? null : h))}
+                  title={tipFor(row, it)}
+                >
+                  {row.icon && (
+                    <span className="inline-icon">
+                      <PageIcon icon={row.icon} size={14} />
+                    </span>
+                  )}
+                  <span className="tl-label-text">{row.title || 'Untitled'}</span>
+                </div>
+              );
+              const g = barGeom(it);
+              // A row wholly outside the window keeps its label and loses only
+              // its bar — but the track itself, with the weekend bands and the
+              // today line, stays: they belong to the window, not to the row,
+              // and a row without them reads as a hole cut out of the axis.
+              const trackChrome = (
+                <>
+                  {weekends.map((w, k) => (
+                    <div key={k} className="tl-weekend" style={{ left: w.left, width: w.width }} />
+                  ))}
+                  {todayLeft && !isYear && <div className="tl-today-line" style={{ left: todayLeft }} />}
+                </>
+              );
+              // Outside the window a row keeps its label and loses only its
+              // bar: dropping the row entirely hid entries the moment a saved
+              // timeline opened on a single month.
+              if (!g) {
+                return (
+                  <div key={row.id} className="tl-row" data-tl-row={row.id}>
+                    {!hideLabels && label}
+                    <div className="tl-track">{trackChrome}</div>
                   </div>
-                  <div className="tl-track" style={{ width: gridWidth }}>
-                    <div className="tl-today-line" style={{ left: todayLeft }} />
+                );
+              }
+              // While dragging, the bar follows the pointer; the dates persist
+              // on release only.
+              const dg =
+                drag && drag.id === row.id
+                  ? barGeom({
+                      ...it,
+                      start: drag.edge === 'start' ? drag.day : it.start,
+                      end: drag.edge === 'end' ? drag.day : it.end,
+                    })
+                  : null;
+              const geom = dg ?? g;
+              return (
+                <div key={row.id} className="tl-row" data-tl-row={row.id}>
+                  {!hideLabels && label}
+                  <div className="tl-track">
+                    {trackChrome}
                     <div
-                      className="tl-bar"
-                      style={{ left, width }}
-                      onClick={(e) => openPage(e, row.id, { onNavigate, onOpenInNewTab })}
+                      className={
+                        'tl-bar' +
+                        (drag && drag.id === row.id ? ' is-dragging' : '') +
+                        (hovered === row.id ? ' is-hovered' : '')
+                      }
+                      style={{ left: geom.left, width: geom.width }}
+                      onPointerDown={(e) => beginBarDrag(e, row.id, 'move')}
+                      onClick={(e) => {
+                        if (swallowClick()) return;
+                        openPage(e, row.id, { onNavigate, onOpenInNewTab });
+                      }}
                       onAuxClick={(e) => openPageAux(e, row.id, { onNavigate, onOpenInNewTab })}
-                      title={row.title}
+                      onMouseEnter={() => setHovered(row.id)}
+                      onMouseLeave={() => setHovered((h) => (h === row.id ? null : h))}
+                      title={tipFor(row, it)}
                     >
                       <span className="tl-bar-label">{row.title || 'Untitled'}</span>
+                      {resizable && (
+                        <>
+                          {/* The browser's own long-press menu is what takes the
+                              drag away in the first place; on a handle it has
+                              nothing useful to offer, so it is never shown. */}
+                          <span
+                            className="tl-resize tl-resize-l"
+                            onPointerDown={(e) => beginBarDrag(e, row.id, 'start')}
+                            onContextMenu={(e) => e.preventDefault()}
+                          />
+                          <span
+                            className="tl-resize tl-resize-r"
+                            onPointerDown={(e) => beginBarDrag(e, row.id, 'end')}
+                            onContextMenu={(e) => e.preventDefault()}
+                          />
+                        </>
+                      )}
                     </div>
+                    {/* The live date hangs off an edge being pulled. A bar
+                        being carried does not need it: the bar itself is
+                        already under the pointer, and the date only got in the
+                        way of seeing where it would land. */}
+                    {drag && drag.id === row.id && drag.edge !== 'move' && (
+                      <span
+                        className="tl-drag-tip"
+                        style={{
+                          left:
+                            drag.edge === 'start'
+                              ? geom.left
+                              : `calc(${geom.left} + ${geom.width})`,
+                        }}
+                      >
+                        {formatDay(isoDay(drag.day), 'dayMonth')}
+                      </span>
+                    )}
                   </div>
                 </div>
               );
             })}
+            <div className="tl-row">
+              {!hideLabels && (
+                <div className="tl-label tl-add" style={{ width: LABELW }}>
+                  <button className="btn-sm" onClick={() => void onAddRow({ [startProp]: isoDay(cursor) })}>
+                    <Plus size={14} /> {t('New')}
+                  </button>
+                </div>
+              )}
+              <div className="tl-track" />
+            </div>
           </div>
         </div>
       </div>
@@ -2444,21 +3092,63 @@ function CalendarView({
   rows,
   schema,
   dateProp,
+  endDateProp,
   tagColors,
   onNavigate,
   onOpenInNewTab,
+  mode,
+  onModeChange,
+  onViewChange,
+  onAddRow,
+  onSetDate,
 }: {
   rows: Row[];
   schema: PropDef[];
   dateProp: string;
+  endDateProp: string;
   tagColors: Record<string, string>;
   onNavigate: (id: string) => void;
   onOpenInNewTab?: (id: string) => void;
+  mode: SpanMode;
+  onModeChange: (m: SpanMode) => void;
+  onViewChange: (patch: Partial<ViewDef>) => void;
+  onAddRow: (presetProps?: Record<string, unknown>) => void;
+  onSetDate: (rowId: string, propId: string, iso: string) => void;
 }) {
-  const [month, setMonth] = useState(() => {
+  const [cursor, setCursor] = useState(() => {
     const n = new Date();
-    return new Date(n.getFullYear(), n.getMonth(), 1);
+    return new Date(n.getFullYear(), n.getMonth(), n.getDate());
   });
+  // The view's own settings: which date it reads, and what a range is.
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsHint, settingsSeen] = useSettingsHint('calendar-settings');
+  // A click outside the settings popover closes it — same wrap trick as the
+  // timeline's: the button and the menu live in one box.
+  const calSettingsRef = useRef<HTMLDivElement>(null);
+  useMenuDismiss(settingsOpen, calSettingsRef, () => setSettingsOpen(false));
+  const dateProps = schema.filter((p) => p.type === 'date');
+  // Dragging an entry to another day: the day under the pointer, and the click
+  // the gesture ends in (which must not open the row it just moved).
+  const [dropDay, setDropDay] = useState<string | null>(null);
+  // The entry itself, following the pointer: a tinted cell says where it will
+  // land, this says what is being carried.
+  const [ghost, setGhost] = useState<{ x: number; y: number; title: string } | null>(null);
+  const dragGuard = useRef(0);
+  // Swiping the calendar pages it, like the arrows: a trackpad's sideways scroll
+  // and a finger's sideways drag both step one span. The timeline is left alone
+  // — there the same gesture scrolls the axis, which is what it is for.
+  const swipe = useRef<{ x: number; y: number; done: boolean } | null>(null);
+  const swipeLock = useRef(0);
+  // True from the press on an entry until its drag ends — while it is set,
+  // paging handlers stay out of the way (see beginEntryDrag).
+  const carryingEntry = useRef(false);
+  const pageBy = (forward: boolean) => {
+    const now = Date.now();
+    if (now - swipeLock.current < 320) return;
+    swipeLock.current = now;
+    dragGuard.current = now; // a swipe is not a click on what it started over
+    step(forward ? 1 : -1);
+  };
 
   if (!dateProp || !schema.some((p) => p.id === dateProp && p.type === 'date')) {
     return (
@@ -2477,62 +3167,537 @@ function CalendarView({
     (byDate.get(key) ?? byDate.set(key, []).get(key)!).push(r);
   }
 
-  const first = new Date(month.getFullYear(), month.getMonth(), 1);
-  // Where the week starts is a property of the language, not of the code:
-  // Monday across most of Europe, Sunday in the US and Japan, Saturday in much
-  // of the Arab world. This used to be hardcoded to Monday.
-  const startWeekday = (first.getDay() - firstWeekday() + 7) % 7;
-  const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
-  const cells: (Date | null)[] = [];
-  for (let i = 0; i < startWeekday; i++) cells.push(null);
-  for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(month.getFullYear(), month.getMonth(), d));
-  while (cells.length % 7 !== 0) cells.push(null);
+  // A row with an end date covers days, and is drawn as ONE bar across them
+  // rather than a chip in each cell — see the settings for the end property.
+  // A range that ends where it starts is not a range, and stays a chip.
+  type Span = { row: Row; from: string; to: string };
+  const spans: Span[] = [];
+  for (const r of rows) {
+    const v = r.props[dateProp];
+    if (typeof v !== 'string' || !v) continue;
+    const from = v.slice(0, 10);
+    let to = from;
+    if (endDateProp) {
+      const e = r.props[endDateProp];
+      if (typeof e === 'string' && e) {
+        const end = e.slice(0, 10);
+        if (end > from) to = end;
+      }
+    }
+    if (to > from) spans.push({ row: r, from, to });
+  }
+  const spanIds = new Set(spans.map((s) => s.row.id));
+  // Every row's own span, whatever it looks like on screen: a move needs the
+  // dates it started from, not the segment under the finger.
+  const rangeOf = new Map<string, { from: string; to: string }>();
+  for (const r of rows) {
+    const v = r.props[dateProp];
+    if (typeof v !== 'string' || !v) continue;
+    const from = v.slice(0, 10);
+    let to = from;
+    if (endDateProp) {
+      const e = r.props[endDateProp];
+      if (typeof e === 'string' && e && e.slice(0, 10) > from) to = e.slice(0, 10);
+    }
+    rangeOf.set(r.id, { from, to });
+  }
+  const addDaysTo = (key: string, n: number) => {
+    const d = new Date(key + 'T00:00:00');
+    d.setDate(d.getDate() + n);
+    return toDayString(d);
+  };
+  const dayAtPoint = (x: number, y: number): string | null => {
+    // Every element under the pointer, not just the top one: a bar is drawn as
+    // one wide segment over the cells it covers, so the topmost element at a
+    // point inside the bar belongs to the day the range started on. The cell
+    // actually under the pointer is in the list too, one layer down.
+    const els = document.elementsFromPoint(x, y);
+    const cell = els.find((el) => el.classList.contains('calendar-cell')) as HTMLElement | undefined;
+    return cell?.dataset.day ?? null;
+  };
+  // Carrying an entry to another day: it keeps its length and moves by the days
+  // the pointer travelled, exactly like a bar on the timeline.
+  const beginEntryDrag = (e: React.PointerEvent, rowId: string) => {
+    const r = rangeOf.get(rowId);
+    if (!r) return;
+    // On a finger the carry starts with a hold, like a timeline bar or a board
+    // card: a swipe that starts on an entry scrolls the calendar, and fingers
+    // that scroll must never feel an entry stick to them.
+    if (e.pointerType === 'touch' || e.pointerType === 'pen') {
+      const x0 = e.clientX;
+      const y0 = e.clientY;
+      let settled = false;
+      const disarm = () => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timer);
+        window.removeEventListener('pointermove', watch);
+        window.removeEventListener('pointerup', giveUp);
+        window.removeEventListener('pointercancel', giveUp);
+      };
+      const watch = (ev: PointerEvent) => {
+        if (Math.hypot(ev.clientX - x0, ev.clientY - y0) > 10) disarm();
+      };
+      const giveUp = () => disarm();
+      const timer = window.setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        window.removeEventListener('pointermove', watch);
+        window.removeEventListener('pointerup', giveUp);
+        window.removeEventListener('pointercancel', giveUp);
+        beginEntryArmed(e, rowId);
+      }, 320);
+      window.addEventListener('pointermove', watch);
+      window.addEventListener('pointerup', giveUp);
+      window.addEventListener('pointercancel', giveUp);
+      return;
+    }
+    beginEntryArmed(e, rowId);
+  };
+  // What a mouse starts at once and a finger starts after the hold above.
+  const beginEntryArmed = (e: React.PointerEvent, rowId: string) => {
+    const r = rangeOf.get(rowId);
+    if (!r) return;
+    // While an entry is being carried, swiping must not page the calendar: the
+    // same gesture cannot mean "move this entry" and "show another month".
+    carryingEntry.current = true;
+    const x0 = e.clientX;
+    const y0 = e.clientY;
+    let moved = false;
+    let target: string | null = null;
+    const label = rows.find((r) => r.id === rowId)?.title || t('Untitled');
+    const move = (ev: PointerEvent) => {
+      if (!moved && Math.abs(ev.clientX - x0) < 4 && Math.abs(ev.clientY - y0) < 4) return;
+      moved = true;
+      target = dayAtPoint(ev.clientX, ev.clientY);
+      setDropDay(target);
+      setGhost({ x: ev.clientX, y: ev.clientY, title: label });
+    };
+    // An armed finger carry owns the finger: hold off the scroll, the hard
+    // way — `touch-action` was read when the gesture began, so changing it now
+    // does nothing to the running gesture.
+    const touchArmed = e.pointerType === 'touch' || e.pointerType === 'pen';
+    const onTouchMove = (ev: TouchEvent) => {
+      ev.preventDefault();
+    };
+    if (touchArmed) window.addEventListener('touchmove', onTouchMove, { passive: false });
+    const finish = () => {
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', finish);
+      window.removeEventListener('pointercancel', finish);
+      setDropDay(null);
+      setGhost(null);
+      carryingEntry.current = false;
+      if (!moved || !target || target === r.from) return;
+      dragGuard.current = Date.now();
+      const delta = Math.round(
+        (new Date(target + 'T00:00:00').getTime() - new Date(r.from + 'T00:00:00').getTime()) / 86400000,
+      );
+      void onSetDate(rowId, dateProp, addDaysTo(r.from, delta));
+      // Only a row that already ended somewhere gets an end: moving a one-day
+      // entry keeps it one day.
+      if (endDateProp && r.to > r.from) void onSetDate(rowId, endDateProp, addDaysTo(r.to, delta));
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', finish);
+    window.addEventListener('pointercancel', finish);
+  };
+  const entryClick = (e: React.MouseEvent, rowId: string) => {
+    if (Date.now() - dragGuard.current < 700) return;
+    openPage(e, rowId, { onNavigate, onOpenInNewTab });
+  };
+
+  // Every day a bar touches, for the year's mini grids (a range lights all of
+  // its days, not only the first).
+  const covered = new Set<string>();
+  for (const s of spans) {
+    const d = new Date(s.from + 'T00:00:00');
+    const end = new Date(s.to + 'T00:00:00');
+    // A runaway range cannot flood the set: a year of days is already absurd.
+    for (let i = 0; d <= end && i < 400; i++, d.setDate(d.getDate() + 1)) covered.add(ymd(d));
+  }
+  /** The bars a week shows, in a fixed order — so a bar's segment sits at the
+   *  same height in every cell of the row it crosses. */
+  const lanesFor = (days: (Date | null)[]): Span[] => {
+    const keys = days.filter((d): d is Date => !!d).map((d) => ymd(d));
+    if (keys.length === 0) return [];
+    const lo = keys[0];
+    const hi = keys[keys.length - 1];
+    return spans
+      .filter((s) => s.from <= hi && s.to >= lo)
+      .sort((a, b) =>
+        a.from !== b.from ? (a.from < b.from ? -1 : 1) : a.row.id < b.row.id ? -1 : 1,
+      );
+  };
+  const spanTitle = (s: Span) =>
+    (s.row.title || t('Untitled')) + ' — ' + formatDay(s.from, 'dayMonth') + ' → ' + formatDay(s.to, 'dayMonth');
 
   const today = ymd(new Date());
-  const monthLabel = formatMonth(month.getFullYear(), month.getMonth(), 'long');
-  const step = (delta: number) => setMonth(new Date(month.getFullYear(), month.getMonth() + delta, 1));
+  const addDays = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+  const addMonths = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth() + n, 1);
+  const startOfWeek = (d: Date) => addDays(d, -((d.getDay() - firstWeekday() + 7) % 7));
+  const weekStart = startOfWeek(cursor);
+  const weekDays: Date[] = [];
+  for (let k = 0; k < 7; k++) weekDays.push(addDays(weekStart, k));
+  // One cell grid per shown month.
+  const monthStarts: Date[] =
+    mode === '2months'
+      ? [new Date(cursor.getFullYear(), cursor.getMonth(), 1), addMonths(cursor, 1)]
+      : [new Date(cursor.getFullYear(), cursor.getMonth(), 1)];
+  const monthCells = (first: Date) => {
+    // Where the week starts is a property of the language, not of the code:
+    // Monday across most of Europe, Sunday in the US and Japan, Saturday in much
+    // of the Arab world. This used to be hardcoded to Monday.
+    const startWeekday = (first.getDay() - firstWeekday() + 7) % 7;
+    const daysInMonth = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
+    const cells: (Date | null)[] = [];
+    for (let i = 0; i < startWeekday; i++) cells.push(null);
+    for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(first.getFullYear(), first.getMonth(), d));
+    while (cells.length % 7 !== 0) cells.push(null);
+    return cells;
+  };
+  // One lane list per week row of a month grid, so a bar keeps its height
+  // across the row it crosses.
+  const monthRowLanes = (first: Date): Span[][] => {
+    const cells = monthCells(first);
+    const rows: Span[][] = [];
+    for (let r = 0; r * 7 < cells.length; r++) rows.push(lanesFor(cells.slice(r * 7, r * 7 + 7)));
+    return rows;
+  };
+
+  const second = monthStarts[1];
+  const step = (delta: number) => {
+    if (mode === 'day') setCursor((c) => addDays(c, delta));
+    else if (mode === 'week') setCursor((c) => addDays(c, delta * 7));
+    else if (mode === 'year') setCursor((c) => new Date(c.getFullYear() + delta, c.getMonth(), 1));
+    // Month modes always slide by one month — even showing two — so no month
+    // is ever skipped over.
+    else setCursor((c) => addMonths(c, delta));
+  };
+  const goToday = () => {
+    const n = new Date();
+    setCursor(new Date(n.getFullYear(), n.getMonth(), n.getDate()));
+  };
+  const title =
+    mode === 'day'
+      ? formatDay(toDayString(cursor))
+      : mode === 'week'
+        ? formatDay(toDayString(weekStart)) + ' — ' + formatDay(toDayString(addDays(weekStart, 6)))
+        : mode === 'year'
+          ? String(cursor.getFullYear())
+          : mode === '2months' && second
+            ? formatMonth(monthStarts[0].getFullYear(), monthStarts[0].getMonth(), 'long') +
+              ' — ' +
+              formatMonth(second.getFullYear(), second.getMonth(), 'long')
+            : formatMonth(cursor.getFullYear(), cursor.getMonth(), 'long');
+  const eventButton = (r: Row, d: Date | null) => (
+    <button
+      key={r.id}
+      className="calendar-event"
+      onPointerDown={(e) => beginEntryDrag(e, r.id)}
+      onClick={(e) => entryClick(e, r.id)}
+      onAuxClick={(e) => openPageAux(e, r.id, { onNavigate, onOpenInNewTab })}
+      title={(r.title || t('Untitled')) + (d ? ' — ' + formatDay(toDayString(d)) : '')}
+    >
+      {r.icon && <span className="inline-icon"><PageIcon icon={r.icon} size={14} /> </span>}
+      {r.title || 'Untitled'}
+      {!!r.tags?.length && (
+        <span className="cal-event-tags">
+          {r.tags.map((t) => (
+            <span key={t} className={'row-tag ' + tagColorClass(t, tagColors)}>#{t}</span>
+          ))}
+        </span>
+      )}
+    </button>
+  );
+  const dayCell = (d: Date | null, i: number | string, lanes: Span[] = [], rowKeys: string[] = []) => {
+    const key = d ? ymd(d) : '';
+    const dayRows = (d ? byDate.get(key) ?? [] : []).filter((r) => !spanIds.has(r.id));
+    // A lane the bar does not cross today still takes its place, so the bars
+    // stay in line across the row.
+    const laneSlot = (s: Span) => {
+      const covers = !!d && s.from <= key && s.to >= key;
+      if (!covers) return <div key={'l' + s.row.id} className="cal-lane" />;
+      const isStart = s.from === key;
+      const isEnd = s.to === key;
+      // A bar whose first day is in this row is drawn by that one wide segment
+      // (see below), so the cells it reaches past must not paint a segment of
+      // their own underneath it — two layers of a translucent colour is a
+      // visible step after the first day. They keep their lane's height only.
+      if (!isStart && rowKeys.includes(s.from)) {
+        return <div key={'l' + s.row.id} className="cal-lane" />;
+      }
+      // How much room this bar has in THIS week row. The label belongs to the
+      // whole bar, not to its first cell: a range crossing a week has the width
+      // to say its name, where one 50px cell managed only "Дое…". The last day
+      // of the row bounds it, so a bar that runs into the next week stops at
+      // the edge instead of hanging over the grid.
+      let cells = 1;
+      let endsHere = isEnd;
+      if (isStart) {
+        const at = rowKeys.indexOf(key);
+        cells = 0;
+        for (let k = Math.max(at, 0); k < rowKeys.length && rowKeys[k] <= s.to; k++) cells++;
+        if (cells === 0) cells = 1;
+        endsHere = rowKeys.length === 0 || s.to <= rowKeys[rowKeys.length - 1];
+      }
+      return (
+        <button
+          key={'sp' + s.row.id}
+          className={
+            'cal-span' +
+            (isStart ? ' is-start' : '') +
+            (isEnd || (isStart && endsHere) ? ' is-end' : '')
+          }
+          style={isStart ? ({ '--span-cells': cells } as React.CSSProperties) : undefined}
+          onPointerDown={(e) => beginEntryDrag(e, s.row.id)}
+          onClick={(e) => entryClick(e, s.row.id)}
+          onAuxClick={(e) => openPageAux(e, s.row.id, { onNavigate, onOpenInNewTab })}
+          title={spanTitle(s)}
+        >
+          {isStart && (
+            <>
+              {s.row.icon && (
+                <span className="inline-icon">
+                  <PageIcon icon={s.row.icon} size={14} />{' '}
+                </span>
+              )}
+              {s.row.title || t('Untitled')}
+            </>
+          )}
+        </button>
+      );
+    };
+    return (
+      <div
+        key={i}
+        data-day={key || undefined}
+        className={
+          'calendar-cell' +
+          (d ? '' : ' empty') +
+          (key === today ? ' today' : '') +
+          (key && key === dropDay ? ' is-drop' : '')
+        }
+      >
+        {d && (
+          <button
+            className="calendar-daynum"
+            onClick={() => {
+              setCursor(new Date(d.getFullYear(), d.getMonth(), d.getDate()));
+              onModeChange('day');
+            }}
+            title={t('Open this day')}
+          >
+            {d.getDate()}
+          </button>
+        )}
+        {lanes.map(laneSlot)}
+        {dayRows.map((r) => eventButton(r, d))}
+        {/* Adding from the day itself: the corner of the cell, always there on
+            a touch screen and on hover where there is a pointer. */}
+        {d && (
+          <button
+            className="cal-add"
+            title={t('Add an entry on this day')}
+            aria-label={t('Add an entry on this day')}
+            onClick={(e) => {
+              e.stopPropagation();
+              void onAddRow({ [dateProp]: ymd(d) });
+            }}
+          >
+            <Plus size={13} />
+          </button>
+        )}
+      </div>
+    );
+  };
+  const yearMonths: Date[] = [];
+  for (let m = 0; m < 12; m++) yearMonths.push(new Date(cursor.getFullYear(), m, 1));
 
   return (
-    <div className="calendar">
+    <div
+      className="calendar"
+      onWheel={(e) => {
+        if (carryingEntry.current) return;
+        if (Math.abs(e.deltaX) > Math.abs(e.deltaY) && Math.abs(e.deltaX) > 16) pageBy(e.deltaX > 0);
+      }}
+      onPointerDown={(e) => {
+        swipe.current = { x: e.clientX, y: e.clientY, done: false };
+      }}
+      onPointerMove={(e) => {
+        if (carryingEntry.current) return;
+        const s = swipe.current;
+        if (!s || s.done) return;
+        const dx = e.clientX - s.x;
+        const dy = e.clientY - s.y;
+        if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+        s.done = true;
+        pageBy(dx < 0);
+      }}
+      onPointerUp={() => {
+        swipe.current = null;
+      }}
+      onPointerCancel={() => {
+        swipe.current = null;
+      }}
+    >
       <div className="calendar-head">
         <button className="btn-sm" onClick={() => step(-1)} aria-label={t('Previous month')}>‹</button>
-        <span className="calendar-title">{monthLabel}</span>
+        <span className="calendar-title">{title}</span>
         <button className="btn-sm" onClick={() => step(1)} aria-label={t('Next month')}>›</button>
-        <button className="btn-sm" onClick={() => setMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1))}>{t('Today')}</button>
-      </div>
-      <div className="calendar-grid">
-        {weekdayNames().map((d) => (
-          <div key={d} className="calendar-dow">{d}</div>
-        ))}
-        {cells.map((d, i) => {
-          const key = d ? ymd(d) : '';
-          const dayRows = d ? byDate.get(key) ?? [] : [];
-          return (
-            <div key={i} className={'calendar-cell' + (d ? '' : ' empty') + (key === today ? ' today' : '')}>
-              {d && <div className="calendar-daynum">{d.getDate()}</div>}
-              {dayRows.map((r) => (
-                <button
-                  key={r.id}
-                  className="calendar-event"
-                  onClick={(e) => openPage(e, r.id, { onNavigate, onOpenInNewTab })}
-                  onAuxClick={(e) => openPageAux(e, r.id, { onNavigate, onOpenInNewTab })}
-                  title={r.title}
+        <button className="btn-sm" onClick={goToday}>{t('Today')}</button>
+        <div className="cal-right">
+        <div className="cal-settings-wrap" ref={calSettingsRef}>
+          <button
+            className={'btn-sm' + (settingsHint ? ' has-dot' : '')}
+            title={t('Calendar settings: start and end')}
+            onClick={() => {
+              setSettingsOpen((o) => !o);
+              settingsSeen();
+            }}
+            aria-expanded={settingsOpen}
+          >
+            <Settings2 size={14} />
+          </button>
+          {settingsOpen && (
+            <AnchoredMenu className="menu tl-settings-menu">
+              <div className="tl-menu-head">{t('Calendar settings')}</div>
+              <label className="tl-settings-row">
+                <span>{t('Start')}</span>
+                <select
+                  className="subitems-select"
+                  value={dateProp}
+                  onChange={(e) => onViewChange({ dateProp: e.target.value || undefined })}
                 >
-                  {r.icon && <span className="inline-icon"><PageIcon icon={r.icon} size={14} /> </span>}
-                  {r.title || 'Untitled'}
-                  {!!r.tags?.length && (
-                    <span className="cal-event-tags">
-                      {r.tags.map((t) => (
-                        <span key={t} className={'row-tag ' + tagColorClass(t, tagColors)}>#{t}</span>
-                      ))}
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-          );
-        })}
+                  <option value="">{t('Start: —')}</option>
+                  {dateProps.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="tl-settings-row">
+                <span>{t('End')}</span>
+                <select
+                  className="subitems-select"
+                  value={endDateProp}
+                  onChange={(e) => onViewChange({ endDateProp: e.target.value || undefined })}
+                >
+                  <option value="">{t('End: (none)')}</option>
+                  {dateProps.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="tl-menu-hint">
+                {t('A range is drawn as one bar; with no end it stays an entry on a single day.')}
+              </div>
+            </AnchoredMenu>
+          )}
+        </div>
+          <ModePicker mode={mode} onChange={onModeChange} />
+        </div>
       </div>
+      {ghost && (
+        <div className="cal-ghost" style={{ left: ghost.x, top: ghost.y }} aria-hidden="true">
+          {ghost.title}
+        </div>
+      )}
+      {mode === 'day' ? (
+        <div className="cal-day-list">
+          {(byDate.get(toDayString(cursor)) ?? []).map((r) => eventButton(r, cursor))}
+          {(byDate.get(toDayString(cursor)) ?? []).length === 0 && (
+            <div className="db-empty">{t('Nothing on this day.')}</div>
+          )}
+        </div>
+      ) : mode === 'week' ? (
+        <div className="calendar-grid">
+          {weekdayNames().map((d) => (
+            <div key={d} className="calendar-dow">{d}</div>
+          ))}
+          {weekDays.map((d, i) => dayCell(d, i, lanesFor(weekDays), weekDays.map((x) => ymd(x))))}
+        </div>
+      ) : mode === 'year' ? (
+        <div className="cal-year">
+          {yearMonths.map((first, mi) => (
+            <div key={mi} className="cal-mini">
+              <button
+                className="cal-mini-title"
+                onClick={() => {
+                  setCursor(new Date(first.getFullYear(), first.getMonth(), 1));
+                  onModeChange('month');
+                }}
+              >
+                {formatMonth(first.getFullYear(), first.getMonth(), 'long')}
+              </button>
+              <div className="cal-mini-grid">
+                {monthCells(first).map((d, i) => {
+                  const key = d ? ymd(d) : '';
+                  const has = d && ((byDate.get(key) ?? []).length > 0 || covered.has(key));
+                  const dim = d && d.getMonth() !== first.getMonth();
+                  return (
+                    <button
+                      key={i}
+                      className={
+                        'cal-mini-day' +
+                        (!d ? ' empty' : '') +
+                        (key === today ? ' today' : '') +
+                        (has ? ' has-events' : '') +
+                        (dim ? ' dim' : '')
+                      }
+                      disabled={!d}
+                      onClick={() => {
+                        if (!d) return;
+                        setCursor(new Date(d.getFullYear(), d.getMonth(), d.getDate()));
+                        onModeChange('day');
+                      }}
+                      title={d ? formatDay(toDayString(d)) : undefined}
+                    >
+                      {d?.getDate() ?? ''}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="cal-grids">
+          {monthStarts.map((first, mi) => {
+            const rowLanes = monthRowLanes(first);
+            const cells = monthCells(first);
+            const rowKeys = (r: number) =>
+              cells
+                .slice(r * 7, r * 7 + 7)
+                .map((c) => (c ? ymd(c) : ''))
+                .filter((k) => k !== '');
+            return (
+              <div key={mi} className="calendar-grid-wrap">
+                {mode === '2months' && (
+                  <div className="cal-grid-title">{formatMonth(first.getFullYear(), first.getMonth(), 'long')}</div>
+                )}
+                <div className="calendar-grid">
+                  {weekdayNames().map((d) => (
+                    <div key={d} className="calendar-dow">{d}</div>
+                  ))}
+                  {cells.map((d, i) =>
+                    dayCell(
+                      d,
+                      `${mi}-${i}`,
+                      rowLanes[Math.floor(i / 7)],
+                      rowKeys(Math.floor(i / 7)),
+                    ),
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

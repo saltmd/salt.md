@@ -2097,6 +2097,22 @@ body:has(.icon-picker) .bn-side-menu {
   background: var(--hover);
 }
 
+/* A dot on a button with something behind it — the view settings, once per kind
+   of view, cleared the moment it is opened. */
+.btn-sm.has-dot {
+  position: relative;
+}
+.btn-sm.has-dot::after {
+  content: '';
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
 .btn-sm.primary {
   background: var(--accent);
   border-color: var(--accent);
@@ -3291,6 +3307,32 @@ body.is-col-resizing {
   gap: 8px;
   margin-bottom: 10px;
 }
+/* Settings and the period picker keep the right edge, as on the timeline —
+   the settings button used to sit with the arrows on the left. */
+.cal-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+/* A phone cannot fit ‹ title › Today ⚙ and the span picker on one line — the
+   picker used to be pushed off the screen entirely. The head takes two lines
+   there, and the picker keeps the right edge to itself. */
+@media (max-width: 700px) {
+  .calendar-head,
+  .tl-controls {
+    flex-wrap: wrap;
+  }
+  .calendar-head .cal-range-wrap,
+  .tl-controls .cal-range-wrap {
+    margin-left: auto;
+  }
+  .calendar-title,
+  .tl-title {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+}
 
 .calendar-title {
   font-weight: 600;
@@ -3298,10 +3340,204 @@ body.is-col-resizing {
   text-transform: capitalize;
 }
 
-.calendar-grid {
+/* Month-count picker in the calendar head, and the grids it switches. */
+.cal-range-wrap {
+  position: relative;
+  display: inline-flex;
+  margin-left: auto;
+}
+
+.cal-range-wrap .btn-sm {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cal-grids {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  align-items: stretch;
+}
+
+.cal-grids .calendar-grid {
+  min-width: 0;
+}
+
+.cal-grid-title {
+  font-weight: 600;
+  font-size: 14px;
+  text-transform: capitalize;
+  margin: 2px 2px 8px;
+}
+
+/* One day's rows as a plain vertical list. */
+.cal-day-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 2px;
+}
+
+.cal-day-list .calendar-event {
+  text-align: left;
+}
+/* A row with an end date is drawn as one bar across the days it covers: a
+   segment in each cell it touches, bleeding over the cell's own padding and
+   over the 1px grid line so the pieces read as one bar, rounded only at the
+   real start and end. Lanes give a week's bars the same order in every cell,
+   so the segments line up instead of jumping between rows. */
+.cal-lane {
+  height: 21px;
+  flex: none;
+}
+.cal-span {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+  /* A fixed height, not one grown from the text: the segments that carry no
+     label (everything but the first day of a range) would otherwise collapse to
+     their padding and the bar would look like a hairline. */
+  height: 21px;
+  box-sizing: border-box;
+  line-height: 17px;
+  padding: 2px 6px;
+  /* How far a segment reaches past its own cell, so the pieces read as one bar
+     over the grid line. Named because a bar's first segment measures its own
+     width against it (see .cal-span.is-start). */
+  --span-bleed: 4.5px;
+  margin: 0 calc(-1 * var(--span-bleed));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+  cursor: pointer;
+}
+.cal-span.is-start {
+  margin-left: 0;
+  border-radius: 5px 0 0 5px;
+  /* The label belongs to the whole bar, not to its first cell: a range that
+     crosses a week has the width to say its name, where one 50px cell managed
+     only "Дое…". This segment is as wide as the bar is in this week row
+     (--span-cells, set by the view) and is painted above the cells to its
+     right, which draw nothing of their own (see the view) — one layer of a
+     translucent colour, so the bar has no step in it. N cells of pitch, less
+     the grid line that follows the last one, measured from this cell's own
+     text edge. */
+  position: relative;
+  z-index: 1;
+  width: calc(
+    var(--span-cells, 1) * 100% +
+    (var(--span-cells, 1) - 1) * (var(--cell-pad, 4px) * 2 + var(--cell-gap, 1px))
+  );
+}
+/* A bar that runs on into the next week bleeds half the grid line past its last
+   cell here, exactly as a middle segment does — without it the row edge cuts
+   the bar short of the line. A range that really ends in this row stops at the
+   cell's text edge, where its rounded end has always sat. */
+.cal-span.is-start:not(.is-end) {
+  width: calc(
+    var(--span-cells, 1) * 100% +
+    (var(--span-cells, 1) - 1) * (var(--cell-pad, 4px) * 2 + var(--cell-gap, 1px)) +
+    var(--span-bleed)
+  );
+}
+.cal-span.is-end {
+  margin-right: 0;
+  border-radius: 0 5px 5px 0;
+}
+.cal-span.is-start.is-end {
+  border-radius: 5px;
+}
+.cal-span:hover {
+  filter: brightness(1.07);
+}
+/* A dot on a button with something behind it — the view settings, once per kind
+   of view, cleared the moment it is opened. The same mark the workspace menu
+   grows for a waiting proposal. */
+.btn-sm.has-dot {
+  position: relative;
+}
+.btn-sm.has-dot::after {
+  content: '';
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+/* Year overview: twelve compact month grids. Days with rows read bolder;
+   today keeps its marker; the mini title drills into that month. */
+.cal-year {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 20px 24px;
+}
+
+.cal-mini {
+  min-width: 0;
+}
+
+.cal-mini-title {
+  font-weight: 600;
+  font-size: 13.5px;
+  text-transform: capitalize;
+  padding: 2px 4px;
+  border-radius: 6px;
+  color: var(--fg);
+}
+
+button.cal-mini-title:hover {
+  background: var(--hover);
+}
+
+.cal-mini-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 1px;
+}
+
+.cal-mini-day {
+  font-size: 11.5px;
+  text-align: center;
+  padding: 3px 0;
+  border-radius: 5px;
+  color: var(--muted);
+}
+
+.cal-mini-day.empty {
+  visibility: hidden;
+}
+
+.cal-mini-day.dim {
+  opacity: 0.45;
+}
+
+.cal-mini-day.today {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.cal-mini-day.has-events {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+button.cal-mini-day:hover {
+  background: var(--hover);
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  /* Named because a bar's first segment measures its width in whole cells (see
+     .cal-span.is-start) and has to account for the line between them. */
+  --cell-gap: 1px;
+  gap: var(--cell-gap);
   background: var(--border);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -3318,12 +3554,57 @@ body.is-col-resizing {
 }
 
 .calendar-cell {
+  position: relative;
   background: var(--bg);
   min-height: 92px;
-  padding: 4px;
+  /* Grid children default to min-width: auto, so one long unbroken title
+     (white-space: nowrap) forces its column wide and the whole 7-column grid
+     sails off the screen on a phone. Zero lets 1fr hold and the text cut. */
+  min-width: 0;
+  /* Named because a bar's label measures itself in whole cells (see
+     .cal-span.is-start) and needs to know what the cell's own padding is. */
+  --cell-pad: 4px;
+  padding: var(--cell-pad);
   display: flex;
   flex-direction: column;
   gap: 3px;
+}
+/* Add-from-the-day: the corner of the cell. On a pointer it waits for hover, on
+   a touch screen it is simply there. */
+.cal-add {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 6px;
+  background: var(--hover);
+  color: var(--muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.calendar-cell:hover .cal-add {
+  opacity: 1;
+}
+.cal-add:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+@media (hover: none) {
+  .cal-add {
+    opacity: 1;
+  }
+  /* The + owns the bottom-right corner of the cell, so the entries stop above
+     it instead of running under it — two lines made the last one reach the
+     corner, where the button sat on top of the text. */
+  .calendar-cell {
+    padding-bottom: 24px;
+  }
 }
 
 .calendar-cell.empty {
@@ -3335,12 +3616,51 @@ body.is-col-resizing {
   background: var(--accent-soft);
 }
 
+/* The day number is a button — clicking it opens that day in the day view —
+   but it must not look like one: same size, same colour, no underline. */
 .calendar-daynum {
   font-size: 11.5px;
   color: var(--muted);
   align-self: flex-end;
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  line-height: inherit;
+  cursor: pointer;
 }
 
+/* An entry is carried only after a hold (see beginEntryDrag): until then a
+   finger starting here scrolls, like everywhere else. No text selection while
+   dragging it. */
+.calendar-event,
+.cal-span {
+  touch-action: pan-x pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+/* The day an entry would land on. */
+.calendar-cell.is-drop {
+  background: var(--accent-soft);
+}
+/* The entry under the finger, so the drag has something to look at besides a
+   tinted cell. */
+.cal-ghost {
+  position: fixed;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 400;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  box-shadow: var(--shadow);
+  max-width: 220px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .calendar-event {
   border: none;
   background: var(--accent-soft);
@@ -3350,9 +3670,15 @@ body.is-col-resizing {
   font-size: 12px;
   text-align: left;
   cursor: pointer;
-  white-space: nowrap;
+  /* Two lines, not one. A phone's month cell is a few characters wide, and one
+     line is a word cut off at the dots — two at least say what the thing is.
+     A long unbroken title wraps rather than running out of the cell (the cell
+     itself is min-width: 0, see .calendar-cell). */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 
 .calendar-event:hover {
@@ -6903,17 +7229,41 @@ a.btn {
 /* ---- Timeline / Gantt view ---- */
 .timeline { width: 100%; }
 .tl-scroll { overflow-x: auto; overflow-y: hidden; }
-.tl-inner { position: relative; }
+.tl-inner { position: relative; width: 100%; }
+.tl-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.tl-controls .cal-range-wrap {
+  margin-left: auto;
+  /* The mode menu positions against this box; without it the menu opens
+     far above its button. */
+  position: relative;
+}
+.tl-title {
+  font-weight: 600;
+  min-width: 160px;
+  text-transform: capitalize;
+}
 .tl-header { display: flex; }
 .tl-corner {
   position: sticky;
   left: 0;
   z-index: 4;
   flex: none;
-  height: 32px;
+  align-self: stretch;
+  min-height: 32px;
   background: var(--bg);
   border-bottom: 1px solid var(--border);
   border-right: 1px solid var(--border);
+}
+.tl-head-right {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .tl-months {
   position: relative;
@@ -6937,6 +7287,53 @@ a.btn {
   text-transform: capitalize;
 }
 .tl-today-tick { position: absolute; top: 0; width: 2px; height: 32px; background: var(--danger); }
+.tl-days {
+  display: grid;
+  border-bottom: 1px solid var(--border);
+}
+.tl-day {
+  box-sizing: border-box;
+  min-width: 0;
+  text-align: center;
+  font-size: 11.5px;
+  color: var(--muted);
+  padding: 3px 0;
+}
+.tl-day.is-today {
+  color: var(--accent);
+  font-weight: 700;
+}
+/* Weekends get a slightly greyer column: a Gantt is read against them ("does
+   this land on a weekend?"). Before the span rules, so an event's own
+   highlight still wins on a weekend day. */
+.tl-day.is-weekend {
+  background: var(--hover);
+}
+.tl-day.is-span {
+  background: var(--accent-soft);
+}
+.tl-day.is-span-first {
+  border-radius: 8px 0 0 8px;
+}
+.tl-day.is-span-last {
+  border-radius: 0 8px 8px 0;
+}
+.tl-day.is-span-first.is-span-last {
+  border-radius: 8px;
+}
+.tl-label.tl-add {
+  cursor: default;
+}
+.tl-label.tl-add:hover {
+  background: none;
+}
+.tl-add .btn-sm {
+  width: 100%;
+  justify-content: center;
+}
+.timeline {
+  padding: 8px 12px 24px;
+}
 .tl-row { display: flex; align-items: stretch; height: 40px; }
 .tl-label {
   position: sticky;
@@ -6953,38 +7350,167 @@ a.btn {
   cursor: pointer;
   box-sizing: border-box;
 }
-.tl-label:hover { background: var(--hover); }
+.tl-label:hover,
+.tl-label.is-hovered {
+  /* Opaque: the wash over an opaque base, not the wash alone. A bare
+     translucent wash let the bars sliding under this sticky column show
+     straight through it on hover — the whole event printed over the label.
+     Same language as the pinned table cells (see there). */
+  background:
+    linear-gradient(var(--hover), var(--hover)),
+    var(--bg);
+}
+/* Hovering a bar lights up its title in the label column, and hovering the
+   label lights up the bar: short bars carry no readable text, so the label is
+   the only place the name can be seen, and the pair reads as one thing from
+   either end. The bar takes the same brightness its own hover gives it. */
+.tl-bar.is-hovered { filter: brightness(1.07); }
+.tl-label.is-hovered { box-shadow: inset 2px 0 0 var(--border); }
 .tl-label-text {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 13.5px;
 }
-.tl-track { position: relative; flex: none; border-bottom: 1px solid var(--border); }
+.tl-track { position: relative; flex: 1 1 auto; min-width: 0; border-bottom: 1px solid var(--border); }
 .tl-today-line { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--danger); opacity: 0.28; }
+/* The weekend column in the body, one band per weekend rather than per day. It
+   sits behind the bars, so a bar is read against the weekend it crosses. */
+.tl-weekend { position: absolute; top: 0; bottom: 0; background: var(--hover); }
 .tl-bar {
   position: absolute;
   top: 7px;
   height: 26px;
-  background: var(--accent);
+  /* The calendar's own event colours: the accent on a wash of it, not white on
+     solid — a Gantt bar is a span, not a button. */
+  background: var(--accent-soft);
+  color: var(--accent);
   border-radius: 6px;
   display: flex;
   align-items: center;
   padding: 0 9px;
   cursor: pointer;
   overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14);
   transition: filter 0.12s;
+  /* The bar is carried only after a hold (see beginBarDrag): until then a
+     finger starting here scrolls the axis, like everywhere else on it. */
+  touch-action: pan-x pan-y;
+  /* A bar is a control, not prose: a long press on its own text would start a
+     selection, and the browser then takes the gesture over — cancelling the
+     drag and, on iOS, leaving a callout that swallows taps. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 .tl-bar:hover { filter: brightness(1.07); }
+
+/* Edge-resize handles: a slim grip at each bar end. Only where there IS a
+   pointer does hovering reveal it — a touch screen has no hover to read, and
+   would otherwise leave both grips stuck on the bar it last touched. There the
+   grips show while a drag is actually in progress and no longer, which is also
+   what a desktop does once the pointer leaves the bar mid-drag. The band is the
+   same width either way, so where a touch lands does not change. Dragging a
+   grip stretches that edge day by day; the live date hangs off the edge being
+   pulled. */
+.tl-resize {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  /* A twelfth of the bar, so the two grips never eat a short one: on a one-day
+     bar (26px) two 12px bands left a 2px middle, and neither the resize nor the
+     click on the row could be aimed at. */
+  width: min(12px, 30%);
+  max-width: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: ew-resize;
+  /* Same hold-to-arm as the bar itself: a swipe from a grip scrolls. */
+  touch-action: pan-x pan-y;
+  opacity: 0;
+}
+@media (hover: hover) {
+  .tl-bar:hover .tl-resize {
+    opacity: 1;
+  }
+}
+.tl-bar.is-dragging .tl-resize {
+  opacity: 1;
+}
+.tl-resize::after {
+  content: '';
+  width: 3px;
+  height: 14px;
+  border-radius: 2px;
+  /* The accent, like the bar's own text — white would vanish on the wash. */
+  background: currentColor;
+}
+.tl-resize-l {
+  left: 1px;
+}
+.tl-resize-r {
+  right: 1px;
+}
+/* While an edge is held the whole page stops offering a text selection: a drag
+   that wanders off the bar must not be able to start one there instead, and the
+   cursor stays the resize one wherever the pointer goes. */
+body.is-tl-resizing {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  cursor: ew-resize;
+}
+.tl-drag-tip {
+  position: absolute;
+  top: -30px;
+  transform: translateX(-50%);
+  background: var(--fg);
+  color: var(--bg);
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+  z-index: 5;
+  pointer-events: none;
+}
 .tl-bar-label {
   font-size: 12px;
   font-weight: 500;
-  color: #fff;
+  /* The bar's own colour (the accent), which the calendar's events use too. */
+  color: inherit;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* A phone gets taller bars: the row is where a finger aims, and 26px of wash is
+   a hard target to hit and a hard thing to read. */
+@media (max-width: 900px) {
+  .tl-row { height: 46px; }
+  .tl-bar { height: 32px; }
+}
+.tl-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.tl-right .cal-range-wrap { margin-left: 0; }
+/* The wrapper is what AnchoredMenu measures: without a positioned box the
+   settings menu lands wherever the nearest positioned ancestor happens to be
+   rather than under its own button. */
+.tl-settings-wrap { position: relative; }
+.tl-settings-menu { min-width: 260px; padding: 8px; }
+.tl-menu-head { font-weight: 600; font-size: 13px; padding: 4px 6px 8px; }
+.tl-menu-hint { font-size: 12px; color: var(--muted); padding: 4px 6px; }
+.tl-settings-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  font-size: 13px;
+}
+.tl-settings-row > span { flex: none; width: 64px; color: var(--muted); }
+.tl-settings-row .subitems-select { flex: 1 1 auto; min-width: 0; }
 
 /* ---- Sub-task tree (table hierarchy) ---- */
 .db-title-inner { display: inline-flex; align-items: center; gap: 2px; }
