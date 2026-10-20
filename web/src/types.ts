@@ -284,6 +284,22 @@ export function normalizeCollectionConfig(cfg: CollectionConfig): CollectionConf
   }
   return cfg;
 }
+/** The one filter condition that is not about a column: whether the row is a
+ *  template. A pseudo-property, so it travels in the same Filter shape as
+ *  everything else. The server knows this id, and so does the sort picker
+ *  below for its own two pseudo-properties. */
+export const TEMPLATE_FILTER = '@template';
+
+/** The two orders that are not about a column: when the row was made and when
+ *  it was last touched. Pseudo-properties, like the template condition — a view
+ *  saves them in the same Sort shape as any column. */
+export const SORT_CREATED = '@created';
+export const SORT_UPDATED = '@updated';
+
+/** A reference to a column or to one of the system pseudo-properties above:
+ *  anything a saved view can point at that no schema edit can remove. */
+export const isSystemRef = (id: string) =>
+  id === TEMPLATE_FILTER || id === SORT_CREATED || id === SORT_UPDATED;
 
 export interface ViewDef {
   id: string;
@@ -309,6 +325,8 @@ export interface ViewDef {
 export interface CollectionConfig {
   schema: PropDef[];
   views: ViewDef[];
+  /** Template new rows are duplicated from (empty = blank rows). */
+  newFromTemplate?: string;
 }
 
 // Public form config served (unauthenticated) at /api/public/form/{token} —

@@ -304,6 +304,7 @@ configures the current view sits on the right, in this order:
 | **Group** | Board only: which property makes the columns. |
 | **Columns** | Which properties this view shows. Shows `Columns (4/7)` when anything is hidden. |
 | **Properties** | The schema editor: add a property, change a type, edit select options. It edits the collection, not the view, so it changes every view at once. This is the **⚙ Properties** the empty-state messages point at. |
+| **New rows from template** | In the same dialog, below the properties: a template every **＋ New** in the collection duplicates. What the button prescribes — the column on a board, the day on a calendar — is overwritten on top; values and text come from the template. Blank rows when nothing is chosen. |
 | **⋯** (*View options*) | Rename, move and remove this view. |
 | **＋ New** | Creates an *Untitled* row and opens it. Every view except a form has it. |
 
@@ -406,7 +407,9 @@ not: there the sort is the database's alone.
 One property, **Ascending** or **Descending**, or **No sort** (the popover
 behind the **Sort** button). Text is compared the way your language sorts it, so
 accented letters land beside their plain forms instead of after Z; numbers are
-compared as numbers.
+compared as numbers. Below the collection's columns, under a **System** heading
+of their own, sit two orders that are not columns at all: **Created** and
+**Updated**, by when the row was made and last touched.
 
 With no sort, rows keep the order they have in the collection: the manual
 position first, then when they were created. That is also the order cards come in

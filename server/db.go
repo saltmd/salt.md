@@ -396,6 +396,11 @@ func openDB(path string) (*sql.DB, error) {
 	if err := ensureColumn(db, "pages", "is_template", `is_template INTEGER NOT NULL DEFAULT 0`); err != nil {
 		return nil, fmt.Errorf("migrate pages.is_template: %w", err)
 	}
+	// The template new rows of a collection are made from (see
+	// newFromTemplate): empty means plain blank rows, as before.
+	if err := ensureColumn(db, "collections", "new_from_template", `new_from_template TEXT NOT NULL DEFAULT ''`); err != nil {
+		return nil, fmt.Errorf("migrate collections.new_from_template: %w", err)
+	}
 	// Page tags: a JSON array of short labels (Obsidian-style, workspace-scoped).
 	if err := ensureColumn(db, "pages", "tags", `tags TEXT NOT NULL DEFAULT '[]'`); err != nil {
 		return nil, fmt.Errorf("migrate pages.tags: %w", err)
