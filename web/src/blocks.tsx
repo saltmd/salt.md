@@ -361,7 +361,12 @@ export const databaseSpec = createReactBlockSpec(
       if (!collectionId) {
         const dbs = [...pagesById.values()]
           .filter((p) => p.type === 'collection' && !p.trashed)
-          .filter((p) => (p.title || '').toLowerCase().includes(q.trim().toLowerCase()));
+          .filter((p) => {
+            // The description is searchable too: it is what tells two
+            // similarly named collections apart.
+            const needle = q.trim().toLowerCase();
+            return (p.title || '').toLowerCase().includes(needle) || (p.description || '').toLowerCase().includes(needle);
+          });
         return (
           <div className="bn-db-picker" contentEditable={false}>
             <input
@@ -380,8 +385,11 @@ export const databaseSpec = createReactBlockSpec(
                   type="button"
                   onClick={() => editor.updateBlock(block, { props: { collectionId: d.id } } as never)}
                 >
-                  <PageIcon icon={d.icon} size={15} fallback={<Table2 size={15} />} />{' '}
-                  {d.title || t('Untitled')}
+                  <PageIcon icon={d.icon} size={15} fallback={<Table2 size={15} />} />
+                  <span className="bn-db-picker-text">
+                    <span className="bn-db-picker-name">{d.title || t('Untitled')}</span>
+                    {d.description && <span className="bn-db-picker-desc">{d.description}</span>}
+                  </span>
                 </button>
               ))}
             </div>

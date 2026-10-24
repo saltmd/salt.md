@@ -7652,6 +7652,32 @@ a,
   background: var(--hover);
 }
 
+/* Name, and under it the collection's description when it has one. Rows
+   without a description keep the single line they always had. */
+.bn-db-picker-list button > :first-child {
+  flex-shrink: 0;
+}
+
+.bn-db-picker-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.bn-db-picker-name,
+.bn-db-picker-desc {
+  overflow: hidden;
+}
+
+.bn-db-picker-desc {
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
 .bn-db-picker-empty,
 .bn-db-missing {
   padding: 10px;

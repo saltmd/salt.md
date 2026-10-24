@@ -361,7 +361,10 @@ collection's subtree and are found by expanding the row.
 ## Collections inside documents
 
 A collection can be **embedded** in a document's body: type `/` and choose
-**Embed a collection**, then search for it by name. What you get is fully usable
+**Embed a collection**, then search for it by name. Each entry shows the
+collection's icon and name and, when the collection has a description, that
+description in muted text under the name (cut off after two lines); the search
+matches the description as well as the name. What you get is fully usable
 in place (filter it, add rows, drag cards), with the document's own text above
 and below it. The heading of the block opens it as its own page
 (**Open as page ↗**).
