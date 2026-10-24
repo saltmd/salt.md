@@ -458,7 +458,7 @@
         }
       ],
       "takenAt": {
-        "server/public.go": "62d933047cbe",
+        "server/public.go": "bff22efd591f",
         "web/src/components/Editor.tsx": "68b120107f3b",
         "web/src/theme.css": "b1c3dece61ce"
       }
@@ -854,7 +854,7 @@
       "element": ".dialog",
       "takenAt": {
         "web/src/components/AdminSettings.tsx": "62ab18d78308",
-        "server/export_html.go": "3de1d301fa95",
+        "server/export_html.go": "fb7922684dca",
         "web/src/theme.css": "b1c3dece61ce"
       }
     },

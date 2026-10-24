@@ -9960,7 +9960,12 @@ body:has(.live-down) .update-banner {
    block's children, which BlockNote renders into the .bn-block-group beneath
    it. Laying that group out as a grid is the whole feature — no container, no
    nested editor, and every bit of nesting behaviour keeps working. */
+.bn-block-content[data-content-type='columns'],
 .bn-columns {
+  width: 100%;
+}
+.bn-columns {
+  position: relative;
   display: flex;
   justify-content: flex-end;
   padding: 2px 0;
@@ -9971,7 +9976,11 @@ body:has(.live-down) .update-banner {
   opacity: 0;
   transition: opacity 0.12s;
 }
+/* Two forms, as for the row below: BlockNote wraps a React block in a
+   .react-renderer between the block and its content, so the plain child chain
+   alone never matched and the bar only ever showed when it had focus. */
 .bn-block:hover > .bn-block-content > .bn-columns .bn-columns-bar,
+.bn-block:hover > * > .bn-block-content > .bn-columns .bn-columns-bar,
 .bn-columns-bar:focus-within {
   opacity: 1;
 }
@@ -9991,6 +10000,74 @@ body:has(.live-down) .update-banner {
   color: var(--accent, #2f7d4f);
   border-color: transparent;
 }
+/* A layout drawn as itself: one little bar per column, as wide as the column. */
+.bn-columns-glyph {
+  display: flex;
+  gap: 2px;
+  width: 24px;
+  height: 11px;
+}
+.bn-columns-glyph i {
+  min-width: 2px;
+  border-radius: 2px;
+  background: currentColor;
+  opacity: 0.6;
+}
+.bn-columns-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+/* The divider between two columns and the grip that resizes them are ONE
+   element, so the line you see is the thing you drag. The 12px box is only the
+   target (the table's own .col-resize: same width and cursor, moved from a
+   cell's edge to the middle of the gap); what shows is a 1px line down its
+   middle, always, read-only pages included, in the strong border colour: the
+   hairline it replaces was about that dark, and the plain one all but vanishes
+   in the dark theme. Under the pointer, while dragging or with keyboard focus
+   it thickens to 4px in the accent colour — the width of the editor table's own
+   column-resize handle (.column-resize-handle), whose light blue is not
+   themed, so the accent is used. Placed inline from the measured row, left and
+   top. */
+.bn-columns-grip {
+  position: absolute;
+  z-index: 2;
+}
+.col-resize.bn-columns-grip,
+.col-resize.bn-columns-grip:hover,
+.col-resize.bn-columns-grip:active {
+  right: auto;
+  background: none;
+  opacity: 1;
+}
+.bn-columns-grip.is-static {
+  pointer-events: none;
+}
+.bn-columns-grip::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  margin-left: -0.5px;
+  background: var(--border-strong, #cfcfcf);
+  transition: width 0.12s, margin-left 0.12s, background-color 0.12s;
+}
+.bn-columns-grip:hover::before,
+.bn-columns-grip:active::before,
+.bn-columns-grip:focus-visible::before {
+  width: 4px;
+  margin-left: -2px;
+  border-radius: 2px;
+  background: var(--accent, #3b6fb5);
+}
+.col-resize.bn-columns-grip:focus {
+  outline: none;
+}
 /* Two forms of the same rule, because BlockNote puts a wrapper between the
    block and its content and the class on that wrapper is not ours to rely on.
    The second form matches through any single wrapper; keeping both means an
@@ -10002,11 +10079,19 @@ body:has(.live-down) .update-banner {
   align-items: start;
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
-/* BlockNote draws a left border on a nested group to show indentation. Between
-   columns it reads as a quote bar, so it goes. */
+/* BlockNote draws a left border on a nested group to show indentation: a
+   border on the group, and a guide line (.bn-block-outer::before, 20px left of
+   the block) on each block in it. Between columns that reads as a quote bar,
+   and the first column gets one too, so both go, for the row's direct children
+   only; a block indented INSIDE a column keeps its guide. The divider is the
+   grip's, centred in the gap. */
 .bn-block:has(> .bn-block-content[data-content-type='columns']) > .bn-block-group > .bn-block-outer,
 .bn-block:has(> * > .bn-block-content[data-content-type='columns']) > .bn-block-group > .bn-block-outer {
   border-left: none;
+}
+.bn-block:has(> .bn-block-content[data-content-type='columns']) > .bn-block-group > .bn-block-outer::before,
+.bn-block:has(> * > .bn-block-content[data-content-type='columns']) > .bn-block-group > .bn-block-outer::before {
+  display: none;
 }
 .bn-block:has(> .bn-block-content[data-content-type='columns']) > .bn-block-group,
 .bn-block:has(> * > .bn-block-content[data-content-type='columns']) > .bn-block-group {

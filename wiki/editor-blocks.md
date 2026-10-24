@@ -91,14 +91,25 @@ The seven salt.md blocks carry a one-line description in the menu:
 - **Sub-pages**: *List of pages below this one*
 
 **Columns** is a block that holds nothing itself. Inserting it gives you two
-empty blocks side by side; the small **2 / 3** control at its right edge, which
-appears on hover, switches between two and three. A column is one block, and a
-block can be indented into it, so a column can hold more than one thing.
+empty blocks side by side. Hover the block and a small bar appears at its right
+edge with five layouts: two equal columns, **70 / 30**, **30 / 70**, three equal
+columns, and **25 / 50 / 25**. Picking a three-column layout adds the third
+column; going back to two removes the last column only if it is empty, so
+nothing you wrote is deleted by a click. A column is one block, and a block can
+be indented into it, so a column can hold more than one thing.
 
-It replaced a paid add-on. Two things it does not do, which that one did:
-dragging a block sideways to open a new column, and pulling the edges to change
-their widths. Both are worth having; neither was worth a component whose licence
-would have to be renegotiated the day any part of salt.md is closed.
+A thin line runs down the middle of the gap between columns. **Drag it** to
+change their widths. It is the same handle as a table's column border: the
+cursor turns into a column-resize arrow and the line thickens under the
+pointer. Where a page cannot be edited the line stays and the handle goes. The two columns beside the handle
+trade width and neither goes below 15%. Double-click the handle to make the
+columns equal again. With the keyboard, Tab to a handle and press the left or
+right arrow (5% a press, 1% with Shift). The widths are saved on the block, so
+they survive a reload, reach everyone editing the page, and are used by the
+public page and the print view.
+
+It replaced a paid add-on. One thing it does not do, which that one did:
+dragging a block sideways to open a new column.
 
 **Diagram** is written, not drawn. The block holds
 [Mermaid](https://mermaid.js.org) source (`A --> B` rather than coordinates for
@@ -281,8 +292,8 @@ want it inside this document, embed it (below).
 
 ### Columns
 
-**Two Columns** and **Three Columns** insert a layout of empty columns. Blocks
-are dragged in and out; column widths are dragged. Columns are a layout, not
+**Columns** inserts two empty columns; the bar on the block switches layout.
+Blocks are dragged in and out; column widths are dragged. Columns are a layout, not
 content: a Markdown export flattens them back into one sequence.
 
 ### Image, Video, Audio, File

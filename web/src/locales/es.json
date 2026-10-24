@@ -1137,5 +1137,8 @@
   "Keep it up to date automatically (checked daily, checksum verified)": "Mantenerlo actualizado automáticamente (se comprueba a diario, con suma de verificación)",
   "Check now": "Comprobar ahora",
   "Public link": "Enlace público",
-  "Copy failed; select the link": "No se pudo copiar; selecciona el enlace"
+  "Copy failed; select the link": "No se pudo copiar; selecciona el enlace",
+  "Column layout": "Distribución de columnas",
+  "Column width": "Ancho de columna",
+  "Drag to resize, double-click to reset": "Arrastra para redimensionar, doble clic para igualar los anchos"
 }

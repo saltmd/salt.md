@@ -226,7 +226,7 @@ func renderBlockHTML(b *strings.Builder, blk mdBlock) {
 				n = 3
 			}
 		}
-		b.WriteString(`<div class="cols" data-count="` + strconv.Itoa(n) + `">`)
+		b.WriteString(`<div class="cols" data-count="` + strconv.Itoa(n) + `"` + columnsStyle(blk.Props, n) + `>`)
 		for _, col := range blk.Children {
 			b.WriteString(`<div>`)
 			renderBlocksHTML(b, []mdBlock{col})
@@ -413,8 +413,8 @@ body:not(.opt-icon) .doc-icon{display:none}
 .doc-icon-img{border-radius:.15em;object-fit:contain}
 body:not(.opt-comments) .doc-comments{display:none}
 body:not(.opt-ws) .cover-ws{display:none}
-.cols{display:grid;gap:24px;align-items:start;grid-template-columns:repeat(2,minmax(0,1fr))}
-.cols[data-count="3"]{grid-template-columns:repeat(3,minmax(0,1fr))}
+.cols{display:grid;gap:24px;align-items:start;grid-template-columns:var(--cols,repeat(2,minmax(0,1fr)))}
+.cols[data-count="3"]{grid-template-columns:var(--cols,repeat(3,minmax(0,1fr)))}
 .cols>div>*:first-child{margin-top:0}
 .diagram{margin:1em 0}
 .diagram img{width:100%;height:auto;display:block}
