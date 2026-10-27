@@ -134,6 +134,7 @@ export const api = {
       publicBaseUrl: string;
       trustProxy: boolean;
       allowUserWorkspaces: boolean;
+      createPersonalWorkspaces: boolean;
       agentAddressesOn: boolean;
       agentAddresses: string;
       anthropicAddresses: string;

@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import { confirm } from '../dialog';
-import type { ChecklistItem, PropDef, PropOption } from '../types';
+import type { ChecklistItem, PropDef, PropOption, User } from '../types';
 import Portal from './Portal';
 import { OPTION_HEXES, optionPalette, optionSlug } from '../selectOptions';
 import { daysUntil, formatDay, formatMoment, formatNumber } from '../format';
@@ -445,6 +445,27 @@ function ChecklistValue({ value, onChange, readOnly, compact }: Props) {
 export type Member = { userId: string; name: string; color: string; avatar: string };
 let memberCache: Promise<Member[]> | null = null;
 
+let cachedCurrentUser: User | null = null;
+let currentUserPromise: Promise<User | null> | null = null;
+
+export function getCurrentUser(): Promise<User | null> {
+  if (cachedCurrentUser) return Promise.resolve(cachedCurrentUser);
+  if (!currentUserPromise) {
+    currentUserPromise = api
+      .me()
+      .then((m) => {
+        cachedCurrentUser = m.authenticated && m.user ? m.user : null;
+        return cachedCurrentUser;
+      })
+      .catch(() => null);
+  }
+  return currentUserPromise;
+}
+
+export function setCurrentUser(u: User | null): void {
+  cachedCurrentUser = u;
+}
+
 export function loadMembers(): Promise<Member[]> {
   if (!memberCache) {
     memberCache = api
@@ -465,7 +486,34 @@ export function loadMembers(): Promise<Member[]> {
 /** The chip: a face plus the name. Matches by id first, then by name, so a
     value an agent wrote as plain text still finds its person; an unknown value
     stays readable text rather than disappearing. */
-function PersonChip({ raw, members }: { raw: string; members: Member[] }) {
+export function PersonChip({
+  raw,
+  members,
+  currentUser,
+}: {
+  raw: string;
+  members: Member[];
+  currentUser?: User | null;
+}) {
+  if (raw === '@me' || raw === 'me') {
+    const cur = currentUser ?? cachedCurrentUser;
+    const name = cur?.name ? `${t('Current user')} (${cur.name})` : t('Current user');
+    const color = cur?.color || '#2f7d4f';
+    return (
+      <span className="prop-person" title={name}>
+        <span
+          className="cp-avatar prop-person-av"
+          style={{ background: cur?.avatar ? 'transparent' : color }}
+        >
+          {cur?.avatar ? <img src={cur.avatar} alt="" /> : (cur ? initials(cur.name) : '@')}
+        </span>
+        <span className="prop-person-name">
+          {t('Current user')}
+          {cur?.name ? <span className="fs-person-mename"> ({cur.name})</span> : null}
+        </span>
+      </span>
+    );
+  }
   const lower = raw.toLowerCase();
   const hit = members.find((m) => m.userId === raw) ?? members.find((m) => m.name.toLowerCase() === lower);
   const name = hit?.name ?? raw;

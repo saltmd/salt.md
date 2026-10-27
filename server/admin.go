@@ -146,6 +146,8 @@ type appSettings struct {
 	// W97: may non-admins create workspaces of their own (and become their
 	// admin)? Default yes — that is how it was; the switch gives control.
 	AllowUserWorkspaces bool `json:"allowUserWorkspaces"`
+	// Create personal workspace for new users upon onboarding? Default yes.
+	CreatePersonalWorkspaces bool `json:"createPersonalWorkspaces"`
 	// Agent keys from listed addresses only (agent_addresses.go). The
 	// Anthropic range travels with it so the dialog's button has one source.
 	AgentAddressesOn   bool   `json:"agentAddressesOn"`
@@ -158,7 +160,8 @@ func (s *Server) loadSettings() appSettings {
 		InstanceName:        s.setting("instance_name", ""),
 		SignupMode:          s.setting("signup_mode", "invite"),
 		AllowedDomains:      s.setting("allowed_domains", ""),
-		AllowUserWorkspaces: s.setting("allow_user_workspaces", "1") != "0",
+		AllowUserWorkspaces:      s.setting("allow_user_workspaces", "1") != "0",
+		CreatePersonalWorkspaces: s.setting("create_personal_workspaces", "1") != "0",
 		SMTPHost:            s.setting("smtp_host", ""),
 		SMTPPort:            s.setting("smtp_port", "587"),
 		SMTPUser:            s.setting("smtp_user", ""),
@@ -236,7 +239,8 @@ func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 		GoogleSecret        *string `json:"googleClientSecret"`
 		MSClientID          *string `json:"msClientId"`
 		MSSecret            *string `json:"msClientSecret"`
-		AllowUserWorkspaces *bool   `json:"allowUserWorkspaces"`
+		AllowUserWorkspaces      *bool   `json:"allowUserWorkspaces"`
+		CreatePersonalWorkspaces *bool   `json:"createPersonalWorkspaces"`
 		AgentAddressesOn    *bool   `json:"agentAddressesOn"`
 		AgentAddresses      *string `json:"agentAddresses"`
 	}
@@ -293,6 +297,13 @@ func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 			v = "0"
 		}
 		s.setSetting("allow_user_workspaces", v)
+	}
+	if body.CreatePersonalWorkspaces != nil {
+		v := "1"
+		if !*body.CreatePersonalWorkspaces {
+			v = "0"
+		}
+		s.setSetting("create_personal_workspaces", v)
 	}
 	set("https_domain", body.HTTPSDomain)
 	set("mail_from_override", body.MailFrom)

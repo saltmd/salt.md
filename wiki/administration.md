@@ -139,6 +139,11 @@ disabled on this instance. Ask an admin"*. On, anybody can create one and
 becomes its workspace admin, which makes them responsible for that one
 workspace's members, not for the instance.
 
+**Create personal workspace for new users**: a checkbox, on by default. Off,
+new users do not receive a personal workspace upon registration and only join
+workspaces they were invited to or that are open to everyone. On, each new user
+automatically gets their own personal workspace and becomes its admin.
+
 The tab then configures **Sign in with Google / Microsoft (OAuth)**: the
 redirect URIs to paste into the provider's console are shown ready to copy, and
 the client ID and secret go underneath. A stored secret shows as *•••••• (stored)*

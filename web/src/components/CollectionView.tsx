@@ -17,9 +17,10 @@ import type {
   PropOption,
   PropType,
   Sort,
+  User as AuthUser,
   ViewDef,
 } from '../types';
-import PropertyValue, { PersonStack, idList, loadRelationOptions, type RelOption } from './PropertyValue';
+import PropertyValue, { PersonChip, PersonStack, getCurrentUser, idList, loadMembers, loadRelationOptions, type Member, type RelOption } from './PropertyValue';
 import { openCollectionRow, openPageAux } from '../pageOpen';
 import { readViewId, readViewScroll, writeViewId, writeViewScroll } from '../pageUiState';
 import { AgentDot } from './AgentBadge';
@@ -179,7 +180,13 @@ function liveValue(v: string, op: FilterOp, isDate: boolean): boolean {
   return isDate && op !== 'contains' ? isReadableDay(v) : !isUnfinishedRelativeDay(v);
 }
 
-function matchesFilter(row: Row, f: Filter, isDate: boolean): boolean {
+function matchesFilter(
+  row: Row,
+  f: Filter,
+  isDate: boolean,
+  isPerson = false,
+  currentUser: AuthUser | null = null,
+): boolean {
   const v = row.props[f.property];
   const op = f.op ?? (f.value ? 'is' : 'is_not_empty');
   if (!filterIsArmed(f, isDate)) return true;
@@ -190,11 +197,19 @@ function matchesFilter(row: Row, f: Filter, isDate: boolean): boolean {
   const day = (s: string) => (isDate ? (resolveSmartDate(s) ?? s) : s);
   const live = (s: string) => liveValue(s, op, isDate);
   const value = day(f.value ?? '');
-  const vals = filterValues(f)
-    .filter(live)
-    .map(day);
+  const rawVals = filterValues(f).filter(live);
+  const vals: string[] = [];
+  for (const item of rawVals) {
+    if (isPerson && (item === '@me' || item === 'me')) {
+      if (currentUser?.id) vals.push(currentUser.id);
+      if (currentUser?.name && currentUser.name !== currentUser.id) vals.push(currentUser.name);
+      if (!currentUser?.id) vals.push('__nobody__');
+    } else {
+      vals.push(day(item));
+    }
+  }
   // One value or several, the question is the same: does the cell hold any of
-  // them. A cell may itself be a list (multiselect, relation).
+  // them. A cell may itself be a list (multiselect, relation, person).
   const holdsAny = () =>
     Array.isArray(v)
       ? vals.some((x) => v.includes(x))
@@ -207,7 +222,10 @@ function matchesFilter(row: Row, f: Filter, isDate: boolean): boolean {
     case 'is_not_empty':
       return !isEmptyVal(v);
     case 'contains': {
-      const needle = value.toLowerCase();
+      let needle = value.toLowerCase();
+      if (isPerson && (needle === '@me' || needle === 'me')) {
+        needle = currentUser?.name?.toLowerCase() || currentUser?.id?.toLowerCase() || '@me';
+      }
       if (Array.isArray(v)) return v.some((x) => String(x).toLowerCase().includes(needle));
       return String(v ?? '').toLowerCase().includes(needle);
     }
@@ -240,12 +258,14 @@ function matchesFilter(row: Row, f: Filter, isDate: boolean): boolean {
 }
 
 // Apply a view's filters and sort to the row set.
-function applyView(rows: Row[], view: ViewDef, schema: PropDef[]): Row[] {
+function applyView(rows: Row[], view: ViewDef, schema: PropDef[], currentUser: AuthUser | null = null): Row[] {
   const dateProps = new Set(schema.filter((p) => p.type === 'date').map((p) => p.id));
+  const personProps = new Set(schema.filter((p) => p.type === 'person').map((p) => p.id));
   let out = rows;
   for (const f of view.filters ?? []) {
     const isDate = dateProps.has(f.property);
-    out = out.filter((r) => matchesFilter(r, f, isDate));
+    const isPerson = personProps.has(f.property);
+    out = out.filter((r) => matchesFilter(r, f, isDate, isPerson, currentUser));
   }
   const sort = view.sort;
   if (sort) {
@@ -262,6 +282,16 @@ function applyView(rows: Row[], view: ViewDef, schema: PropDef[]): Row[] {
 }
 
 export default function CollectionView({ collectionId, pages, tagColors, onNavigate, onOpenInNewTab, onPagesChanged, embed }: Props) {
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [members, setMembers] = useState<Member[]>([]);
+  useEffect(() => {
+    let alive = true;
+    void getCurrentUser().then((u) => alive && setCurrentUser(u));
+    void loadMembers().then((m) => alive && setMembers(m));
+    return () => {
+      alive = false;
+    };
+  }, []);
   const [config, setConfig] = useState<CollectionConfig | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
   // A full page remembers its view across tab switches and reloads (see
@@ -680,7 +710,7 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
     setAddViewOpen(false);
   };
 
-  const viewRows = applyView(rows, view, schema);
+  const viewRows = applyView(rows, view, schema, currentUser);
   const emptyLabel =
     rows.length > 0 && viewRows.length === 0
       ? t('No rows match the current filter.')
@@ -848,7 +878,15 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
             ))}
           </select>
         )}
-        {view.type !== 'form' && <FilterSortControls schema={schema} view={view} onChange={updateView} />}
+        {view.type !== 'form' && (
+          <FilterSortControls
+            schema={schema}
+            view={view}
+            onChange={updateView}
+            members={members}
+            currentUser={currentUser}
+          />
+        )}
         {/* What the collection IS — its columns, its properties, its views —
             is edited on its own page. An embed is a window onto the rows, and
             carrying the whole toolbar into a document made it look like a
@@ -1388,14 +1426,132 @@ function DateFilterValue({ value, onChange }: { value: string; onChange: (v: str
   );
 }
 
+function PersonFilterValue({
+  filter,
+  onChange,
+  members,
+  currentUser,
+}: {
+  filter: Filter;
+  onChange: (patch: Partial<Filter>) => void;
+  members: Member[];
+  currentUser?: AuthUser | null;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const boxRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (boxRef.current && !boxRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    window.addEventListener('mousedown', onDown);
+    return () => window.removeEventListener('mousedown', onDown);
+  }, [open]);
+
+  const picked = filterValues(filter);
+  const q = query.trim().toLowerCase();
+  const filtered = members.filter((m) => m.name.toLowerCase().includes(q) || m.userId.toLowerCase().includes(q));
+  const holds = (m: Member) => picked.includes(m.userId) || picked.includes(m.name);
+
+  const toggle = (v: string) => {
+    let next: string[];
+    if (v === '@me') {
+      next = picked.includes('@me') ? picked.filter((x) => x !== '@me') : [...picked, '@me'];
+    } else {
+      const m = members.find((x) => x.userId === v || x.name === v);
+      if (m) {
+        const on = holds(m);
+        next = on ? picked.filter((x) => x !== m.userId && x !== m.name) : [...picked, m.userId];
+      } else {
+        next = picked.includes(v) ? picked.filter((x) => x !== v) : [...picked, v];
+      }
+    }
+    onChange({ values: next, value: '' });
+  };
+
+  return (
+    <div className="relation-value fs-person-value" ref={boxRef}>
+      <button
+        type="button"
+        className="relation-open fs-person-btn"
+        onClick={() => setOpen((v) => !v)}
+      >
+        {picked.length ? (
+          <span className="fs-person-chips">
+            {picked.map((id) => (
+              <PersonChip key={id} raw={id} members={members} currentUser={currentUser} />
+            ))}
+          </span>
+        ) : (
+          <span className="prop-empty">{t('＋ Person')}</span>
+        )}
+      </button>
+      {open && (
+        <div className="menu relation-menu fs-person-menu">
+          <input
+            className="prop-input"
+            autoFocus
+            placeholder={t('Search or type a name…')}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key !== 'Enter') return;
+              e.preventDefault();
+              if (filtered.length === 1) toggle(filtered[0].userId);
+              else if (query.trim()) toggle(query.trim());
+            }}
+          />
+          <div className="relation-options">
+            <button
+              type="button"
+              className={'relation-option' + (picked.includes('@me') ? ' on' : '')}
+              onClick={() => toggle('@me')}
+            >
+              <span className="relation-check">{picked.includes('@me') ? '✓' : ''}</span>
+              <PersonChip raw="@me" members={members} currentUser={currentUser} />
+            </button>
+            {filtered.map((m) => (
+              <button
+                key={m.userId}
+                type="button"
+                className={'relation-option' + (holds(m) ? ' on' : '')}
+                onClick={() => toggle(m.userId)}
+              >
+                <span className="relation-check">{holds(m) ? '✓' : ''}</span>
+                <PersonChip raw={m.userId} members={members} currentUser={currentUser} />
+              </button>
+            ))}
+            {q && !filtered.some((m) => m.name.toLowerCase() === q || m.userId.toLowerCase() === q) && q !== 'me' && q !== '@me' && (
+              <button type="button" className="relation-option" onClick={() => toggle(query.trim())}>
+                <span className="relation-check">{picked.includes(query.trim()) ? '✓' : ''}</span>
+                <span className="prop-person">
+                  <span className="prop-person-name">{t('Use “{name}”', { name: query.trim() })}</span>
+                </span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function FilterSortControls({
   schema,
   view,
   onChange,
+  members = [],
+  currentUser = null,
 }: {
   schema: PropDef[];
   view: ViewDef;
   onChange: (patch: Partial<ViewDef>) => void;
+  members?: Member[];
+  currentUser?: AuthUser | null;
 }) {
   const [open, setOpen] = useState<'filter' | 'sort' | 'group' | null>(null);
   const controlsRef = useRef<HTMLDivElement>(null);
@@ -1435,7 +1591,7 @@ function FilterSortControls({
       // Wider than it was: a tick list of option names and a pair of date
       // fields need the room, and the old 300 is what everything was being
       // squeezed into.
-      const width = 340;
+      const width = 400;
       const left = Math.max(8, Math.min(r.right - width, vw - width - 8));
       setPos({ position: 'fixed', left, width, top: r.bottom + 6, maxHeight: vh - r.bottom - 24 });
     }
@@ -1493,7 +1649,7 @@ function FilterSortControls({
         { value: 'lt', label: t('before') },
         { value: 'between', label: t('between') },
       );
-    } else if (ty === 'text' || ty === 'person' || ty === undefined) {
+    } else if (ty === 'text' || ty === undefined) {
       base.push({ value: 'contains', label: t('contains') });
     }
     base.push({ value: 'is_empty', label: t('is empty') }, { value: 'is_not_empty', label: t('is not empty') });
@@ -1508,7 +1664,7 @@ function FilterSortControls({
   function takesSeveral(propId: string): boolean {
     const ty = schema.find((p) => p.id === propId)?.type;
     return (
-      ty === 'select' || ty === 'multiselect' || ty === 'relation' || ty === 'backrelation'
+      ty === 'select' || ty === 'multiselect' || ty === 'relation' || ty === 'backrelation' || ty === 'person'
     );
   }
 
@@ -1563,6 +1719,7 @@ function FilterSortControls({
             const rowKey = `${f.property}::${f.op ?? ''}::${occurrence}`;
             const propType = schema.find((p) => p.id === f.property)?.type;
             const isDate = propType === 'date';
+            const isPerson = propType === 'person';
             const picked = filterValues(f);
             const several = takesSeveral(f.property) && (op === 'is' || op === 'is_not');
             // A tick list writes `values`, everything else writes `value` — the
@@ -1608,7 +1765,14 @@ function FilterSortControls({
                 </div>
                 {hasValueInput(op) && (
                   <div className="fs-filter-value">
-                    {several && options.length > 0 ? (
+                    {isPerson && (op === 'is' || op === 'is_not') ? (
+                      <PersonFilterValue
+                        filter={f}
+                        onChange={patch}
+                        members={members}
+                        currentUser={currentUser}
+                      />
+                    ) : several && options.length > 0 ? (
                       <div className="fs-checks">
                         {options.map((o) => (
                           <label key={o.value} className={'fs-check' + (picked.includes(o.value) ? ' on' : '')}>

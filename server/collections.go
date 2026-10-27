@@ -187,6 +187,69 @@ func (s *Server) typeFilters(collectionID string, filters []rowFilter) []rowFilt
 	return out
 }
 
+// resolvePersonFilters resolves "@me" in filters on PERSON properties of the
+// collection to the viewer's ID (and name), so a view "Assignee is Me" works
+// dynamically for whoever opens it.
+func (s *Server) resolvePersonFilters(collectionID string, filters []rowFilter, u *user) []rowFilter {
+	schema, _, err := s.loadCollection(collectionID)
+	if err != nil {
+		return filters
+	}
+	persons := map[string]bool{}
+	for _, p := range schema {
+		if id, _ := p["id"].(string); id != "" {
+			if t, _ := p["type"].(string); t == "person" {
+				persons[id] = true
+			}
+		}
+	}
+	if len(persons) == 0 {
+		return filters
+	}
+	out := make([]rowFilter, len(filters))
+	for i, f := range filters {
+		if persons[f.Prop] {
+			f = f.resolvePerson(u)
+		}
+		out[i] = f
+	}
+	return out
+}
+
+func (f rowFilter) resolvePerson(u *user) rowFilter {
+	target := []string{"__nobody__"}
+	if u != nil && u.ID != "" {
+		target = []string{u.ID}
+		if u.Name != "" && u.Name != u.ID {
+			target = append(target, u.Name)
+		}
+	}
+	expand := func(v string) []string {
+		if v == "@me" || v == "me" {
+			return target
+		}
+		return []string{v}
+	}
+	isMe := f.Value == "@me" || f.Value == "me"
+	if len(f.Values) > 0 {
+		var next []string
+		for _, v := range f.Values {
+			next = append(next, expand(v)...)
+		}
+		f.Values = next
+	} else if isMe {
+		f.Values = target
+	}
+	if isMe {
+		if u != nil && u.ID != "" {
+			f.Value = u.ID
+		} else {
+			f.Value = "__nobody__"
+		}
+	}
+	return f
+}
+
 // vals is what the condition actually compares against: the set if there is one,
 // otherwise the single value. Never both.
 func (f rowFilter) vals() []string {
@@ -406,10 +469,11 @@ func (s *Server) collectionRowsQuery(u *user, colID string, flat []rowFilter, gr
 	// A relative day names a different date every day. Resolve it now, per
 	// query, so a saved view stays live, and only on date properties (see
 	// resolveSmartDates), so a status option named "Today" keeps working.
-	flat = s.typeFilters(colID, s.resolveSmartDates(colID, flat, now))
+	// Similarly, "@me" in person properties resolves to the viewing user.
+	flat = s.typeFilters(colID, s.resolvePersonFilters(colID, s.resolveSmartDates(colID, flat, now), u))
 	resolved := make([][]rowFilter, len(groups))
 	for i, g := range groups {
-		resolved[i] = s.typeFilters(colID, s.resolveSmartDates(colID, g, now))
+		resolved[i] = s.typeFilters(colID, s.resolvePersonFilters(colID, s.resolveSmartDates(colID, g, now), u))
 	}
 	groups = resolved
 	where := []string{"parent_id = ?", "trashed_at IS NULL"}
@@ -417,7 +481,11 @@ func (s *Server) collectionRowsQuery(u *user, colID string, flat []rowFilter, gr
 	// Other people's private rows stay out. The condition belongs in the SQL,
 	// not behind the LIMIT: filtering afterwards would falsify paging and the
 	// total count.
-	rule, ruleArgs := s.privateRowRule(u.ID, colID)
+	var uid string
+	if u != nil {
+		uid = u.ID
+	}
+	rule, ruleArgs := s.privateRowRule(uid, colID)
 	where = append(where, rule)
 	args = append(args, ruleArgs...)
 	// The flat list is a term of its own beside the OR of the groups. Copied

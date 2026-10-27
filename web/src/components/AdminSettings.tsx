@@ -60,6 +60,7 @@ export function AdminSettingsModal({ onClose }: { onClose: () => void }) {
     pageNums: true, comments: false, links: true, landscape: false,
   });
   const [allowUserWs, setAllowUserWs] = useState(true);
+  const [createPersonalWs, setCreatePersonalWs] = useState(true);
   // Agent keys from listed addresses only (server/agent_addresses.go).
   const [agentAddr, setAgentAddr] = useState({ on: false, list: '', anthropic: '' });
   const [passSet, setPassSet] = useState(false);
@@ -116,6 +117,7 @@ export function AdminSettingsModal({ onClose }: { onClose: () => void }) {
           comments: v.pdfComments, links: v.pdfLinks, landscape: v.pdfLandscape,
         });
         setAllowUserWs(v.allowUserWorkspaces !== false);
+        setCreatePersonalWs(v.createPersonalWorkspaces !== false);
         setAgentAddr({ on: v.agentAddressesOn, list: v.agentAddresses, anthropic: v.anthropicAddresses });
         setHttpsEnabled(v.httpsEnabled);
         setOauthSet({ google: v.googleSecretSet, ms: v.msSecretSet });
@@ -229,6 +231,7 @@ export function AdminSettingsModal({ onClose }: { onClose: () => void }) {
         pdfLinks: pdf.links,
         pdfLandscape: pdf.landscape,
         allowUserWorkspaces: allowUserWs,
+        createPersonalWorkspaces: createPersonalWs,
         agentAddressesOn: agentAddr.on,
         agentAddresses: agentAddr.list,
         maxUploadMb: num('maxUploadMb', 1, 2048),
@@ -377,6 +380,20 @@ ingress:
                     <p className="dialog-hint settings-hint">
                       {t(
                         'Off: only admins create workspaces. On (default): anyone can create one of their own and becomes its admin. They then manage the members of THEIR workspace only, not the instance.',
+                      )}
+                    </p>
+
+                    <label className="check-label" style={{ marginTop: 10 }}>
+                      <input
+                        type="checkbox"
+                        checked={createPersonalWs}
+                        onChange={(e) => setCreatePersonalWs(e.target.checked)}
+                      />
+                      {t('Create personal workspace for new users')}
+                    </label>
+                    <p className="dialog-hint settings-hint">
+                      {t(
+                        'Off: new users join existing workspaces only. On (default): each new user gets their own personal workspace and becomes its admin.',
                       )}
                     </p>
 

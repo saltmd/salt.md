@@ -263,3 +263,75 @@ func TestFilterIsOnNumbersAndCheckboxes(t *testing.T) {
 		t.Errorf("flat ok is true: %d rows, %v; want 2", total, err)
 	}
 }
+
+func TestPersonFilterMe(t *testing.T) {
+	s := testServer(t)
+	_, _ = signedIn(t, s, "person_filter@example.com")
+	var ws string
+	if err := s.db.QueryRow(`SELECT id FROM workspaces LIMIT 1`).Scan(&ws); err != nil {
+		t.Fatal(err)
+	}
+
+	col := newID()
+	if _, err := s.db.Exec(`INSERT INTO pages (id, parent_id, workspace_id, title, type, props, created_at, updated_at)
+		VALUES (?, NULL, ?, 'Tasks', 'collection', '{}', ?, ?)`, col, ws, now(), now()); err != nil {
+		t.Fatal(err)
+	}
+	schema := `[{"id":"assignee","name":"Assignee","type":"person"}]`
+	if _, err := s.db.Exec(`INSERT INTO collections (page_id, schema, views) VALUES (?, ?, '[]')`, col, schema); err != nil {
+		t.Fatal(err)
+	}
+
+	rows := []string{
+		`{"assignee":"u_ada"}`,
+		`{"assignee":"Ada Lovelace"}`,
+		`{"assignee":["u_ada","u_bob"]}`,
+		`{"assignee":"u_bob"}`,
+		`{}`,
+	}
+	for i, r := range rows {
+		if _, err := s.db.Exec(`INSERT INTO pages (id, parent_id, workspace_id, title, type, props, position, created_at, updated_at)
+			VALUES (?, ?, ?, 'Task', 'row', ?, ?, ?, ?)`,
+			newID(), col, ws, r, i, now(), now()); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	ada := &user{ID: "u_ada", Name: "Ada Lovelace"}
+	bob := &user{ID: "u_bob", Name: "Bob"}
+
+	query := func(u *user, f rowFilter) int {
+		_, total, err := s.collectionRowsQuery(u, col, []rowFilter{f}, nil, "", 100, 0, time.Time{})
+		if err != nil {
+			t.Fatalf("query: %v", err)
+		}
+		return total
+	}
+
+	// For Ada:
+	if n := query(ada, rowFilter{Prop: "assignee", Op: "is", Value: "@me"}); n != 3 {
+		t.Errorf("Ada is @me: got %d rows, want 3", n)
+	}
+	if n := query(ada, rowFilter{Prop: "assignee", Op: "is", Values: []string{"@me"}}); n != 3 {
+		t.Errorf("Ada is [@me]: got %d rows, want 3", n)
+	}
+	if n := query(ada, rowFilter{Prop: "assignee", Op: "is_not", Value: "@me"}); n != 2 {
+		t.Errorf("Ada is_not @me: got %d rows, want 2", n)
+	}
+	if n := query(ada, rowFilter{Prop: "assignee", Op: "is", Values: []string{"@me", "u_bob"}}); n != 4 {
+		t.Errorf("Ada is [@me, u_bob]: got %d rows, want 4", n)
+	}
+
+	// For Bob:
+	if n := query(bob, rowFilter{Prop: "assignee", Op: "is", Value: "@me"}); n != 2 {
+		t.Errorf("Bob is @me: got %d rows, want 2", n)
+	}
+	if n := query(bob, rowFilter{Prop: "assignee", Op: "is_not", Value: "@me"}); n != 3 {
+		t.Errorf("Bob is_not @me: got %d rows, want 3", n)
+	}
+
+	// Unauthenticated:
+	if n := query(nil, rowFilter{Prop: "assignee", Op: "is", Value: "@me"}); n != 0 {
+		t.Errorf("nil user is @me: got %d rows, want 0", n)
+	}
+}

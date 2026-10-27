@@ -241,10 +241,12 @@ func (s *Server) joinAutoWorkspaces(userID string) int {
 	return len(ids)
 }
 
-// onboardUser gives a freshly created account its place: its own space plus
-// the workspaces open to everyone.
+// onboardUser gives a freshly created account its place: its own space (if enabled)
+// plus the workspaces open to everyone.
 func (s *Server) onboardUser(userID, userName string) {
-	s.createPersonalWorkspace(userID, userName)
+	if s.loadSettings().CreatePersonalWorkspaces {
+		s.createPersonalWorkspace(userID, userName)
+	}
 	s.joinAutoWorkspaces(userID)
 }
 

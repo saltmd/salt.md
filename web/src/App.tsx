@@ -38,6 +38,7 @@ import {
 } from './pageUiState';
 import ShortcutSheet from './components/ShortcutSheet';
 import { guardDrops } from './dropFiles';
+import { setCurrentUser } from './components/PropertyValue';
 
 /** Injected by the build; false everywhere except the website's framed demo. */
 declare const __SALT_DEMO__: boolean;
@@ -350,6 +351,7 @@ export default function App() {
       .me()
       .then((m) => {
         setMe(m);
+        setCurrentUser(m.authenticated && m.user ? m.user : null);
         // Interface memory (open views, scroll positions) belongs to the
         // account, not the browser: a second person signing in here must
         // not inherit the first person's.
@@ -370,6 +372,7 @@ export default function App() {
   useEffect(() => {
     const onUnauthorized = () => {
       setUiAccount(null);
+      setCurrentUser(null);
       setMe((prev) => ({
         setupRequired: prev?.setupRequired ?? false,
         authenticated: false,
