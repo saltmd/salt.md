@@ -338,7 +338,8 @@ and the labels change to suit it:
 | --- | --- |
 | number, rollup, formula | is · is not · **greater than** · **less than** · **between** · is empty · is not empty |
 | date | is · is not · **after** · **before** · **between** · is empty · is not empty |
-| text, person | is · is not · **contains** · is empty · is not empty |
+| person | **is any of** · **is none of** · **contains** · is empty · is not empty |
+| text | is · is not · **contains** · is empty · is not empty |
 | select, multi-select, relation | **is any of** · **is none of** · is empty · is not empty |
 | everything else | is · is not · is empty · is not empty |
 
@@ -355,9 +356,9 @@ What they mean:
 | `lt` | less than, same rule |
 | `between` | inside a range, **inclusive at both ends**: a range named by two dates contains the days it is named after. Takes two values, and does nothing until both are set. |
 
-Where the values come from a fixed list (a select, a multi-select, a relation),
-`is` and `is_not` take **several** values at once and read *is any of* and *is
-none of*. That is one condition with two boxes ticked, not two conditions that
+Where the values come from a fixed list (a select, a multi-select, a relation, a
+person), `is` and `is_not` take **several** values at once and read *is any of* and
+*is none of*. That is one condition with two boxes ticked, not two conditions that
 happen to be about the same column: "class is none of A, H" is a single thing to
 read and a single thing to change.
 
@@ -373,9 +374,14 @@ Three behaviours that surprise people:
 - **`is` and `contains` look inside lists.** Filtering a multi-select or a
   relation for one value needs no special operator.
 - **You never type an id.** The value box adapts to the property: a select offers
-  its options, a checkbox offers **Checked** and **Unchecked**, and a relation or
+  its options, a checkbox offers **Checked** and **Unchecked**, a person offers
+  workspace members with **Current user** (`@me`) at the top, and a relation or
   backrelation offers the titles of the rows it points at. Free text is only for
   the types that have nothing to offer.
+- **A person filter accepts `@me`.** Filtering an Assignee column by **Current user**
+  resolves to whoever is looking at the view, per query on the server and live in
+  the browser. A shared "My tasks" view therefore shows each colleague their own
+  tasks without needing a separate view per person.
 
 The row **title** is not a property and cannot be filtered. To find rows by
 title use [Search](search.md).

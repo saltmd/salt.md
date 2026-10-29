@@ -38,6 +38,7 @@ import {
 } from './pageUiState';
 import ShortcutSheet from './components/ShortcutSheet';
 import { guardDrops } from './dropFiles';
+import { UserContext } from './userContext';
 
 /** Injected by the build; false everywhere except the website's framed demo. */
 declare const __SALT_DEMO__: boolean;
@@ -1191,7 +1192,8 @@ export default function App() {
   const toaster = <Toaster />;
 
   return (
-    <div className={'app' + (sidebarCollapsed ? ' sidebar-collapsed' : '') + (hoverLock ? ' hover-lock' : '')}>
+    <UserContext.Provider value={me?.user ?? null}>
+      <div className={'app' + (sidebarCollapsed ? ' sidebar-collapsed' : '') + (hoverLock ? ' hover-lock' : '')}>
       {/* Collapsed-sidebar hover zone (desktop): hovering the left edge slides
           the sidebar in as an overlay without permanently un-collapsing it. */}
       {sidebarCollapsed && <div className="sidebar-hotzone" />}
@@ -1435,5 +1437,6 @@ export default function App() {
       <ImageLightbox />
       <PullToRefresh />
     </div>
+    </UserContext.Provider>
   );
 }
