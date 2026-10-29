@@ -2045,6 +2045,8 @@ body:has(.icon-picker) .bn-side-menu {
 
 .collection-toolbar {
   display: flex;
+  flex-wrap: wrap;
+  flex: none;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
@@ -2058,6 +2060,7 @@ body:has(.icon-picker) .bn-side-menu {
 
 .view-tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 2px;
 }
 
@@ -2081,6 +2084,7 @@ body:has(.icon-picker) .bn-side-menu {
 
 .collection-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
 }
 
@@ -2120,11 +2124,9 @@ body:has(.icon-picker) .bn-side-menu {
   align-items: stretch;
   overflow-x: auto;
   flex: 1 1 auto;
-  /* At least almost the window height: on small monitors the page header
-       otherwise left the board nothing but a narrow strip, and the columns were
-       too short. If the board is taller than the space, .page-body scrolls the
-       header away — as in Trello, where the columns fill the window. */
-  min-height: max(320px, calc(100dvh - var(--topbar-h) - 108px));
+  /* Fill the remaining space, keeping the horizontal scrollbar in view.
+     A tall page header may still scroll rather than crush the columns. */
+  min-height: 320px;
   overscroll-behavior-x: contain;
 }
 /* A board embedded in a document (Notion style) stands in the MIDDLE of the
@@ -5022,14 +5024,8 @@ body.is-col-resizing {
 
 /* ---------- Scrollbars ---------- */
 
-/* Hidden entirely — scrolling still works via wheel, trackpad, touch and
-   keyboard; the bars themselves are just noise. Both mechanisms are needed:
-   `scrollbar-width` (the standard property) for Firefox AND Chrome 121+,
-   `::-webkit-` for Safari/older WebKit. Never set `scrollbar-width` per
-   element to something visible again: the moment the standard property is
-   set (it used to be `thin` on .board-cards), Chrome ignores EVERY
-   ::-webkit rule on that element and paints its default bars — that is
-   exactly how the board columns got white scrollbars in dark mode. */
+/* Most scrollers stay hidden. The board keeps a visible horizontal bar so
+   mouse users can reach its off-screen columns. */
 * {
   scrollbar-width: none;
 }
@@ -5038,6 +5034,25 @@ body.is-col-resizing {
   width: 0;
   height: 0;
   display: none;
+}
+
+.board {
+  scrollbar-width: auto;
+}
+
+.board::-webkit-scrollbar {
+  display: block;
+  height: 12px;
+}
+
+.board::-webkit-scrollbar-track {
+  background: var(--hover);
+}
+
+.board::-webkit-scrollbar-thumb {
+  background: var(--muted);
+  border: 2px solid var(--bg);
+  border-radius: 6px;
 }
 
 /* ---- Named tag colour palette (Welle 28), Notion-style ---- */
