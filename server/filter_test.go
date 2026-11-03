@@ -277,7 +277,7 @@ func TestPersonFilterMe(t *testing.T) {
 		VALUES (?, NULL, ?, 'Tasks', 'collection', '{}', ?, ?)`, col, ws, now(), now()); err != nil {
 		t.Fatal(err)
 	}
-	schema := `[{"id":"assignee","name":"Assignee","type":"person"}]`
+	schema := `[{"id":"assignee","name":"Assignee","type":"person"},{"id":"note","name":"Note","type":"text"}]`
 	if _, err := s.db.Exec(`INSERT INTO collections (page_id, schema, views) VALUES (?, ?, '[]')`, col, schema); err != nil {
 		t.Fatal(err)
 	}
@@ -287,7 +287,7 @@ func TestPersonFilterMe(t *testing.T) {
 		`{"assignee":"Ada Lovelace"}`,
 		`{"assignee":["u_ada","u_bob"]}`,
 		`{"assignee":"u_bob"}`,
-		`{}`,
+		`{"note":"@me"}`,
 	}
 	for i, r := range rows {
 		if _, err := s.db.Exec(`INSERT INTO pages (id, parent_id, workspace_id, title, type, props, position, created_at, updated_at)
@@ -333,5 +333,18 @@ func TestPersonFilterMe(t *testing.T) {
 	// Unauthenticated:
 	if n := query(nil, rowFilter{Prop: "assignee", Op: "is", Value: "@me"}); n != 0 {
 		t.Errorf("nil user is @me: got %d rows, want 0", n)
+	}
+
+	// Only the marker, only on a person, only where whole values compare: a
+	// plain "me" may be somebody's name, a text property holding "@me" holds
+	// text, and contains looks for text, as it does in the browser.
+	if n := query(ada, rowFilter{Prop: "assignee", Op: "is", Value: "me"}); n != 0 {
+		t.Errorf("Ada is me: got %d rows, want 0", n)
+	}
+	if n := query(ada, rowFilter{Prop: "note", Op: "is", Value: "@me"}); n != 1 {
+		t.Errorf("Ada note is @me: got %d rows, want 1", n)
+	}
+	if n := query(ada, rowFilter{Prop: "assignee", Op: "contains", Value: "@me"}); n != 0 {
+		t.Errorf("Ada assignee contains @me: got %d rows, want 0", n)
 	}
 }

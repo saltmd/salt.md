@@ -216,7 +216,18 @@ func (s *Server) resolvePersonFilters(collectionID string, filters []rowFilter, 
 	return out
 }
 
+// resolvePerson turns "@me" into the person asking: their id, and their name
+// as well, because a person an agent wrote as plain text is matched by name,
+// the way the chip in the browser matches it. Nobody signed in is nobody, a
+// value no row holds, so the condition keeps filtering instead of dropping
+// out the way a condition without a value does.
+//
+// Only where whole values are compared. Under contains, "@me" is text like
+// any other, the same as in the browser (matchesFilter).
 func (f rowFilter) resolvePerson(u *user) rowFilter {
+	if f.Op != "" && f.Op != "is" && f.Op != "is_not" {
+		return f
+	}
 	target := []string{"__nobody__"}
 	if u != nil && u.ID != "" {
 		target = []string{u.ID}

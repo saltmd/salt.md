@@ -24,6 +24,7 @@ import type {
 } from '../types';
 import PropertyValue, { PersonChip, PersonStack, idList, loadMembers, loadRelationOptions, type Member, type RelOption } from './PropertyValue';
 import { useCurrentUser } from '../userContext';
+import { initials, nameColor } from './CommentsPanel';
 import { openCollectionRow, openPageAux } from '../pageOpen';
 import { readViewId, readViewScroll, writeViewId, writeViewScroll } from '../pageUiState';
 import { AgentDot } from './AgentBadge';
@@ -126,7 +127,6 @@ interface Props {
   onOpenInNewTab?: (id: string) => void;
   onPagesChanged: () => void;
   embed?: EmbedState;
-  currentUser?: AuthUser | null;
 }
 
 export { filterIsArmed, filterValues } from '../collectionFilters';
@@ -180,17 +180,9 @@ function applyView(rows: Row[], view: ViewDef, schema: PropDef[], currentUser: A
   return out;
 }
 
-export default function CollectionView({ collectionId, pages, tagColors, onNavigate, onOpenInNewTab, onPagesChanged, embed, currentUser }: Props) {
-  const contextUser = useCurrentUser();
-  const effectiveUser = currentUser ?? contextUser;
-  const [members, setMembers] = useState<Member[]>([]);
-  useEffect(() => {
-    let alive = true;
-    void loadMembers().then((m) => alive && setMembers(m));
-    return () => {
-      alive = false;
-    };
-  }, []);
+export default function CollectionView({ collectionId, pages, tagColors, onNavigate, onOpenInNewTab, onPagesChanged, embed }: Props) {
+  // Who "@me" is in a person filter, and who a new row made under one goes to.
+  const currentUser = useCurrentUser();
   const [config, setConfig] = useState<CollectionConfig | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
   // A full page remembers its view across tab switches and reloads (see
@@ -488,9 +480,14 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
     // interface shows for that, in the reader's language. Stored, it stayed
     // English in every language and turned up in search and exports.
     const filters = view?.filters ?? [];
-    const props = collectionDefaults(schema, filters, presetProps);
+    const props = collectionDefaults(schema, filters, presetProps, currentUser);
     await api.createPage(collectionId, '', 'doc', props);
-    if (filters.some((f) => !matchesFilter({ props }, f, schema.some((p) => p.id === f.property && p.type === 'date'), schema.some((p) => p.id === f.property && p.type === 'number')))) {
+    const typeOf = (propId: string) => schema.find((p) => p.id === propId)?.type;
+    const fits = (f: Filter) => {
+      const ty = typeOf(f.property);
+      return matchesFilter({ props }, f, ty === 'date', ty === 'number', ty === 'person', currentUser);
+    };
+    if (!filters.every(fits)) {
       toast(t("The new row does not match this view's filters, so it is not shown here."));
     }
     onPagesChanged();
@@ -638,7 +635,7 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
     setAddViewOpen(false);
   };
 
-  const viewRows = applyView(rows, view, schema, effectiveUser);
+  const viewRows = applyView(rows, view, schema, currentUser);
   const emptyLabel =
     rows.length > 0 && viewRows.length === 0
       ? t('No rows match the current filter.')
@@ -806,15 +803,7 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
             ))}
           </select>
         )}
-        {view.type !== 'form' && (
-          <FilterSortControls
-            schema={schema}
-            view={view}
-            onChange={updateView}
-            members={members}
-            currentUser={effectiveUser}
-          />
-        )}
+        {view.type !== 'form' && <FilterSortControls schema={schema} view={view} onChange={updateView} />}
         {/* What the collection IS — its columns, its properties, its views —
             is edited on its own page. An embed is a window onto the rows, and
             carrying the whole toolbar into a document made it look like a
@@ -1355,17 +1344,39 @@ function DateFilterValue({ value, onChange }: { value: string; onChange: (v: str
   );
 }
 
-function PersonFilterValue({
-  filter,
-  onChange,
-  members,
-  currentUser,
-}: {
-  filter: Filter;
-  onChange: (patch: Partial<Filter>) => void;
-  members: Member[];
-  currentUser?: AuthUser | null;
-}) {
+/** "@me" in a person filter: whoever opens the view. Only the filter knows the
+ *  marker. A cell that holds it shows the text, never the reader's own face,
+ *  which would make a row look like everybody's own. */
+function MeChip() {
+  const me = useCurrentUser();
+  const label = t('Current user');
+  return (
+    <span className="prop-person" title={me?.name ? `${label} (${me.name})` : label}>
+      <span
+        className="cp-avatar prop-person-av"
+        style={{ background: me?.avatar ? 'transparent' : me?.color || nameColor(me?.name ?? '') }}
+      >
+        {me?.avatar ? <img src={me.avatar} alt="" /> : initials(me?.name ?? '')}
+      </span>
+      <span className="prop-person-name">
+        {label}
+        {me?.name ? <span className="fs-person-mename"> ({me.name})</span> : null}
+      </span>
+    </span>
+  );
+}
+
+/** The people a person filter can name: Current user first, which is whoever
+ *  opens the view, then the members of the workspaces this account sees. */
+function PersonFilterValue({ filter, onChange }: { filter: Filter; onChange: (patch: Partial<Filter>) => void }) {
+  const [members, setMembers] = useState<Member[]>([]);
+  useEffect(() => {
+    let alive = true;
+    void loadMembers().then((m) => alive && setMembers(m));
+    return () => {
+      alive = false;
+    };
+  }, []);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const boxRef = useRef<HTMLDivElement>(null);
@@ -1412,7 +1423,7 @@ function PersonFilterValue({
         {picked.length ? (
           <span className="fs-person-chips">
             {picked.map((id) => (
-              <PersonChip key={id} raw={id} members={members} currentUser={currentUser} />
+              id === '@me' ? <MeChip key={id} /> : <PersonChip key={id} raw={id} members={members} />
             ))}
           </span>
         ) : (
@@ -1428,6 +1439,11 @@ function PersonFilterValue({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                e.stopPropagation();
+                setOpen(false);
+                return;
+              }
               if (e.key !== 'Enter') return;
               e.preventDefault();
               if (filtered.length === 1) toggle(filtered[0].userId);
@@ -1441,7 +1457,7 @@ function PersonFilterValue({
               onClick={() => toggle('@me')}
             >
               <span className="relation-check">{picked.includes('@me') ? '✓' : ''}</span>
-              <PersonChip raw="@me" members={members} currentUser={currentUser} />
+              <MeChip />
             </button>
             {filtered.map((m) => (
               <button
@@ -1451,7 +1467,7 @@ function PersonFilterValue({
                 onClick={() => toggle(m.userId)}
               >
                 <span className="relation-check">{holds(m) ? '✓' : ''}</span>
-                <PersonChip raw={m.userId} members={members} currentUser={currentUser} />
+                <PersonChip raw={m.userId} members={members} />
               </button>
             ))}
             {q && !filtered.some((m) => m.name.toLowerCase() === q || m.userId.toLowerCase() === q) && q !== '@me' && (
@@ -1473,14 +1489,10 @@ function FilterSortControls({
   schema,
   view,
   onChange,
-  members = [],
-  currentUser = null,
 }: {
   schema: PropDef[];
   view: ViewDef;
   onChange: (patch: Partial<ViewDef>) => void;
-  members?: Member[];
-  currentUser?: AuthUser | null;
 }) {
   const [open, setOpen] = useState<'filter' | 'sort' | 'group' | null>(null);
   const controlsRef = useRef<HTMLDivElement>(null);
@@ -1695,12 +1707,7 @@ function FilterSortControls({
                 {hasValueInput(op) && (
                   <div className="fs-filter-value">
                     {isPerson && (op === 'is' || op === 'is_not') ? (
-                      <PersonFilterValue
-                        filter={f}
-                        onChange={patch}
-                        members={members}
-                        currentUser={currentUser}
-                      />
+                      <PersonFilterValue filter={f} onChange={patch} />
                     ) : several && options.length > 0 ? (
                       <div className="fs-checks">
                         {options.map((o) => (

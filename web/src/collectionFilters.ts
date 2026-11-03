@@ -57,6 +57,9 @@ export function matchesFilter(
   const rawVals = filterValues(f).filter(live);
   const vals: string[] = [];
   for (const item of rawVals) {
+    // "@me" on a person is whoever is looking: their id, and their name too,
+    // because a person an agent wrote as plain text is matched by name, as its
+    // chip is. The server resolves it the same way per query (resolvePerson).
     if (isPerson && item === '@me') {
       if (currentUser?.id) vals.push(currentUser.id);
       if (currentUser?.name && currentUser.name !== currentUser.id) vals.push(currentUser.name);
@@ -81,10 +84,9 @@ export function matchesFilter(
     case 'is_not_empty':
       return !isEmptyVal(v);
     case 'contains': {
-      let needle = value.toLowerCase();
-      if (isPerson && needle === '@me') {
-        needle = currentUser?.name?.toLowerCase() || currentUser?.id?.toLowerCase() || '@me';
-      }
+      // Text, even "@me": the marker belongs to is and is not, where the
+      // picker offers it. The server reads it the same way.
+      const needle = value.toLowerCase();
       if (Array.isArray(v)) return v.some((x) => String(x).toLowerCase().includes(needle));
       return String(v ?? '').toLowerCase().includes(needle);
     }
