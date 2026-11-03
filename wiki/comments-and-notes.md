@@ -82,6 +82,30 @@ the bottom so you can see it land.
 When there are none, the panel says `Nothing here yet. Write the first one.` and
 nothing else: the box below is already the invitation.
 
+### Commenting on selected text
+
+Select text within one text block and choose the comment button in the formatting
+bar. The panel shows the selected quote above the comment box. Send as usual, or
+remove the quote to write a page comment instead. Selections are limited to
+2,000 characters in a single block.
+
+If the page changes while you are drafting, the comment text stays in the box.
+Select the passage again before sending, or remove the quote to send a page
+comment instead.
+
+![Starting a comment on selected text](img/inline-comment-selection.png)
+
+Open comments highlight their text. Select the highlight to open the comment, or
+select the quote in the comment to return to the passage. On narrow screens the
+panel closes to reveal the text. Resolving or deleting a comment removes its
+highlight; reopening it restores the highlight when the passage is available.
+
+Comments follow edits in the collaborative editor. If the first selected
+character is deleted, or the page body is replaced by an import, restore or
+API/agent write, the comment and original quote remain in the panel as
+**Original text no longer available**. The quote does not guess a new location.
+Existing page comments remain unchanged.
+
 ### What each comment shows
 
 The author's name with their picture, or their initials on their own colour, the

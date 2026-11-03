@@ -143,6 +143,13 @@ export interface Revision {
   title: string;
 }
 
+export interface CommentAnchor {
+  gen: number;
+  quote: string;
+  from: Record<string, unknown>;
+  to: Record<string, unknown>;
+}
+
 export interface Comment {
   id: string;
   blockId: string;
@@ -153,6 +160,7 @@ export interface Comment {
   authorColor?: string;
   authorAvatar?: string;
   resolvedAt: string | null;
+  anchor?: CommentAnchor;
   /** The agent that wrote it, when one did: a claim, shown beside the account
       that vouches for it (server/history.go). */
   agent?: string;

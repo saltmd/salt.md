@@ -80,7 +80,7 @@
       ],
       "takenAt": {
         "web/src/components/Sidebar.tsx": "32f374b52933",
-        "web/src/components/Editor.tsx": "83fdff28f708",
+        "web/src/components/Editor.tsx": "d8f10df6ad61",
         "web/src/App.tsx": "a7d993c40334",
         "web/src/theme.css": "6a5de72d7e2c"
       }
@@ -141,7 +141,7 @@
         }
       ],
       "takenAt": {
-        "web/src/components/Editor.tsx": "83fdff28f708",
+        "web/src/components/Editor.tsx": "d8f10df6ad61",
         "web/src/theme.css": "6a5de72d7e2c"
       }
     },
@@ -201,7 +201,7 @@
         }
       ],
       "takenAt": {
-        "web/src/components/CommentsPanel.tsx": "cc634cf373c3",
+        "web/src/components/CommentsPanel.tsx": "1d138c776ef5",
         "web/src/theme.css": "6a5de72d7e2c"
       }
     },
@@ -459,7 +459,7 @@
       ],
       "takenAt": {
         "server/public.go": "62d933047cbe",
-        "web/src/components/Editor.tsx": "83fdff28f708",
+        "web/src/components/Editor.tsx": "d8f10df6ad61",
         "web/src/theme.css": "6a5de72d7e2c"
       }
     },
@@ -962,6 +962,54 @@
         "web/src/theme.css": "6a5de72d7e2c"
       },
       "element": ".dialog"
+    },
+    {
+      "id": "inline-comment-selection",
+      "page": "comments-and-notes.md",
+      "caption": "Selecting text opens a comment draft with the original quote.",
+      "shows": [
+        "web/src/components/Editor.tsx",
+        "web/src/components/CommentsPanel.tsx",
+        "web/src/components/InlineComments.tsx",
+        "web/src/styles.css",
+        "web/src/theme.css"
+      ],
+      "steps": [
+        {
+          "goto": "/"
+        },
+        {
+          "waitFor": ".sidebar"
+        },
+        {
+          "click": ".bn-editor"
+        },
+        {
+          "press": "ControlOrMeta+Home"
+        },
+        {
+          "press": "Shift+End"
+        },
+        {
+          "click": "[aria-label=\"Comment on selected text\"]"
+        },
+        {
+          "fill": [
+            ".cp-compose textarea",
+            "Can we make this description more specific?"
+          ]
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "takenAt": {
+        "web/src/components/Editor.tsx": "d8f10df6ad61",
+        "web/src/components/CommentsPanel.tsx": "1d138c776ef5",
+        "web/src/components/InlineComments.tsx": "a211bf1bb284",
+        "web/src/styles.css": "5edc5595e219",
+        "web/src/theme.css": "6a5de72d7e2c"
+      }
     }
   ]
 }

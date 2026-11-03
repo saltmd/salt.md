@@ -358,6 +358,9 @@ func openDB(path string) (*sql.DB, error) {
 	if _, err := db.Exec(schema); err != nil {
 		return nil, fmt.Errorf("migrate: %w", err)
 	}
+	if err := ensureColumn(db, "comments", "anchor", `anchor TEXT NOT NULL DEFAULT ''`); err != nil {
+		return nil, fmt.Errorf("migrate comments.anchor: %w", err)
+	}
 	if err := ensureColumn(db, "pages", "type", `type TEXT NOT NULL DEFAULT 'doc'`); err != nil {
 		return nil, fmt.Errorf("migrate pages.type: %w", err)
 	}

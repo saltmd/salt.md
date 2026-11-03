@@ -479,10 +479,10 @@ export const api = {
   // handleCommentCounts).
   commentCounts: (workspaceId: string) =>
     req<Record<string, number>>(`/api/comment-counts?workspaceId=${encodeURIComponent(workspaceId)}`),
-  createComment: (pageId: string, body: string, blockId = '') =>
+  createComment: (pageId: string, body: string, blockId = '', anchor?: import('./types').CommentAnchor) =>
     req<{ id: string }>(`/api/pages/${pageId}/comments`, {
       method: 'POST',
-      body: JSON.stringify({ body, blockId }),
+      body: JSON.stringify({ body, blockId, anchor }),
     }),
   resolveComment: (id: string, resolved: boolean) =>
     req<{ ok: boolean }>(`/api/comments/${id}/resolve`, {

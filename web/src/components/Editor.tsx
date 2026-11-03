@@ -3,13 +3,14 @@ import {
   useCreateBlockNote,
   SuggestionMenuController,
   getDefaultReactSlashMenuItems,
+  FormattingToolbarController,
 } from '@blocknote/react';
 import { filterSuggestionItems, insertOrUpdateBlockForSlashMenu } from '@blocknote/core';
 import { de as coreDe, en as coreEn, es as coreEs } from '@blocknote/core/locales';
 import { BlockNoteView } from '@blocknote/mantine';
 import { api, ApiError, materializeQuery } from '../api';
 import { toast } from '../toast';
-import type { Backlink, CollectionConfig, Page, PageMeta, PropOption, User } from '../types';
+import type { Backlink, CollectionConfig, Comment, CommentAnchor, Page, PageMeta, PropOption, User } from '../types';
 import { SaltProvider } from '../collab';
 import { getLocale, plural, t } from '../i18n';
 import PropertyValue from './PropertyValue';
@@ -38,6 +39,7 @@ import { collectTags, suggestTags } from '../tagSuggest';
 import { modalOpen, useMenuDismiss } from '../modal';
 import { Menu, Copy, Star, Lock, LockOpen, Globe, MessageSquare, History, MoreHorizontal, Printer, FileCode, FileText, Upload, AlignLeft, Check, Image as ImageIcon , Smile, PanelRight, Link2, Trash2, FilePlus2, Columns2, Workflow} from 'lucide-react';
 import { blockTypeFor, carriesExternalFiles } from '../dropFiles';
+import { InlineCommentToolbar, useInlineComments } from './InlineComments';
 
 // The dictionaries BlockNote ships for the languages the interface has.
 const blockNoteDictionaries: Record<string, typeof coreEn> = {
@@ -99,6 +101,25 @@ export default function Editor(props: EditorProps) {
   // his colleagues work in them all day and reported the old shape as awkward:
   // at the very bottom, and two lines to write in.
   const [commentsOpen, setCommentsOpen] = useState(commentsPanelOpen);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [pendingComment, setPendingComment] = useState<{ anchor: CommentAnchor; blockId: string } | null>(null);
+  const [commentDraft, setCommentDraft] = useState('');
+  const [activeComment, setActiveComment] = useState<string | null>(null);
+  const [anchorStatuses, setAnchorStatuses] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    let alive = true;
+    setComments([]);
+    setPendingComment(null);
+    setCommentDraft('');
+    setActiveComment(null);
+    setAnchorStatuses({});
+    const load = () => void api.listComments(props.pageId).then((items) => { if (alive) setComments(items); }).catch(() => {});
+    load();
+    window.addEventListener(COMMENTS_CHANGED, load);
+    window.addEventListener('focus', load);
+    return () => { alive = false; window.removeEventListener(COMMENTS_CHANGED, load); window.removeEventListener('focus', load); };
+  }, [props.pageId]);
 
   // Both panels occupy the same strip on the right, so opening one closes the
   // other. Sharing the width would leave two columns too narrow to be either.
@@ -246,6 +267,10 @@ export default function Editor(props: EditorProps) {
             onCreatePage={props.onCreatePage}
             onPagesChanged={props.onPagesChanged}
             onReset={() => setNonce((n) => n + 1)}
+            comments={comments}
+            onCommentSelection={(anchor, blockId) => { setPendingComment({ anchor, blockId }); setActiveComment(null); showComments(true); }}
+            onCommentOpen={(id) => { setActiveComment(id); showComments(true); }}
+            onAnchorStatuses={(statuses) => setAnchorStatuses((previous) => JSON.stringify(previous) === JSON.stringify(statuses) ? previous : statuses)}
           />
         )}
       </PageHeader>
@@ -255,6 +280,13 @@ export default function Editor(props: EditorProps) {
           myUserId={props.user.id}
           open
           onClose={() => showComments(false)}
+          pending={pendingComment}
+          draft={commentDraft}
+          onDraftChange={setCommentDraft}
+          onClearPending={() => setPendingComment(null)}
+          activeComment={activeComment}
+          anchorStatuses={anchorStatuses}
+          narrow={narrow}
         />
       )}
       {structureOpen && (
@@ -1541,6 +1573,10 @@ interface CollabProps {
    *  while it is closed, so the information is never in two places at once and
    *  never in none. */
   structureOpen: boolean;
+  comments: Comment[];
+  onCommentSelection: (anchor: CommentAnchor, blockId: string) => void;
+  onCommentOpen: (id: string) => void;
+  onAnchorStatuses: (statuses: Record<string, boolean>) => void;
 }
 
 function CollabEditor({ page, user, theme, canEdit, onReset, ...rest }: CollabProps) {
@@ -1650,6 +1686,10 @@ function BlockContent({
   onCreatePage,
   onPagesChanged,
   structureOpen,
+  comments,
+  onCommentSelection,
+  onCommentOpen,
+  onAnchorStatuses,
 }: {
   provider: SaltProvider;
   pageId: string;
@@ -1665,6 +1705,10 @@ function BlockContent({
   onOpenInNewTab: (id: string) => void;
   onCreatePage: (parentId: string | null, type?: 'doc' | 'collection') => void;
   onPagesChanged: () => void;
+  comments: Comment[];
+  onCommentSelection: (anchor: CommentAnchor, blockId: string) => void;
+  onCommentOpen: (id: string) => void;
+  onAnchorStatuses: (statuses: Record<string, boolean>) => void;
 }) {
   const editor = useCreateBlockNote({
     schema: saltSchema,
@@ -1686,6 +1730,7 @@ function BlockContent({
     // BlockNote does not ship falls back to English, as t() does.
     dictionary: blockNoteDictionaries[getLocale()] ?? coreEn,
   });
+  useInlineComments(editor, provider, comments, onCommentOpen, onAnchorStatuses);
 
   // Ctrl+Enter, kept literal (not `mod`) on every platform — ⌘↩ already means
   // something to plenty of hands from other editors, and borrowing it here
@@ -2129,7 +2174,8 @@ function BlockContent({
         {/* The database block renders inside the editor and would otherwise
             not reach the page list, the tag colours or navigation. */}
         <BlockContext.Provider value={{ pagesById, tagColors, onNavigate, onOpenInNewTab, onPagesChanged, pageId: provider.pageId }}>
-        <BlockNoteView editor={editor} theme={theme} editable={canEdit} slashMenu={false}>
+        <BlockNoteView editor={editor} theme={theme} editable={canEdit} slashMenu={false} formattingToolbar={false}>
+          <FormattingToolbarController formattingToolbar={() => <InlineCommentToolbar editor={editor} provider={provider} onSelect={onCommentSelection} />} />
           <SuggestionMenuController triggerCharacter="/" getItems={getSlashItems} />
           <SuggestionMenuController
             triggerCharacter="@"
