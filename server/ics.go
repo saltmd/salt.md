@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-// Calendar subscription (Welle 22): a stable per-user token grants a read-only
+// Calendar subscription (W22): a stable per-user token grants a read-only
 // iCalendar feed of every date-typed property across the collections the user
 // can read. Calendar apps (Apple/Google/Outlook) poll GET /ics/{token}.ics; no
 // login, the token IS the credential (like a share link).

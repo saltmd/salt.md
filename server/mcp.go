@@ -761,7 +761,7 @@ func (s *Server) mcpCall(u *user, name string, rawArgs json.RawMessage, publicBa
 		FileName       string  `json:"file_name"`
 		DataBase64     string  `json:"data_base64"`
 		IdempotencyKey string  `json:"idempotency_key"`
-		// Database tools (Welle 9).
+		// Database tools (W9).
 		Filter []struct {
 			Property, Op, Value string
 			Values              []string `json:"values"`

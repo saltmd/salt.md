@@ -501,10 +501,9 @@ const roleOptions = () => [
   { v: 'admin', label: t('Admin') },
 ];
 
-// Vollwertige Nutzerverwaltung (W98): links die Liste, rechts das Detail —
-// Instanz-Admin-Schalter, Loeschen, und die Workspace-Zugehoerigkeit mit
-// Rolle je Workspace direkt umschaltbar. Neue Nutzer bekommen ihre Workspaces
-// gleich beim Anlegen zugewiesen.
+// Full user management (W98): the list on the left, the detail on the right,
+// with the instance admin switch, deletion, and the role in each workspace
+// switchable in place. New people get their workspaces as they are created.
 function UsersModal({ me, onClose }: { me: User; onClose: () => void }) {
   useExclusiveModal(onClose);
   const [users, setUsers] = useState<User[]>([]);
@@ -532,7 +531,7 @@ function UsersModal({ me, onClose }: { me: User; onClose: () => void }) {
 
   const setRole = async (userId: string, wsId: string, role: string) => {
     setError(null);
-    // Optimistisch: die Pille reagiert sofort, der Server bestaetigt.
+    // Optimistic: the pill reacts at once, the server confirms.
     setAccess((a) => {
       const rest = a.memberships.filter((m) => !(m.userId === userId && m.workspaceId === wsId));
       return { ...a, memberships: role === 'none' ? rest : [...rest, { userId, workspaceId: wsId, role }] };

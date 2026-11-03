@@ -10,9 +10,9 @@ import (
 	"testing"
 )
 
-// Die Sperre ist die einzige Verteidigung gegen SSRF: ohne sie koennte ein
-// Agent den Server dazu bringen, Nachbarn im privaten Netz abzurufen, die von
-// aussen unerreichbar sind — Hypervisor, Router, Cloud-Metadatendienste.
+// The block is the only defence against SSRF: without it an agent could make
+// the server fetch neighbours on the private network that cannot be reached
+// from outside, such as the hypervisor, the router or a cloud metadata service.
 func TestBlockedIP(t *testing.T) {
 	if allowPrivateImport {
 		t.Skip("SALT_IMPORT_ALLOW_PRIVATE is set")
@@ -53,7 +53,7 @@ func TestJSONPath(t *testing.T) {
 	}{
 		{"card.due", "2026-08-01"},
 		{"labels[].name", "Hot, B2B"}, // picking out of a list
-		{"n", "42"},                   // ganze Zahl ohne .0
+		{"n", "42"},                   // a whole number, no .0
 		{"f", "1.5"},
 		{"t", "true"},
 		{"fehlt", ""},
@@ -68,9 +68,8 @@ func TestJSONPath(t *testing.T) {
 }
 
 // The real case: a Trello response where the card knows only the id of its
-// list and the plain text sits somewhere else. Without resolve the column
-// would hold
-// Status-Spalte eine nichtssagende Id.
+// list and the plain text sits somewhere else. Without resolve the status
+// column would hold a meaningless id.
 func TestMapItemsTrelloShape(t *testing.T) {
 	var doc any
 	json.Unmarshal([]byte(`{
@@ -102,8 +101,8 @@ func TestMapItemsTrelloShape(t *testing.T) {
 	if got := scalarString(items[0].props["Labels"]); got != "Hot, B2B" {
 		t.Errorf("Labels = %q", got)
 	}
-	// An empty title must not abort the import — otherwise one
-	// Migration an einer einzigen unbenannten Karte.
+	// An empty title must not abort the import, or one untitled card would
+	// stop a whole migration.
 	if items[1].title != "Untitled 2" {
 		t.Errorf("empty title = %q, expected a placeholder", items[1].title)
 	}

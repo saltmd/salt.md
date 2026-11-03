@@ -43,8 +43,8 @@ import { UserContext } from './userContext';
 /** Injected by the build; false everywhere except the website's framed demo. */
 declare const __SALT_DEMO__: boolean;
 
-/** Schriftwahl: 'system' laesst alles wie bisher, 'brand' schaltet die
- *  mitgelieferten Inter- und JetBrains-Mono-Schriften ein. */
+/** Font choice: 'system' leaves everything as it was, 'brand' switches on
+ *  the bundled Inter and JetBrains Mono fonts. */
 export type FontPref = 'system' | 'brand';
 
 // Feedback from the mail OAuth consent redirect (/?mailOauth=ok|<code>).

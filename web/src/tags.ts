@@ -1,4 +1,4 @@
-// Tag colours (Welle 27/28). A tag can be given an explicit colour (stored per
+// Tag colours (W27, W28). A tag can be given an explicit colour (stored per
 // workspace, Notion-style); without one it falls back to an automatic colour
 // derived from the (lower-cased) tag name so tags aren't all the same colour.
 // The classes tag-<name> carry the actual light/dark palette (see styles.css).

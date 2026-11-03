@@ -20,7 +20,7 @@ const SELECTOR = '.ring, .dialog, .confirm-dialog';
 const FAST = 2.6;
 const RAMP_MS = 420;
 
-/** Die Rand-Animation eines Elements (es kann mehrere Animationen tragen). */
+/** An element's border animation (it may carry several animations). */
 function ringAnimations(el: Element): Animation[] {
   return el.getAnimations().filter((a) => (a as CSSAnimation).animationName === 'ring-rotate');
 }

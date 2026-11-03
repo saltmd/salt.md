@@ -15,7 +15,7 @@ import (
 	qrcode "github.com/skip2/go-qrcode"
 )
 
-// Instance administration (Welle 21): SMTP config, signup policy (open /
+// Instance administration (W21): SMTP config, signup policy (open /
 // invite-only / domain-allowlist), deployment info — plus the invite flow and
 // domain auto-join that build on them. All settings live in app_settings as
 // individual key/value rows so adding one needs no migration.

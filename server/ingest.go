@@ -327,7 +327,7 @@ func buildResolvers(doc any, spec ingestSpec) map[string]map[string]string {
 	return out
 }
 
-// applyResolve ersetzt Ids durch Klartext — auch innerhalb von Listen.
+// applyResolve replaces ids with their plain text, inside lists too.
 func applyResolve(v any, table map[string]string) any {
 	if table == nil {
 		return v

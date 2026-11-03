@@ -254,7 +254,7 @@ button {
 }
 
 .tree-item:hover {
-  background-color: var(--hover); /* siehe .tree-item.active: keine Kurzschreibweise */
+  background-color: var(--hover); /* see .tree-item.active: no shorthand */
 }
 
 /* The active page carries colour rather than mere grey — it is findable at a
@@ -452,7 +452,7 @@ button {
   display: none;
 }
 
-/* ---- Page tags (Welle 25/28) ---- */
+/* ---- Page tags (W25, W28) ---- */
 .page-tags {
   display: flex;
   flex-wrap: wrap;
@@ -565,7 +565,7 @@ button {
   color: var(--text);
 }
 
-/* ---- Document tabs (Welle 26) ---- */
+/* ---- Document tabs (W26) ---- */
 .tab-bar {
   display: flex;
   align-items: stretch;
@@ -2193,7 +2193,7 @@ body:has(.icon-picker) .bn-side-menu {
   cursor: grabbing !important;
 }
 
-/* Die schwebende Karte folgt dem Zeiger. */
+/* The floating card follows the pointer. */
 .board-drag-ghost {
   position: fixed;
   z-index: 400;
@@ -3429,7 +3429,7 @@ body.is-col-resizing {
 
 /* Print: drop the app chrome, show the page content full width. */
 
-/* ---- Print / PDF: a clean typeset document, no app chrome (Welle 27) ---- */
+/* ---- Print / PDF: a clean typeset document, no app chrome (W27) ---- */
 @page {
   margin: 18mm 16mm;
 }
@@ -5124,7 +5124,7 @@ body.is-col-resizing {
   border-radius: 6px;
 }
 
-/* ---- Named tag colour palette (Welle 28), Notion-style ---- */
+/* ---- Named tag colour palette (W28), Notion-style ---- */
 .tag-gray   { background: hsl(220 14% 90%); color: hsl(220 10% 34%); }
 .tag-brown  { background: hsl(28 30% 87%);  color: hsl(25 40% 34%); }
 .tag-orange { background: hsl(32 85% 90%);  color: hsl(28 70% 36%); }
@@ -5172,7 +5172,7 @@ body.is-col-resizing {
 .db-row-tags { display: inline-flex; flex-wrap: wrap; gap: 4px; margin-left: 6px; vertical-align: middle; }
 .db-row-tags .row-tag { font-size: 11px; border-radius: 999px; padding: 1px 7px; white-space: nowrap; }
 
-/* ---- Page description (Welle 27) ---- */
+/* ---- Page description (W27) ---- */
 .page-description {
   margin: 0 0 8px;
   font-size: 15px;
@@ -5247,7 +5247,7 @@ body.is-col-resizing {
 .ws-img { width: 18px; height: 18px; border-radius: 4px; object-fit: cover; flex: none; vertical-align: -4px; }
 .ws-emoji { font-size: 15px; line-height: 1; }
 
-/* Workspace switcher avatar + menu items (Welle 27) */
+/* Workspace switcher avatar + menu items (W27) */
 .ws-caret { margin-left: auto; color: var(--muted); flex: none; }
 .ws-letter {
   width: 18px; height: 18px; border-radius: 5px; flex: none;
@@ -5268,7 +5268,7 @@ body.is-col-resizing {
 .ws-menu .menu-item { display: flex; align-items: center; gap: 8px; }
 .ws-menu .menu-item svg { flex: none; color: var(--muted); }
 
-/* ---- Select / Multiselect cell editor (Welle 29) ---- */
+/* ---- Select / Multiselect cell editor (W29) ---- */
 .select-cell { display: inline-block; max-width: 100%; }
 .select-cell-value {
   display: inline-flex;
@@ -5351,7 +5351,7 @@ body.is-col-resizing {
 .select-empty { padding: 8px; font-size: 12.5px; color: var(--muted); }
 .tag-color-opt.danger { color: var(--danger); }
 
-/* ---- Tags + editable select props on Board / Gallery / Calendar cards (Welle 30) ---- */
+/* ---- Tags + editable select props on Board / Gallery / Calendar cards (W30) ---- */
 .card-tags { margin: 4px 0 2px; }
 .card-prop-edit { display: block; }
 .card-prop-edit .select-cell { width: 100%; }
@@ -5359,7 +5359,7 @@ body.is-col-resizing {
 .cal-event-tags { display: inline-flex; flex-wrap: wrap; gap: 3px; margin-left: 4px; }
 .cal-event-tags .row-tag { font-size: 10px; padding: 0 5px; }
 
-/* ---- Sidebar cleanup (Welle 31) ---- */
+/* ---- Sidebar cleanup (W31) ---- */
 .sidebar-footer-row {
   display: flex;
   align-items: center;
@@ -5613,7 +5613,7 @@ body.is-col-resizing {
 
 /* Tag chips deliberately WITHOUT a shadow — the colour is enough (user feedback, W43). */
 
-/* ---- Karten: Hover mit Lift + farbigem Schein ---- */
+/* ---- Cards: a lift and a coloured glow on hover ---- */
 
 .gallery-card {
   transition: box-shadow 0.18s ease, transform 0.15s ease, border-color 0.15s ease;
@@ -5636,7 +5636,7 @@ body.is-col-resizing {
   box-shadow: 0 4px 14px rgba(var(--accent-rgb), 0.12);
 }
 
-/* ---- Sidebar: Anlege-Buttons leuchten beim Hover ---- */
+/* ---- Sidebar: the create buttons light up on hover ---- */
 
 .new-page {
   border-radius: 8px;
@@ -5658,7 +5658,7 @@ body.is-col-resizing {
     0 4px 24px rgba(var(--accent-rgb), 0.1);
 }
 
-/* ---- Workspace-Knopf: Regenbogen-Ring beim Hover (Taskade-Badge) ---- */
+/* ---- Workspace button: a rainbow ring on hover (Taskade badge) ---- */
 
 .ws-btn {
   position: relative;
@@ -5673,7 +5673,7 @@ body.is-col-resizing {
     0 2px 12px rgba(var(--glow-pink), 0.12);
 }
 
-/* ---- Suchfeld: leuchtet beim Fokus/Hover dezent ---- */
+/* ---- Search field: a subtle glow on focus and hover ---- */
 
 .sidebar-search {
   transition: box-shadow 0.18s ease, border-color 0.15s ease;
@@ -5978,7 +5978,7 @@ body.is-col-resizing {
   box-shadow: 0 2px 10px rgba(var(--accent-rgb), 0.1);
 }
 
-/* ---- Dialoge: neutral-elegant (kein Rainbow) ---- */
+/* ---- Dialogs: neutral and quiet (no rainbow) ---- */
 
 .dialog {
   position: relative;
@@ -6126,7 +6126,7 @@ a.btn {
   color: var(--fg);
 }
 
-/* ---- W43: Anlege-Zeile unter dem Titel (Emoji / Cover / Beschreibung) ---- */
+/* ---- W43: the add row under the title (emoji / cover / description) ---- */
 
 .head-adders {
   position: relative;
@@ -7751,7 +7751,7 @@ a,
   margin: 12px 0;
 }
 
-/* ---------- Kanban: Dichte und Lesbarkeit (Trello-Vorbild) ---------- */
+/* ---------- Kanban: density and legibility (after Trello) ---------- */
 
 /* Empty select fields disappear and come back on hover. Without that, a row of
    placeholders sits under every title. On touch there is no hover — there you
@@ -7783,7 +7783,7 @@ a,
 :root[data-theme='light'] .prop-date.is-overdue { color: #c2410c; }
 :root[data-theme='light'] .prop-date.is-soon { color: #a16207; }
 
-/* URL als kompakter Verweis statt als volle Zeile Rohtext. */
+/* A URL as a compact link instead of a full line of raw text. */
 .prop-url-chip {
   display: inline-flex;
   align-items: center;
@@ -8114,7 +8114,7 @@ a,
   border-color: var(--fg);
 }
 
-/* ---------- W97: Profil-2FA-Zeile, Passwort-Fehler, Nutzerverwaltung ---------- */
+/* ---------- W97: profile 2FA row, password errors, user management ---------- */
 
 .profile-2fa-row {
   display: flex;
@@ -8280,7 +8280,7 @@ a,
 }
 .ws-access-name { font-weight: 600; font-size: 13.5px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* Rollenauswahl als Segment-Schalter — ein Klick setzt die Rolle. */
+/* The role picker as a segmented switch: one click sets the role. */
 .ws-role-seg {
   display: inline-flex;
   border: 1px solid var(--border);

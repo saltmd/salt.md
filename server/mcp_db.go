@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// Database-oriented MCP tools (Welle 9): they let an agent actually operate a
+// Database-oriented MCP tools (W9): they let an agent actually operate a
 // salt.md database — inspect its schema, query rows, write typed properties,
 // create a database, move pages, and resolve people. All go through the same
 // workspace/ACL guards as the REST UI (checked by the caller in mcpCall).

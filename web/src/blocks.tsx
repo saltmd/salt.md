@@ -8,7 +8,7 @@ import { openPage, openPageAux } from './pageOpen';
 import CollectionView, { type EmbedState } from './components/CollectionView';
 import { plural, t } from './i18n';
 
-// Custom salt.md block types (Welle 17): callout, table of contents, bookmark.
+// Custom salt.md block types (W17): callout, table of contents, bookmark.
 // Columns are ours (columnsSpec, at the end of this file) and wired in pageLink.tsx.
 
 // safeHref collapses any non-http(s)/mailto URL to '#'. A bookmark url can be

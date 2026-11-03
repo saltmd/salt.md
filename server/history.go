@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// Page version history and comments (Welle 13).
+// Page version history and comments (W13).
 //
 // The CRDT update log is compacted away, so version history is a SEPARATE,
 // materialized snapshot store: whenever a page's content is written (editor

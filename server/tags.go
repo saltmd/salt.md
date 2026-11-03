@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-// Page tags (Welle 25): Obsidian-style lightweight labels. Stored as a JSON
+// Page tags (W25): Obsidian-style lightweight labels. Stored as a JSON
 // array in pages.tags; a tag is a short slug, deduped case-insensitively.
 
 const (

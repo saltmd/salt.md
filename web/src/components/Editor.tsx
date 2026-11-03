@@ -1583,7 +1583,7 @@ function CollabEditor({ page, user, theme, canEdit, onReset, ...rest }: CollabPr
         });
       }
     };
-    applyPresence(); // deckt auch den nie fokussierten Hintergrund-Tab ab (startet hidden)
+    applyPresence(); // also covers a background tab that never had focus (it starts hidden)
 
     // Awareness has long known about the others — you just never saw them.
     // Here they are written into the presence store the header reads.

@@ -193,7 +193,7 @@ export function useBoardDrag(onMove: (rowId: string, toCol: string) => void) {
   const consumeClick = useCallback(() => {
     if (draggedRef.current) {
       draggedRef.current = false;
-      return true; // Klick gehoerte zu einem Ziehen — schlucken
+      return true; // the click belonged to a drag: swallow it
     }
     return false;
   }, []);

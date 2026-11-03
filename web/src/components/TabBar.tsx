@@ -3,7 +3,7 @@ import { PageIcon } from '../pageIcon';
 import type { PageMeta } from '../types';
 import { t } from '../i18n';
 
-// Obsidian-style document tabs (Welle 26). One chip per open page; the active
+// Obsidian-style document tabs (W26). One chip per open page; the active
 // one is highlighted. Middle-click closes, matching browser tabs.
 export default function TabBar({
   tabs,

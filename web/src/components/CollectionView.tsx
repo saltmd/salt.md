@@ -311,7 +311,7 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
         sort: serverSort,
         today: todayStr,
       });
-      if (epoch !== epochRef.current) return; // inzwischen neu geladen
+      if (epoch !== epochRef.current) return; // reloaded in the meantime
       const mapped: Row[] = res.rows.map((r) => ({
         id: r.id,
         title: r.title,
@@ -2278,7 +2278,7 @@ function BoardView({
         </div>
       ))}
 
-      {/* Die schwebende Karte folgt dem Zeiger. Als letztes Kind mit
+      {/* The floating card follows the pointer. The last child, with
           position:fixed so it sits above everything; pointer-events:none so it
           does not disturb hit testing underneath. */}
       {drag && drag.title && (
