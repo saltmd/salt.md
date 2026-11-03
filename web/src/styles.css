@@ -2086,6 +2086,11 @@ body:has(.icon-picker) .bn-side-menu {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  /* When the toolbar wraps, the view's controls keep to the right, where
+     they are on one row and where the wiki says they are, and so does a New
+     that wraps on its own. */
+  margin-left: auto;
+  justify-content: flex-end;
 }
 
 .btn-sm {
@@ -5093,8 +5098,17 @@ body.is-col-resizing {
 
 /* ---------- Scrollbars ---------- */
 
-/* Most scrollers stay hidden. The board keeps a visible horizontal bar so
-   mouse users can reach its off-screen columns. */
+/* Hidden almost everywhere: scrolling still works via wheel, trackpad, touch
+   and keyboard, and the bars themselves are just noise. Both mechanisms are
+   needed: `scrollbar-width` (the standard property) for Firefox AND Chrome
+   121+, `::-webkit-` for Safari/older WebKit.
+
+   Per element, `scrollbar-width` may only ever be set back to `auto`, as the
+   board does below. That is its initial value, so Chrome keeps honouring the
+   ::-webkit rules. Any other value makes Chrome ignore EVERY ::-webkit rule on
+   that element and paint its default bars: `thin` on .board-cards is exactly
+   how the board columns once got white scrollbars in dark mode. The same goes
+   for `scrollbar-color`, so it is not set anywhere. */
 * {
   scrollbar-width: none;
 }
@@ -5105,23 +5119,34 @@ body.is-col-resizing {
   display: none;
 }
 
-.board {
-  scrollbar-width: auto;
-}
+/* The one exception: a wide board hides the columns past its right edge, and
+   with a mouse and no trackpad its bar is the only way to reach them (#98).
+   Not on touch, where a swipe already does. Inset from the panel's rounded
+   corners, and quiet until it is pointed at. */
+@media (hover: hover) {
+  .board {
+    scrollbar-width: auto;
+  }
 
-.board::-webkit-scrollbar {
-  display: block;
-  height: 12px;
-}
+  .board::-webkit-scrollbar {
+    display: block;
+    height: 10px;
+  }
 
-.board::-webkit-scrollbar-track {
-  background: var(--hover);
-}
+  .board::-webkit-scrollbar-track {
+    background: transparent;
+    margin: 0 12px;
+  }
 
-.board::-webkit-scrollbar-thumb {
-  background: var(--muted);
-  border: 2px solid var(--bg);
-  border-radius: 6px;
+  .board::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--fg) 20%, transparent) padding-box;
+    border: 2px solid transparent;
+    border-radius: 6px;
+  }
+
+  .board::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(in srgb, var(--fg) 36%, transparent);
+  }
 }
 
 /* ---- Named tag colour palette (W28), Notion-style ---- */
