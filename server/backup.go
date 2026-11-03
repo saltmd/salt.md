@@ -18,7 +18,11 @@ import (
 // Version is the app/API version. Bump on any client/server contract change so
 // a stale client can detect a mismatch (audit Q42).
 // A release build sets it from the git tag via -ldflags
-// "-X salt/server.Version=..."; locally it stays at the default below.
+// "-X salt/server.Version=..."; a build from source stays "dev", the same
+// default the frontend takes when SALT_VERSION is unset (vite.config.ts). It
+// used to be "1.6.8", a number from before the reset, so `make build` produced
+// a server calling itself 1.6.8 beside a frontend calling itself dev, and the
+// reload banner fired on every page load.
 // The frontend is stamped from the same string (SALT_VERSION → vite define),
 // because two hand-kept numbers drift and the mismatch banner then fires
 // forever.
@@ -26,7 +30,7 @@ import (
 // It is also the LAST thing to trust when asking what is running on a box: it
 // is a string, and a mislabelled image proves nothing. Verify a deploy by
 // behaviour — a route that answers, a marker in the bundle.
-var Version = "1.6.8"
+var Version = "dev"
 
 // Backup writes a consistent gzip'd tar of the workspace: the SQLite DB
 // (snapshotted with VACUUM INTO so WAL contents are included) plus all uploads.
