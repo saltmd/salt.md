@@ -188,6 +188,7 @@
   "Creates the account straight away. No email is sent.": "Legt sofort ein Konto an, kein E-Mail-Versand.",
   "Current password (needed to change the email)": "Aktuelles Passwort (nötig zum Ändern der E-Mail)",
   "Current password (to confirm)": "Aktuelles Passwort (zur Bestätigung)",
+  "Current user": "Aktueller Nutzer",
   "Custom period": "Eigener Zeitraum",
   "Customize → Connectors → “+ Add” → “Add custom connector”: a name and the URL, nothing else.": "Anpassen → Connectoren → „+ Hinzufügen“ → „Benutzerdefinierten Connector hinzufügen“: ein Name und die URL, sonst nichts.",
   "Dark": "Dunkel",

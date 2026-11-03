@@ -1,5 +1,5 @@
 import { compare, isReadableDay, isUnfinishedRelativeDay, resolveSmartDate } from './format';
-import type { Filter, FilterOp } from './types';
+import type { Filter, FilterOp, User } from './types';
 
 function isEmptyVal(v: unknown): boolean {
   if (Array.isArray(v)) return v.length === 0;
@@ -36,7 +36,14 @@ function liveValue(v: string, op: FilterOp, isDate: boolean): boolean {
   return isDate && op !== 'contains' ? isReadableDay(v) : !isUnfinishedRelativeDay(v);
 }
 
-export function matchesFilter(row: { props: Record<string, unknown> }, f: Filter, isDate: boolean, isNumber = false): boolean {
+export function matchesFilter(
+  row: { props: Record<string, unknown> },
+  f: Filter,
+  isDate: boolean,
+  isNumber = false,
+  isPerson = false,
+  currentUser: User | null = null,
+): boolean {
   const v = row.props[f.property];
   const op = f.op ?? (f.value ? 'is' : 'is_not_empty');
   if (!filterIsArmed(f, isDate)) return true;
@@ -47,11 +54,19 @@ export function matchesFilter(row: { props: Record<string, unknown> }, f: Filter
   const day = (s: string) => (isDate ? (resolveSmartDate(s) ?? s) : s);
   const live = (s: string) => liveValue(s, op, isDate);
   const value = day(f.value ?? '');
-  const vals = filterValues(f)
-    .filter(live)
-    .map(day);
+  const rawVals = filterValues(f).filter(live);
+  const vals: string[] = [];
+  for (const item of rawVals) {
+    if (isPerson && item === '@me') {
+      if (currentUser?.id) vals.push(currentUser.id);
+      if (currentUser?.name && currentUser.name !== currentUser.id) vals.push(currentUser.name);
+      if (!currentUser?.id) vals.push('__nobody__');
+    } else {
+      vals.push(day(item));
+    }
+  }
   // One value or several, the question is the same: does the cell hold any of
-  // them. A cell may itself be a list (multiselect, relation).
+  // them. A cell may itself be a list (multiselect, relation, person).
   const holdsAny = () =>
     Array.isArray(v)
       ? vals.some((x) => v.includes(x))
@@ -66,7 +81,10 @@ export function matchesFilter(row: { props: Record<string, unknown> }, f: Filter
     case 'is_not_empty':
       return !isEmptyVal(v);
     case 'contains': {
-      const needle = value.toLowerCase();
+      let needle = value.toLowerCase();
+      if (isPerson && needle === '@me') {
+        needle = currentUser?.name?.toLowerCase() || currentUser?.id?.toLowerCase() || '@me';
+      }
       if (Array.isArray(v)) return v.some((x) => String(x).toLowerCase().includes(needle));
       return String(v ?? '').toLowerCase().includes(needle);
     }
