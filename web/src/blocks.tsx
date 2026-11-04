@@ -7,6 +7,7 @@ import { PageIcon } from './pageIcon';
 import { openPage, openPageAux } from './pageOpen';
 import CollectionView, { type EmbedState } from './components/CollectionView';
 import { plural, t } from './i18n';
+import { imeComposing } from './keys';
 
 // Custom salt.md block types (W17): callout, table of contents, bookmark.
 // Columns are ours (columnsSpec, at the end of this file) and wired in pageLink.tsx.
@@ -239,7 +240,7 @@ export const bookmarkSpec = createReactBlockSpec(
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => {
                 e.stopPropagation();
-                if (e.key === 'Enter' && draft.trim()) {
+                if (e.key === 'Enter' && !imeComposing(e) && draft.trim()) {
                   let u = draft.trim();
                   if (!/^https?:\/\//i.test(u)) u = 'https://' + u;
                   editor.updateBlock(block, { props: { url: u } } as never);

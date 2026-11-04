@@ -1402,7 +1402,7 @@ export default function Sidebar({
         </SidebarSection>
       )}
       {tagCounts.length > 0 && (
-        <SidebarSection id="tags" label="Tags" icon={<Tag size={17} />} count={tagCounts.length}>
+        <SidebarSection id="tags" label={t('Tags')} icon={<Tag size={17} />} count={tagCounts.length}>
           <div className="tag-cloud">
               {tagCounts.map(([t, n]) => (
                 <button
@@ -1675,7 +1675,7 @@ export default function Sidebar({
         {bgLogOpen && currentWs && (
           <BreakGlassLog
             workspaceId={currentWs}
-            workspaceName={activeWs?.name ?? 'Workspace'}
+            workspaceName={activeWs?.name ?? t('Workspace')}
             onClose={() => setBgLogOpen(false)}
           />
         )}

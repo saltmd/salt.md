@@ -257,7 +257,7 @@ export default function UserMenu({ user, onLogout, onUserChanged, onOpenAgents, 
           {onOpenAgents && (
             <button className="agents-menu-item" onClick={() => { setOpen(false); onOpenAgents(); }}>
               <span className="agents-ic"><Bot size={16} /></span>
-              <span className="agents-label">Agents &amp; MCP</span>
+              <span className="agents-label">{t('Agents & MCP')}</span>
             </button>
           )}
           <button onClick={() => { setOpen(false); setModal('profile'); }}>

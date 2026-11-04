@@ -8,6 +8,7 @@ import { useBoardDrag } from '../boardDrag';
 import { tagColorClass } from '../tags';
 import { compare, firstWeekday, formatDay, formatMonth, isReadableDay, resolveSmartDate, toDayString, today, weekdayNames } from '../format';
 import { plural, t } from '../i18n';
+import { imeComposing } from '../keys';
 import { confirm, promptText } from '../dialog';
 import type {
   CollectionConfig,
@@ -1149,7 +1150,7 @@ function FormView({
               placeholder={t('Name of the entry')}
               onChange={(e) => setTitle(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') void submit();
+                if (e.key === 'Enter' && !imeComposing(e)) void submit();
               }}
             />
           </label>
@@ -1549,8 +1550,8 @@ function FilterSortControls({
     }
     if (prop.type === 'checkbox') {
       return [
-        { value: 'true', label: 'Checked' },
-        { value: 'false', label: 'Unchecked' },
+        { value: 'true', label: t('Checked') },
+        { value: 'false', label: t('Unchecked') },
       ];
     }
     // A relation stores page ids. Offering a free-text box here meant filtering
@@ -1615,7 +1616,7 @@ function FilterSortControls({
         className={'btn-sm' + (filters.length ? ' active' : '')}
         onClick={() => setOpen(open === 'filter' ? null : 'filter')}
       >
-        <FilterIcon size={14} /> Filter{filters.length ? ` (${filters.length})` : ''}
+        <FilterIcon size={14} /> {t('Filter')}{filters.length ? ` (${filters.length})` : ''}
       </button>
       <button
         className={'btn-sm' + (sort ? ' active' : '')}

@@ -19,7 +19,7 @@ import { PageIcon } from '../pageIcon';
 import { BlockContext } from '../blockContext';
 import { exitsDown, exitsStart, focusedKey, focusItem, focusKey, navItem, nothingBefore, useNavRegion } from '../nav';
 import { readPageScroll, writePageScroll } from '../pageUiState';
-import { useShortcut } from '../keys';
+import { imeComposing, useShortcut } from '../keys';
 import CollectionView from './CollectionView';
 import { HistoryModal } from './PageHistory';
 import CommentsPanel, {
@@ -1038,7 +1038,7 @@ function PageHeader({
                       value={sharePassword}
                       onChange={(e) => setSharePassword(e.target.value)}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter' && (!shareUrl || shareSettingsChanged)) {
+                        if (e.key === 'Enter' && !imeComposing(e) && (!shareUrl || shareSettingsChanged)) {
                           e.preventDefault();
                           void createShare();
                         }
@@ -1177,7 +1177,7 @@ function PageHeader({
                       setOverflowOpen(false);
                     }}
                   >
-                    <Upload size={15} /> Import (.md / .zip)
+                    <Upload size={15} /> {t('Import (.md / .zip)')}
                   </button>
                 )}
                 <div className="menu-sep" />
@@ -1189,7 +1189,7 @@ function PageHeader({
                     setOverflowOpen(false);
                   }}
                 >
-                  <FileText size={15} /> Markdown (.md)
+                  <FileText size={15} /> {t('Markdown (.md)')}
                 </button>
                 <button
                   className="menu-item"
@@ -1310,7 +1310,7 @@ function PageHeader({
           onKeyDown={(e) => {
             // A title is a single line of text: Enter never inserts a newline
             // (it jumps into the body instead of breaking the title).
-            if (e.key === 'Enter') {
+            if (e.key === 'Enter' && !imeComposing(e)) {
               e.preventDefault();
               // The region knows how to focus its own items, including the one
               // that wraps a ProseMirror rather than being an input.
@@ -1411,6 +1411,7 @@ function PageHeader({
                   }}
                   onFocus={() => setTagSuggestOpen(true)}
                   onKeyDown={(e) => {
+                    if (imeComposing(e)) return;
                     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
                       if (!tagHits.length) return;
                       e.preventDefault();
@@ -1865,8 +1866,8 @@ function BlockContent({
     }));
     if (query.trim()) {
       items.push({
-        title: `Create "${query.trim()}"`,
-        subtext: 'New page',
+        title: t('Create “{name}”', { name: query.trim() }),
+        subtext: t('New page'),
         onItemClick: async () => {
           try {
             const created = await api.createPage(null, query.trim());

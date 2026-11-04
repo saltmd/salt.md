@@ -8,42 +8,45 @@ import { renameSelectOption, moveSelectOption, reorderSelectOption } from '../re
 import { confirm } from '../dialog';
 import { GripVertical, Check, Trash2 } from 'lucide-react';
 import { t } from '../i18n';
+import { imeComposing } from '../keys';
 import { loadMembers, type Member } from './PropertyValue';
 
-const TYPES: { value: PropType; label: string }[] = [
-  { value: 'text', label: 'Text' },
-  { value: 'number', label: 'Number' },
-  { value: 'select', label: 'Select' },
-  { value: 'multiselect', label: 'Multi-select' },
-  { value: 'date', label: 'Date' },
-  { value: 'checkbox', label: 'Checkbox' },
+// Functions, not constants: t() at module level resolves once at import and
+// keeps that language forever.
+const propTypes = (): { value: PropType; label: string }[] => [
+  { value: 'text', label: t('Text') },
+  { value: 'number', label: t('Number') },
+  { value: 'select', label: t('Select') },
+  { value: 'multiselect', label: t('Multi-select') },
+  { value: 'date', label: t('Date') },
+  { value: 'checkbox', label: t('Checkbox') },
   // A checklist is not a checkbox with extra steps: it holds sub-tasks and
   // shows their progress, which is what a card needs to say "half done".
-  { value: 'checklist', label: 'Checklist' },
+  { value: 'checklist', label: t('Checklist') },
   // The server has long known url (validPropTypes) and MCP advertises it —
   // only the interface never offered it and quietly treated it as text.
   { value: 'url', label: 'URL' },
-  { value: 'person', label: 'Person' },
-  { value: 'relation', label: 'Relation' },
-  { value: 'backrelation', label: 'Backrelation' },
-  { value: 'rollup', label: 'Rollup' },
+  { value: 'person', label: t('Person') },
+  { value: 'relation', label: t('Relation') },
+  { value: 'backrelation', label: t('Backrelation') },
+  { value: 'rollup', label: t('Rollup') },
   // Read-only and self-updating: there is nothing to configure, which is why it
   // sits with the computed types rather than the ones you fill in.
-  { value: 'lastActivity', label: 'Last activity' },
-  { value: 'formula', label: 'Formula' },
+  { value: 'lastActivity', label: t('Last activity') },
+  { value: 'formula', label: t('Formula') },
 ];
 
-const AGGS: { value: NonNullable<PropDef['rollupAgg']>; label: string }[] = [
-  { value: 'sum', label: 'Sum' },
-  { value: 'count', label: 'Count' },
-  { value: 'avg', label: 'Average' },
-  { value: 'min', label: 'Min' },
-  { value: 'max', label: 'Max' },
+const rollupAggs = (): { value: NonNullable<PropDef['rollupAgg']>; label: string }[] => [
+  { value: 'sum', label: t('Sum') },
+  { value: 'count', label: t('Count') },
+  { value: 'avg', label: t('Average') },
+  { value: 'min', label: t('Min') },
+  { value: 'max', label: t('Max') },
   // Percent is the share of the related rows that meet the condition. It exists
   // so a progress bar needs no formula: a formula would have to divide, and
   // 0 of 0 related rows is a division by zero — an error message in the column
   // of every newly created row.
-  { value: 'percent', label: 'Percent' },
+  { value: 'percent', label: t('Percent') },
 ];
 
 const OPTION_COLORS = OPTION_HEXES;
@@ -123,7 +126,7 @@ export default function SchemaEditor({
   }, [schema, targetSchemas]);
 
   const addProp = () => {
-    const name = newName.trim() || 'Property';
+    const name = newName.trim() || t('Property');
     let id = slug(name);
     while (schema.some((p) => p.id === id)) id += '_';
     const def: PropDef = { id, name, type: newType };
@@ -246,7 +249,7 @@ export default function SchemaEditor({
       </select>
       {(p.numberDisplay === 'bar' || p.numberDisplay === 'ring') && (
         <>
-          <label>Max (= 100%)</label>
+          <label>{t('Max (= 100%)')}</label>
           <input
             className="prop-input"
             type="number"
@@ -360,7 +363,7 @@ export default function SchemaEditor({
             onChange={(e) => updateProp(p.id, { rollupTarget: e.target.value })}
             disabled={!rel}
           >
-            <option value="">{rel ? 'Select…' : '(pick relation first)'}</option>
+            <option value="">{rel ? t('Choose…') : t('(pick relation first)')}</option>
             {targetSchema
               .filter((t) => t.type !== 'rollup' && t.type !== 'formula' && t.type !== 'relation')
               .map((t) => (
@@ -375,7 +378,7 @@ export default function SchemaEditor({
             value={p.rollupAgg ?? 'sum'}
             onChange={(e) => updateProp(p.id, { rollupAgg: e.target.value as PropDef['rollupAgg'] })}
           >
-            {AGGS.map((a) => (
+            {rollupAggs().map((a) => (
               <option key={a.value} value={a.value}>
                 {a.label}
               </option>
@@ -452,15 +455,18 @@ export default function SchemaEditor({
             onChange={(e) => updateProp(p.id, { formula: e.target.value })}
           />
           <div className="formula-hint">
-            Reference other properties with <code>{'{id}'}</code>. Available:{' '}
-            {schema
-              .filter((o) => o.id !== p.id)
-              .map((o) => (
-                <code key={o.id} className="formula-token" title={o.name}>
-                  {'{' + o.id + '}'}
-                </code>
-              ))}
-            . Supports <code>+ - * / ( )</code>.
+            <div>{t('Reference other properties with')} <code>{'{id}'}</code></div>
+            <div>
+              {t('Available:')}{' '}
+              {schema
+                .filter((o) => o.id !== p.id)
+                .map((o) => (
+                  <code key={o.id} className="formula-token" title={o.name}>
+                    {'{' + o.id + '}'}
+                  </code>
+                ))}
+            </div>
+            <div>{t('Supports')} <code>+ - * / ( )</code></div>
           </div>
           {numberDisplayFields(p)}
         </div>
@@ -527,9 +533,9 @@ export default function SchemaEditor({
                   value={p.type}
                   onChange={(e) => changeType(p.id, e.target.value as PropType)}
                 >
-                  {TYPES.map((t) => (
-                    <option key={t.value} value={t.value}>
-                      {t.label}
+                  {propTypes().map((type) => (
+                    <option key={type.value} value={type.value}>
+                      {type.label}
                     </option>
                   ))}
                 </select>
@@ -631,7 +637,7 @@ export default function SchemaEditor({
                     className="opt-input"
                     placeholder={t('+ Option')}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
+                      if (e.key === 'Enter' && !imeComposing(e)) {
                         addOption(p.id, (e.target as HTMLInputElement).value);
                         (e.target as HTMLInputElement).value = '';
                       }
@@ -649,20 +655,20 @@ export default function SchemaEditor({
             placeholder={t('New property name')}
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && addProp()}
+            onKeyDown={(e) => e.key === 'Enter' && !imeComposing(e) && addProp()}
           />
           <select
             className="prop-select"
             value={newType}
             onChange={(e) => setNewType(e.target.value as PropType)}
           >
-            {TYPES.map((t) => (
-              <option key={t.value} value={t.value}>
-                {t.label}
+            {propTypes().map((type) => (
+              <option key={type.value} value={type.value}>
+                {type.label}
               </option>
             ))}
           </select>
-          <button className="btn" onClick={addProp}>Add</button>
+          <button className="btn" onClick={addProp}>{t('Add')}</button>
         </div>
         <div className="dialog-buttons">
           <button className="btn" onClick={onClose}>{t('Cancel')}</button>

@@ -4,6 +4,7 @@ import type { BlueprintEntry, Workspace } from '../types';
 import Portal from './Portal';
 import { useExclusiveModal } from '../modal';
 import { plural, t } from '../i18n';
+import { imeComposing } from '../keys';
 import { ArrowLeft, Copy, FileText, Library, Plus } from 'lucide-react';
 
 // The blueprint library — the shelf you land on when you make a workspace.
@@ -233,7 +234,7 @@ export default function BlueprintLibrary({
                   placeholder={t('e.g. Team')}
                   onChange={(e) => setName(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') void create();
+                    if (e.key === 'Enter' && !imeComposing(e)) void create();
                   }}
                 />
               </label>

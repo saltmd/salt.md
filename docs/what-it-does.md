@@ -178,8 +178,9 @@ sign-in via Google or Microsoft 365 works if you want it.
 
 ### Language and time
 
-The interface ships in English and German; more languages are one command away
-(a translation tool fills the gaps and never overwrites a human correction).
+The interface ships in English, German, Spanish and Simplified Chinese; more
+languages are one command away (a translation tool fills the gaps and never
+overwrites a human correction).
 
 Each account chooses — or leaves on automatic — its language, date and number
 format, time zone, 12- or 24-hour clock, and which day the week starts on. The

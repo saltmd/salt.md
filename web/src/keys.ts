@@ -40,6 +40,16 @@ export type Shortcut = {
   run: (e: KeyboardEvent) => void | boolean;
 };
 
+/** True while this key belongs to the input method. A Chinese or Japanese
+ *  reader presses Enter to finish a word, and a text field that reads only
+ *  `e.key` takes it for a command: the note goes out, the dialog closes, the
+ *  half-typed text is what gets stored. Safari ends the composition BEFORE this
+ *  keydown, so isComposing is already false there and keyCode 229 is the only
+ *  trace left of it. */
+export function imeComposing(e: { keyCode: number; nativeEvent: { isComposing: boolean } }): boolean {
+  return e.nativeEvent.isComposing || e.keyCode === 229;
+}
+
 /** The part of a KeyboardEvent a chord is built from. Narrower than the real
  *  thing so the resolution logic can be tested without a DOM. */
 export type KeyEventLike = {
