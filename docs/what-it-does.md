@@ -354,8 +354,9 @@ Read this section as a sign that the rest is accurate.
 - **No mobile apps.** The web app works on a phone and boards can be dragged
   with a finger, but there is nothing in an app store. Two more codebases is not
   a trade this project wants to make yet.
-- **Two languages ship** — English and German. Others take one command and a
-  translation pass, but nobody has done Spanish or French yet.
+- **Four languages ship** — English, German, Spanish and Simplified Chinese.
+  Others take one command and a translation pass, but nobody has done French
+  yet.
 - **No hosted version yet.** Today you host it yourself. A hosted option is the
   plan for teams that outgrow doing that; it does not exist at the time of
   writing.

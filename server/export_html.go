@@ -662,12 +662,14 @@ var SALT_TITLE='',SALT_DAY='',SALT_REGION='',SALT_LANG='';
 // German interface in an English browser still writes 10.08.2026 rather than
 // 08/10/2026. Falling back to the browser's own default instead was wrong in
 // exactly that case, which is the common one for anybody who keeps their
-// browser in English.
+// browser in English. The base of the language, not the whole of it: 'zh-Hans'
+// is a catalog, and a zh-TW browser still writes its dates the zh-TW way.
 function saltLocale(){
   if(SALT_REGION)return SALT_REGION;
   var tags=navigator.languages||[navigator.language||''];
   if(SALT_LANG){
-    for(var i=0;i<tags.length;i++)if(tags[i].split('-')[0]===SALT_LANG)return tags[i];
+    var base=SALT_LANG.split('-')[0].toLowerCase();
+    for(var i=0;i<tags.length;i++)if(tags[i].split('-')[0].toLowerCase()===base)return tags[i];
     return SALT_LANG;
   }
   return tags[0]||undefined;

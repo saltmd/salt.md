@@ -35,6 +35,25 @@ func TestNormalizePrefs(t *testing.T) {
 			want: userPrefs{Region: "sr-Latn-RS"},
 		},
 		{
+			// The Simplified Chinese catalog is keyed by script. Lowering the
+			// whole tag made it 'zh-hans', which no catalog answers to.
+			name: "a language with a script keeps the script's case",
+			in:   userPrefs{Language: "zh-Hans"},
+			want: userPrefs{Language: "zh-Hans"},
+		},
+		{
+			name: "a language with a script is cased the BCP 47 way",
+			in:   userPrefs{Language: " ZH-hans "},
+			want: userPrefs{Language: "zh-Hans"},
+		},
+		{
+			// A region belongs in Region, where it decides formatting; the
+			// language only picks a catalog.
+			name: "a language carrying a region is refused",
+			in:   userPrefs{Language: "zh-Hans-CN"},
+			want: userPrefs{},
+		},
+		{
 			name: "a language we ship no catalog for is well formed and allowed",
 			in:   userPrefs{Language: "fr"},
 			want: userPrefs{Language: "fr"},
@@ -106,6 +125,7 @@ func TestNormalizePrefsIsStable(t *testing.T) {
 		{},
 		{Language: "de", Region: "de-AT", TimeZone: "Europe/Vienna", Clock: "24", WeekStart: "mon"},
 		{Language: "DEUTSCH", Region: "  en-GB", TimeZone: "bad zone", Clock: "12", WeekStart: "sat"},
+		{Language: "zh-HANS", Region: "zh-TW"},
 	} {
 		once := normalizePrefs(in)
 		twice := normalizePrefs(once)

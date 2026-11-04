@@ -53,10 +53,13 @@ type userPrefs struct {
 }
 
 var (
-	// A language is a base tag: two or three letters. Anything the frontend
-	// does not ship a catalog for falls back to English there, so an unknown
-	// but well-formed tag is harmless.
-	rxLanguage = regexp.MustCompile(`^[a-z]{2,3}$`)
+	// A language is a base tag of two or three letters, optionally with a
+	// script: 'de', 'zh-Hans'. The script is there because a catalog may be
+	// keyed by it — Simplified and Traditional Chinese are one language and two
+	// ways of writing it. A region is not allowed here; that is what Region is
+	// for. Anything the frontend does not ship a catalog for falls back to
+	// English there, so an unknown but well-formed tag is harmless.
+	rxLanguage = regexp.MustCompile(`^[a-z]{2,3}(-[A-Z][a-z]{3})?$`)
 	// A regional tag as BCP-47 writes them: 'de', 'de-AT', 'en-GB', 'sr-Latn-RS'.
 	rxRegion = regexp.MustCompile(`^[a-zA-Z]{2,3}(-[A-Za-z0-9]{2,8}){0,3}$`)
 	// A zone name by SHAPE only, not against a list.
@@ -80,7 +83,7 @@ var (
 // it.
 func normalizePrefs(p userPrefs) userPrefs {
 	out := userPrefs{
-		Language:       strings.ToLower(strings.TrimSpace(p.Language)),
+		Language:       languageCase(strings.TrimSpace(p.Language)),
 		Region:         strings.TrimSpace(p.Region),
 		TimeZone:       strings.TrimSpace(p.TimeZone),
 		Clock:          strings.TrimSpace(p.Clock),
@@ -108,6 +111,21 @@ func normalizePrefs(p userPrefs) userPrefs {
 		out.OpenRowsNewTab = ""
 	}
 	return out
+}
+
+// languageCase writes a language tag the way BCP 47 does: the language in lower
+// case, the script in title case ('zh-Hans'). Lowering the whole tag turned a
+// stored 'zh-Hans' into 'zh-hans', which the frontend's catalog lookup is
+// right not to recognise, so the reader silently got English back.
+func languageCase(tag string) string {
+	parts := strings.Split(tag, "-")
+	parts[0] = strings.ToLower(parts[0])
+	for i := 1; i < len(parts); i++ {
+		if len(parts[i]) == 4 {
+			parts[i] = strings.ToUpper(parts[i][:1]) + strings.ToLower(parts[i][1:])
+		}
+	}
+	return strings.Join(parts, "-")
 }
 
 // loadPrefs reads an account's preferences. A missing row yields the zero

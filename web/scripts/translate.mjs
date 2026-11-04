@@ -123,7 +123,7 @@ if (!target || argv.includes('--list')) {
     const done = keys.filter((k) => k in cat).length;
     const unread = machineList(loc).length;
     console.log(
-      `  ${loc.padEnd(6)} ${String(Math.round((done / keys.length) * 100)).padStart(3)}%  ${done}/${keys.length}` +
+      `  ${loc.padEnd(8)} ${String(Math.round((done / keys.length) * 100)).padStart(3)}%  ${done}/${keys.length}` +
         (unread ? `  (${unread} machine-written, unreviewed)` : ''),
     );
   }
@@ -169,6 +169,8 @@ writeFileSync(join(localeDir, `${target}.machine.json`), JSON.stringify(unread, 
 
 console.log(`Wrote ${Object.keys(translated).length} entries to ${target}.json.`);
 console.log(`${unread.length} entries are machine-written and unreviewed (${target}.machine.json).`);
-if (!readFileSync(i18nFile, 'utf8').includes(`  ${target}:`)) {
+// A tag with a hyphen ('zh-Hans', 'pt-BR') has to be quoted as an object key.
+const listed = readFileSync(i18nFile, 'utf8');
+if (![`  ${target}:`, `  '${target}':`, `  "${target}":`].some((k) => listed.includes(k))) {
   console.log(`\nOne step left: add "${target}" to LOCALES in src/i18n.ts so it appears in the picker.`);
 }

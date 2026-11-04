@@ -193,6 +193,38 @@ func TestPutPrefsRowOpeningRoundTrip(t *testing.T) {
 	}
 }
 
+// A language keyed by script comes back exactly as it went in. Before, the
+// whole tag was lowered and a stored 'zh-hans' matched no catalog, so the next
+// reload quietly switched the reader back to English.
+func TestPutPrefsLanguageWithScriptRoundTrip(t *testing.T) {
+	s := testServer(t)
+	uid, cookie := signedIn(t, s, "a@example.com")
+
+	rec := putPrefs(t, s, `{"language":"zh-Hans","region":"zh-TW"}`, map[string]string{"Cookie": cookie})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("got %d, want 200", rec.Code)
+	}
+	var got userPrefs
+	if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	want := userPrefs{Language: "zh-Hans", Region: "zh-TW"}
+	if got != want {
+		t.Errorf("answer\n got  %+v\n want %+v", got, want)
+	}
+	if stored := s.loadPrefs(uid); stored != want {
+		t.Errorf("stored\n got  %+v\n want %+v", stored, want)
+	}
+
+	me := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/api/me", nil)
+	req.Header.Set("Cookie", cookie)
+	s.ServeHTTP(me, req)
+	if !strings.Contains(me.Body.String(), `"language":"zh-Hans"`) {
+		t.Errorf("/api/me does not carry the language as stored:\n%s", me.Body.String())
+	}
+}
+
 // /api/me carries the preferences, and must not carry anybody else's.
 func TestMeCarriesOwnPrefsOnly(t *testing.T) {
 	s := testServer(t)
