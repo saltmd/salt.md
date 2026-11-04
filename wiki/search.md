@@ -169,6 +169,12 @@ guessed stem costs nothing but a little noise at the bottom of the list.
 **ss and ß are searched both ways**, because the keyboard in front of you often
 will not produce a ß. `strasse` finds *Straße* and `Straße` finds *Strasse*.
 
+**Chinese, Japanese and Korean are matched anywhere in the text.** These
+scripts do not mark where a word ends, so the start of a word would mean the
+start of a sentence. Every character is indexed on its own instead, and what you
+type has to appear in that order, side by side: `数据库` finds *我们讨论了数据库迁移方案*,
+and `库数据` does not.
+
 None of this needs configuring, and none of it costs anything in English,
 where the same rules quietly trim a plural *s*.
 
@@ -179,6 +185,7 @@ where the same rules quietly trim a plural *s*.
 | `muller` | Müller |
 | `strasse` | Straße |
 | `cont` | contract, container, continuation |
+| `数据库` | 我们讨论了数据库迁移方案 |
 
 Results are ranked so that a hit in the **page title** outweighs a hit in a
 **heading**, which outweighs a hit in ordinary text.
