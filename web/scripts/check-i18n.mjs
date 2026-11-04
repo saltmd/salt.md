@@ -393,7 +393,10 @@ if (process.argv.includes('--german')) {
 const REQUIRED = new Set(['de.json']);
 const localeDir = join(src, 'locales');
 const report = [];
-for (const name of readdirSync(localeDir).filter((f) => f.endsWith('.json'))) {
+// <locale>.machine.json beside a catalog is translate.mjs's list of entries no
+// human has read yet — an array of keys, not a catalog, and reading it as one
+// reported every one of them as an orphan.
+for (const name of readdirSync(localeDir).filter((f) => f.endsWith('.json') && !f.endsWith('.machine.json'))) {
   const cat = JSON.parse(readFileSync(join(localeDir, name), 'utf8'));
   const keys = Object.keys(cat);
   const orphans = keys.filter((k) => !used.has(k));

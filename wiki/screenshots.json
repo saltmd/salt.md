@@ -80,7 +80,7 @@
       ],
       "takenAt": {
         "web/src/components/Sidebar.tsx": "32f374b52933",
-        "web/src/components/Editor.tsx": "670b26583a4f",
+        "web/src/components/Editor.tsx": "8316404ddf3d",
         "web/src/App.tsx": "5f18773ed53b",
         "web/src/theme.css": "6a5de72d7e2c"
       }
@@ -141,7 +141,7 @@
         }
       ],
       "takenAt": {
-        "web/src/components/Editor.tsx": "670b26583a4f",
+        "web/src/components/Editor.tsx": "8316404ddf3d",
         "web/src/theme.css": "6a5de72d7e2c"
       }
     },
@@ -459,7 +459,7 @@
       ],
       "takenAt": {
         "server/public.go": "62d933047cbe",
-        "web/src/components/Editor.tsx": "670b26583a4f",
+        "web/src/components/Editor.tsx": "8316404ddf3d",
         "web/src/theme.css": "6a5de72d7e2c"
       }
     },
@@ -554,8 +554,8 @@
         }
       ],
       "takenAt": {
-        "web/src/components/LanguageTime.tsx": "274ac44244e0",
-        "server/prefs.go": "ced87d00a869",
+        "web/src/components/LanguageTime.tsx": "69a16ee43367",
+        "server/prefs.go": "95d287ffd9e8",
         "web/src/theme.css": "6a5de72d7e2c"
       },
       "element": ".dialog"
@@ -854,7 +854,7 @@
       "element": ".dialog",
       "takenAt": {
         "web/src/components/AdminSettings.tsx": "6713e2be48ac",
-        "server/export_html.go": "56c66cc9d01c",
+        "server/export_html.go": "281966e21eb0",
         "web/src/theme.css": "6a5de72d7e2c"
       }
     },

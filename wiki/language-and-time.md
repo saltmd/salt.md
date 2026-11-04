@@ -58,16 +58,25 @@ manual merely to find out what it was.
 
 ### Language
 
-Three languages ship today: **English**, **Deutsch** and **Español**. English
-is the source language of the product, so English is never a translation and
-never has gaps. German is kept complete by the build; Spanish was contributed
-and can trail a release behind, in which case the newest texts show in English
-until it catches up.
+Four languages ship today: **English**, **Deutsch**, **Español** and
+**简体中文** (Simplified Chinese). English is the source language of the
+product, so English is never a translation and never has gaps. German is kept
+complete by the build; Spanish and Simplified Chinese were contributed and can
+trail a release behind, in which case the newest texts show in English until
+they catch up.
 
 Automatic walks your browser's list of preferred languages and takes the first
 one salt.md has a catalogue for; if there is none, English. That is why a German
 browser gets a German interface on the very first visit, with nobody having
 chosen anything.
+
+A catalogue is matched by language and script, not by language alone. Chinese
+is one language written two ways: a browser set to `zh-CN` or plain `zh` asks
+for Simplified characters and gets 简体中文, while one set to `zh-TW` or
+`zh-HK` asks for Traditional characters, which salt.md has no catalogue for, and
+stays in English until its reader picks 简体中文 by hand. Dates and numbers
+are not affected either way: they follow the browser's own regional variant, so
+a reader in Taipei on the Simplified interface still gets dates the `zh-TW` way.
 
 The language changes the interface: menus, buttons, dialogs, dates spelled in
 words. It does not change anything you or your colleagues wrote. See
@@ -81,7 +90,7 @@ the page out right to left rather than needing a separate switch.
 
 ### Date and number format
 
-A short, curated list of eighteen regional tags rather than every tag the browser
+A short, curated list of twenty-one regional tags rather than every tag the browser
 knows, because the problem being solved is "my laptop says en-US but I write
 dates the European way", and a thousand-entry dropdown does not help anybody do
 that. Each entry reads as a name and its tag (**German (Germany): de-DE**,
@@ -89,7 +98,7 @@ that. Each entry reads as a name and its tag (**German (Germany): de-DE**,
 
 The list covers `de-DE`, `de-AT`, `de-CH`, `en-GB`, `en-US`, `en-IE`, `en-AU`,
 `en-CA`, `fr-FR`, `fr-CH`, `it-IT`, `es-ES`, `nl-NL`, `pl-PL`, `pt-BR`, `sv-SE`,
-`da-DK` and `cs-CZ`.
+`da-DK`, `cs-CZ`, `zh-CN`, `zh-TW` and `zh-HK`.
 
 This is deliberately a **separate** setting from the language. salt.md ships one
 catalogue per language, not per country (writing British and American copies of
@@ -122,7 +131,7 @@ hours, then days up to a week. Past a week it stops being relative and shows the
 day and month instead, with the year added as soon as the date is not in the
 current year, because "18 Jul" on its own could be any of several.
 
-**Beyond the eighteen.** The dropdown offers eighteen; the server accepts
+**Beyond the twenty-one.** The dropdown offers twenty-one; the server accepts
 anything shaped like a regional tag, so a value such as `en-NZ` can be stored by
 a script signed in as you and will be used for formatting. The dialog has no
 entry for a tag outside its list and cannot display one; picking any entry
