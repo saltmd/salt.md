@@ -358,6 +358,31 @@ func openDB(path string) (*sql.DB, error) {
 	if _, err := db.Exec(schema); err != nil {
 		return nil, fmt.Errorf("migrate: %w", err)
 	}
+	for _, col := range []struct{ name, ddl string }{
+		{"thread_id", "thread_id TEXT NOT NULL DEFAULT ''"},
+		{"reply_to_id", "reply_to_id TEXT NOT NULL DEFAULT ''"},
+		{"request_id", "request_id TEXT NOT NULL DEFAULT ''"},
+		{"deleted_at", "deleted_at TEXT"},
+	} {
+		if err := ensureColumn(db, "comments", col.name, col.ddl); err != nil {
+			return nil, fmt.Errorf("migrate comments.%s: %w", col.name, err)
+		}
+	}
+	if _, err := db.Exec(`
+        CREATE INDEX IF NOT EXISTS idx_comment_thread ON comments(thread_id, created_at);
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_comment_request ON comments(author_id, request_id) WHERE request_id <> '';
+        CREATE TABLE IF NOT EXISTS notifications (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            recipient_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            comment_id TEXT NOT NULL REFERENCES comments(id) ON DELETE CASCADE,
+            created_at TEXT NOT NULL,
+            read_at TEXT,
+            UNIQUE(recipient_id, comment_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_notification_recipient ON notifications(recipient_id, id DESC);
+    `); err != nil {
+		return nil, fmt.Errorf("migrate reply inbox: %w", err)
+	}
 	if err := ensureColumn(db, "pages", "type", `type TEXT NOT NULL DEFAULT 'doc'`); err != nil {
 		return nil, fmt.Errorf("migrate pages.type: %w", err)
 	}

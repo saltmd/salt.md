@@ -465,7 +465,9 @@ archive is lossless and can be imported back.
 | `GET`/`POST /api/pages/{id}/comments` | read and write comments |
 | `POST /api/comments/{id}/resolve` | mark resolved or unresolved (`{"resolved":true}`) |
 | `DELETE /api/comments/{id}` | the author or a workspace admin |
-| `GET /api/comment-counts?workspaceId={id}` | open comments per page, in one call |
+| `GET /api/comment-counts?workspaceId={id}` | open threads per page, in one call |
+| `GET /api/notifications` | personal reply inbox; `unread=1` and `before` cursor are optional |
+| `POST /api/notifications/read` | set one notification’s `id`/`read`, or mark existing items read with `through` |
 | `GET`/`POST /api/pages/{id}/notes` | the raw, append-only trail |
 | `DELETE /api/pages/{id}/notes` | discard the whole trail (browser sign-in only) |
 | `GET /api/pages/{id}/revisions` | the version list |

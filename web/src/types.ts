@@ -145,6 +145,9 @@ export interface Revision {
 
 export interface Comment {
   id: string;
+  threadId: string;
+  replyToId: string;
+  deletedAt: string | null;
   blockId: string;
   authorId: string;
   authorName: string;
@@ -380,3 +383,24 @@ export type UpdateInfo = {
   checkedAt?: string;
   enabled: boolean;
 };
+
+export interface ReplyNotification {
+  id: number;
+  pageId: string;
+  pageTitle: string;
+  workspaceName: string;
+  commentId: string;
+  threadId: string;
+  actorName: string;
+  actorColor: string;
+  actorAvatar: string;
+  preview: string;
+  createdAt: string;
+  readAt: string | null;
+}
+export interface InboxPage {
+  items: ReplyNotification[];
+  unreadCount: number;
+  through: number;
+  nextCursor: number;
+}
