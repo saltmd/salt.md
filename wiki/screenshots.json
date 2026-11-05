@@ -79,9 +79,9 @@
         }
       ],
       "takenAt": {
-        "web/src/components/Sidebar.tsx": "32f374b52933",
-        "web/src/components/Editor.tsx": "d8f10df6ad61",
-        "web/src/App.tsx": "a7d993c40334",
+        "web/src/components/Sidebar.tsx": "d2dba3370c99",
+        "web/src/components/Editor.tsx": "02cbbcfc8b08",
+        "web/src/App.tsx": "5f18773ed53b",
         "web/src/theme.css": "6a5de72d7e2c"
       }
     },
@@ -106,7 +106,7 @@
         }
       ],
       "takenAt": {
-        "web/src/components/Sidebar.tsx": "32f374b52933",
+        "web/src/components/Sidebar.tsx": "d2dba3370c99",
         "web/src/treeMode.ts": "413de5b84cd9",
         "web/src/theme.css": "6a5de72d7e2c"
       },
@@ -141,7 +141,7 @@
         }
       ],
       "takenAt": {
-        "web/src/components/Editor.tsx": "d8f10df6ad61",
+        "web/src/components/Editor.tsx": "02cbbcfc8b08",
         "web/src/theme.css": "6a5de72d7e2c"
       }
     },
@@ -201,7 +201,7 @@
         }
       ],
       "takenAt": {
-        "web/src/components/CommentsPanel.tsx": "1d138c776ef5",
+        "web/src/components/CommentsPanel.tsx": "cc634cf373c3",
         "web/src/theme.css": "6a5de72d7e2c"
       }
     },
@@ -226,7 +226,7 @@
         }
       ],
       "takenAt": {
-        "web/src/components/NoteTrail.tsx": "160bdbf01513",
+        "web/src/components/NoteTrail.tsx": "bba043c62227",
         "server/notelog.go": "f1f6f9343521",
         "web/src/theme.css": "6a5de72d7e2c"
       },
@@ -265,8 +265,8 @@
         }
       ],
       "takenAt": {
-        "web/src/components/SearchModal.tsx": "1d4b76382c41",
-        "server/searchindex.go": "e3b94d6085a8",
+        "web/src/components/SearchModal.tsx": "b0222524b0ce",
+        "server/searchindex.go": "f47d847a92ad",
         "web/src/theme.css": "6a5de72d7e2c"
       }
     },
@@ -299,7 +299,7 @@
         }
       ],
       "takenAt": {
-        "web/src/components/CollectionView.tsx": "7554c4607c2e",
+        "web/src/components/CollectionView.tsx": "8e445c60c284",
         "web/src/theme.css": "6a5de72d7e2c"
       }
     },
@@ -333,7 +333,7 @@
         }
       ],
       "takenAt": {
-        "web/src/components/CollectionView.tsx": "7554c4607c2e",
+        "web/src/components/CollectionView.tsx": "8e445c60c284",
         "web/src/cardLayout.ts": "eb7f92584275",
         "web/src/theme.css": "6a5de72d7e2c"
       }
@@ -367,7 +367,7 @@
         }
       ],
       "takenAt": {
-        "web/src/components/CollectionView.tsx": "7554c4607c2e",
+        "web/src/components/CollectionView.tsx": "8e445c60c284",
         "web/src/theme.css": "6a5de72d7e2c"
       }
     },
@@ -459,7 +459,7 @@
       ],
       "takenAt": {
         "server/public.go": "62d933047cbe",
-        "web/src/components/Editor.tsx": "d8f10df6ad61",
+        "web/src/components/Editor.tsx": "02cbbcfc8b08",
         "web/src/theme.css": "6a5de72d7e2c"
       }
     },
@@ -489,7 +489,7 @@
         }
       ],
       "takenAt": {
-        "web/src/components/UserMenu.tsx": "6c9743de4c74",
+        "web/src/components/UserMenu.tsx": "e96ef3cfb2c1",
         "web/src/theme.css": "6a5de72d7e2c"
       },
       "element": ".dialog"
@@ -522,7 +522,7 @@
       ],
       "takenAt": {
         "server/users.go": "2fa3d9b82071",
-        "web/src/components/UserMenu.tsx": "6c9743de4c74",
+        "web/src/components/UserMenu.tsx": "e96ef3cfb2c1",
         "web/src/theme.css": "6a5de72d7e2c"
       },
       "element": ".dialog"
@@ -554,8 +554,8 @@
         }
       ],
       "takenAt": {
-        "web/src/components/LanguageTime.tsx": "274ac44244e0",
-        "server/prefs.go": "ced87d00a869",
+        "web/src/components/LanguageTime.tsx": "69a16ee43367",
+        "server/prefs.go": "95d287ffd9e8",
         "web/src/theme.css": "6a5de72d7e2c"
       },
       "element": ".dialog"
@@ -587,8 +587,8 @@
         }
       ],
       "takenAt": {
-        "web/src/components/AgentConnect.tsx": "233816c04a8c",
-        "server/mcp.go": "cbe1cb9f3bcc",
+        "web/src/components/AgentConnect.tsx": "dd2865c640de",
+        "server/mcp.go": "7f42ffda319f",
         "web/src/theme.css": "6a5de72d7e2c"
       },
       "element": ".dialog"
@@ -658,7 +658,7 @@
       ],
       "takenAt": {
         "web/src/components/AdminSettings.tsx": "6713e2be48ac",
-        "server/instance.go": "20f938fc09d0",
+        "server/instance.go": "c35df9908986",
         "web/src/theme.css": "6a5de72d7e2c"
       },
       "element": ".dialog"
@@ -738,7 +738,7 @@
       "takenAt": {
         "web/src/components/AdminSettings.tsx": "6713e2be48ac",
         "server/mail_oauth.go": "0f9335f373b5",
-        "server/admin.go": "0fa02117e0c5",
+        "server/admin.go": "f54e70b1eea7",
         "web/src/theme.css": "6a5de72d7e2c"
       },
       "element": ".dialog"
@@ -854,7 +854,7 @@
       "element": ".dialog",
       "takenAt": {
         "web/src/components/AdminSettings.tsx": "6713e2be48ac",
-        "server/export_html.go": "56c66cc9d01c",
+        "server/export_html.go": "281966e21eb0",
         "web/src/theme.css": "6a5de72d7e2c"
       }
     },
@@ -892,7 +892,7 @@
       ],
       "takenAt": {
         "web/src/components/AdminSettings.tsx": "6713e2be48ac",
-        "server/backup.go": "ec5e30ecad88",
+        "server/backup.go": "7a2fc9954d76",
         "web/src/theme.css": "6a5de72d7e2c"
       },
       "element": ".dialog"
@@ -926,8 +926,8 @@
       ],
       "takenAt": {
         "web/src/components/AdminSettings.tsx": "6713e2be48ac",
-        "server/admin.go": "0fa02117e0c5",
-        "server/lifecycle_account.go": "3bbd986cbe7e",
+        "server/admin.go": "f54e70b1eea7",
+        "server/lifecycle_account.go": "e48cfee737ac",
         "web/src/theme.css": "6a5de72d7e2c"
       },
       "element": ".dialog"
@@ -962,54 +962,6 @@
         "web/src/theme.css": "6a5de72d7e2c"
       },
       "element": ".dialog"
-    },
-    {
-      "id": "inline-comment-selection",
-      "page": "comments-and-notes.md",
-      "caption": "Selecting text opens a comment draft with the original quote.",
-      "shows": [
-        "web/src/components/Editor.tsx",
-        "web/src/components/CommentsPanel.tsx",
-        "web/src/components/InlineComments.tsx",
-        "web/src/styles.css",
-        "web/src/theme.css"
-      ],
-      "steps": [
-        {
-          "goto": "/"
-        },
-        {
-          "waitFor": ".sidebar"
-        },
-        {
-          "click": ".bn-editor"
-        },
-        {
-          "press": "ControlOrMeta+Home"
-        },
-        {
-          "press": "Shift+End"
-        },
-        {
-          "click": "[aria-label=\"Comment on selected text\"]"
-        },
-        {
-          "fill": [
-            ".cp-compose textarea",
-            "Can we make this description more specific?"
-          ]
-        },
-        {
-          "wait": 600
-        }
-      ],
-      "takenAt": {
-        "web/src/components/Editor.tsx": "d8f10df6ad61",
-        "web/src/components/CommentsPanel.tsx": "1d138c776ef5",
-        "web/src/components/InlineComments.tsx": "a211bf1bb284",
-        "web/src/styles.css": "5edc5595e219",
-        "web/src/theme.css": "6a5de72d7e2c"
-      }
     }
   ]
 }

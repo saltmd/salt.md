@@ -251,7 +251,7 @@ func (s *Server) deletionImpactOf(userID string) deletionImpact {
 		if x.members > 1 {
 			continue
 		}
-		iw.Heir = heirName // leer -> Instanz-Owner
+		iw.Heir = heirName // empty -> the instance owner
 		out.Orphaned = append(out.Orphaned, iw)
 	}
 	s.db.QueryRow(`SELECT COUNT(*) FROM pages p JOIN workspaces w ON w.id = p.workspace_id

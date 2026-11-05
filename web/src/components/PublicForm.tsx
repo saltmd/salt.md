@@ -6,6 +6,7 @@ import { PageIcon } from '../pageIcon';
 import { PublicFormConfig, PropDef } from '../types';
 import { toast } from '../toast';
 import { t } from '../i18n';
+import { imeComposing } from '../keys';
 
 // Standalone, unauthenticated form page served at /form/{token}. Reuses the
 // exact same field renderer as the in-app form view, but posts to the public
@@ -111,7 +112,7 @@ export default function PublicForm({ token }: { token: string }) {
               placeholder={t('Name of the entry')}
               onChange={(e) => setTitle(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') void submit();
+                if (e.key === 'Enter' && !imeComposing(e)) void submit();
               }}
             />
           </label>

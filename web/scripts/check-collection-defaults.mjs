@@ -48,6 +48,16 @@ try {
     assert.deepEqual(defaults(schema(type), filters), expected, JSON.stringify([type, filters]));
   }
   assert.deepEqual(defaults(schema('person', { personMultiple: true }), [filter('a')]), { p: ['a'] });
+  // "@me" is the one making the row, never the marker itself: stored as
+  // written, every reader would see the row as their own (#120).
+  const me = { id: 'u_ada', name: 'Ada Lovelace' };
+  const mine = { ...filter(''), values: ['@me'] };
+  assert.deepEqual(defaults(schema('person'), [mine], {}, me), { p: 'u_ada' });
+  assert.deepEqual(defaults(schema('person'), [filter('@me')], {}, me), { p: 'u_ada' });
+  assert.deepEqual(defaults(schema('person', { personMultiple: true }), [mine], {}, me), { p: ['u_ada'] });
+  assert.deepEqual(defaults(schema('person'), [{ ...filter(''), values: ['@me', 'u_bob'] }], {}, me), {});
+  assert.deepEqual(defaults(schema('person'), [mine]), {});
+  assert.deepEqual(defaults(schema('text'), [filter('@me')], {}, me), { p: '@me' });
   assert.deepEqual(defaults(schema('select'), [filter('a')], { p: '' }), { p: '' });
   assert.deepEqual(defaults(schema('select'), [filter('a')], { p: 'b' }), { p: 'b' });
   const relative = defaults(schema('date'), [filter('today')]);

@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"strings"
+	"unicode/utf8"
 )
 
 // Cutting pages into passages (W110, stage 1).
@@ -121,6 +122,11 @@ func lastSpaceBefore(s string, max int) int {
 	if i := strings.LastIndexAny(s[:max], " \n\t"); i > max/2 {
 		return i
 	}
+	// No space to cut at, which is the ordinary case in Chinese. Back up to the
+	// start of a character, or both halves carry a broken one.
+	for max > 0 && !utf8.RuneStart(s[max]) {
+		max--
+	}
 	return max
 }
 
@@ -186,7 +192,7 @@ func (s *Server) reindexChunks(pageID, workspaceID, title string, content []byte
 		// finds nothing when one word is in the title and the other in the
 		// paragraph — i18n-ok: "Vertrag Kündigung" is the example that showed it.
 		if _, err := s.db.Exec(`INSERT INTO chunks_fts (chunk_id, title, heading, text) VALUES (?, ?, ?, ?)`,
-			id, title, c.Heading, c.Text); err != nil {
+			id, ftsText(title), ftsText(c.Heading), ftsText(c.Text)); err != nil {
 			return err
 		}
 	}

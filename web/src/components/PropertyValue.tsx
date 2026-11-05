@@ -10,6 +10,7 @@ import { initials, nameColor } from './CommentsPanel';
 import { Check, ExternalLink, Link2 as LinkIcon, Plus, Trash2 } from 'lucide-react';
 import { PageIcon } from '../pageIcon';
 import { t } from '../i18n';
+import { imeComposing } from '../keys';
 
 interface Props {
   def: PropDef;
@@ -211,7 +212,7 @@ function SelectCell({
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
+                    if (e.key === 'Enter' && !imeComposing(e)) {
                       e.preventDefault();
                       if (query && !exact) create();
                       else if (filtered[0]) pick(filtered[0].id);
@@ -240,7 +241,7 @@ function SelectCell({
                   ))}
                   {query && !exact && onOptionsChange && (
                     <button className="select-create" onClick={create}>
-                      <Plus size={15} /> Anlegen: „{query}"
+                      <Plus size={15} /> {t('Create “{name}”', { name: query })}
                     </button>
                   )}
                   {filtered.length === 0 && !query && (
@@ -405,7 +406,7 @@ function ChecklistValue({ value, onChange, readOnly, compact }: Props) {
             placeholder={t('Sub-task')}
             onChange={(e) => setText(it.id, e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') {
+              if (e.key === 'Enter' && !imeComposing(e)) {
                 e.preventDefault();
                 add();
               }
@@ -465,7 +466,7 @@ export function loadMembers(): Promise<Member[]> {
 /** The chip: a face plus the name. Matches by id first, then by name, so a
     value an agent wrote as plain text still finds its person; an unknown value
     stays readable text rather than disappearing. */
-function PersonChip({ raw, members }: { raw: string; members: Member[] }) {
+export function PersonChip({ raw, members }: { raw: string; members: Member[] }) {
   const lower = raw.toLowerCase();
   const hit = members.find((m) => m.userId === raw) ?? members.find((m) => m.name.toLowerCase() === lower);
   const name = hit?.name ?? raw;
@@ -885,7 +886,7 @@ function UrlValue({ def, value, onChange, readOnly, compact }: Props) {
   }
   if (editing) return <input className="prop-input" aria-label={def.name} autoFocus value={draft} onFocus={(e) => e.currentTarget.select()} onChange={(e) => setDraft(e.target.value)} onBlur={finish} onKeyDown={(e) => {
     e.stopPropagation();
-    if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); restoreFocus(); }
+    if (e.key === 'Enter' && !imeComposing(e)) { e.preventDefault(); e.currentTarget.blur(); restoreFocus(); }
     if (e.key === 'Escape') { e.preventDefault(); cancelled.current = true; setEditing(false); restoreFocus(); }
   }} />;
   return <div className="prop-url-value">
@@ -1095,7 +1096,7 @@ export default function PropertyValue({
             if (e.target.value !== text) onChange!(e.target.value);
           }}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+            if (e.key === 'Enter' && !e.shiftKey && !imeComposing(e)) {
               e.preventDefault();
               e.currentTarget.blur();
             } else if (e.key === 'Escape') {

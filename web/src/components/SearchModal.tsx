@@ -5,6 +5,7 @@ import Portal from './Portal';
 import { PageIcon } from '../pageIcon';
 import { useExclusiveModal } from '../modal';
 import { t } from '../i18n';
+import { imeComposing } from '../keys';
 
 function escapeHtml(s: string) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -46,7 +47,7 @@ export default function SearchModal({ recent, onClose, onNavigate }: Props) {
   }, [q]);
 
   const onKey = (e: React.KeyboardEvent) => {
-    if (e.nativeEvent.isComposing) return; // don't hijack IME composition keys
+    if (imeComposing(e)) return; // don't hijack IME composition keys
     if (e.key === 'Escape') onClose();
     else if (e.key === 'ArrowDown') {
       e.preventDefault();

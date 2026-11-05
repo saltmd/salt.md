@@ -254,7 +254,7 @@ button {
 }
 
 .tree-item:hover {
-  background-color: var(--hover); /* siehe .tree-item.active: keine Kurzschreibweise */
+  background-color: var(--hover); /* see .tree-item.active: no shorthand */
 }
 
 /* The active page carries colour rather than mere grey — it is findable at a
@@ -452,7 +452,7 @@ button {
   display: none;
 }
 
-/* ---- Page tags (Welle 25/28) ---- */
+/* ---- Page tags (W25, W28) ---- */
 .page-tags {
   display: flex;
   flex-wrap: wrap;
@@ -565,7 +565,7 @@ button {
   color: var(--text);
 }
 
-/* ---- Document tabs (Welle 26) ---- */
+/* ---- Document tabs (W26) ---- */
 .tab-bar {
   display: flex;
   align-items: stretch;
@@ -2045,6 +2045,8 @@ body:has(.icon-picker) .bn-side-menu {
 
 .collection-toolbar {
   display: flex;
+  flex-wrap: wrap;
+  flex: none;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
@@ -2058,6 +2060,7 @@ body:has(.icon-picker) .bn-side-menu {
 
 .view-tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 2px;
 }
 
@@ -2081,7 +2084,13 @@ body:has(.icon-picker) .bn-side-menu {
 
 .collection-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
+  /* When the toolbar wraps, the view's controls keep to the right, where
+     they are on one row and where the wiki says they are, and so does a New
+     that wraps on its own. */
+  margin-left: auto;
+  justify-content: flex-end;
 }
 
 .btn-sm {
@@ -2120,11 +2129,9 @@ body:has(.icon-picker) .bn-side-menu {
   align-items: stretch;
   overflow-x: auto;
   flex: 1 1 auto;
-  /* At least almost the window height: on small monitors the page header
-       otherwise left the board nothing but a narrow strip, and the columns were
-       too short. If the board is taller than the space, .page-body scrolls the
-       header away — as in Trello, where the columns fill the window. */
-  min-height: max(320px, calc(100dvh - var(--topbar-h) - 108px));
+  /* Fill the remaining space, keeping the horizontal scrollbar in view.
+     A tall page header may still scroll rather than crush the columns. */
+  min-height: 320px;
   overscroll-behavior-x: contain;
 }
 /* A board embedded in a document (Notion style) stands in the MIDDLE of the
@@ -2191,7 +2198,7 @@ body:has(.icon-picker) .bn-side-menu {
   cursor: grabbing !important;
 }
 
-/* Die schwebende Karte folgt dem Zeiger. */
+/* The floating card follows the pointer. */
 .board-drag-ghost {
   position: fixed;
   z-index: 400;
@@ -3427,7 +3434,7 @@ body.is-col-resizing {
 
 /* Print: drop the app chrome, show the page content full width. */
 
-/* ---- Print / PDF: a clean typeset document, no app chrome (Welle 27) ---- */
+/* ---- Print / PDF: a clean typeset document, no app chrome (W27) ---- */
 @page {
   margin: 18mm 16mm;
 }
@@ -4618,6 +4625,59 @@ body.is-col-resizing {
   border: 1px solid var(--border);
 }
 
+.fs-filter-value .fs-person-value {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.fs-person-btn {
+  width: 100%;
+  min-height: 28px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  border-radius: 6px;
+  padding: 3px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  max-width: 100%;
+  box-sizing: border-box;
+  text-align: left;
+  cursor: pointer;
+}
+
+.fs-person-btn:hover {
+  background: var(--hover);
+}
+
+.fs-person-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
+.menu.relation-menu.fs-person-menu {
+  position: relative;
+  top: 4px;
+  left: 0;
+  right: auto;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  z-index: 50;
+}
+
+.fs-person-menu .relation-options {
+  max-height: 200px;
+}
+
+.fs-person-mename {
+  opacity: 0.65;
+  font-size: 12px;
+}
+
 /* The tick list. Several values are ONE condition now, so "not A and not H" is
    one filter with two boxes ticked rather than two filters that only happen to
    be about the same column. */
@@ -5038,14 +5098,17 @@ body.is-col-resizing {
 
 /* ---------- Scrollbars ---------- */
 
-/* Hidden entirely — scrolling still works via wheel, trackpad, touch and
-   keyboard; the bars themselves are just noise. Both mechanisms are needed:
-   `scrollbar-width` (the standard property) for Firefox AND Chrome 121+,
-   `::-webkit-` for Safari/older WebKit. Never set `scrollbar-width` per
-   element to something visible again: the moment the standard property is
-   set (it used to be `thin` on .board-cards), Chrome ignores EVERY
-   ::-webkit rule on that element and paints its default bars — that is
-   exactly how the board columns got white scrollbars in dark mode. */
+/* Hidden almost everywhere: scrolling still works via wheel, trackpad, touch
+   and keyboard, and the bars themselves are just noise. Both mechanisms are
+   needed: `scrollbar-width` (the standard property) for Firefox AND Chrome
+   121+, `::-webkit-` for Safari/older WebKit.
+
+   Per element, `scrollbar-width` may only ever be set back to `auto`, as the
+   board does below. That is its initial value, so Chrome keeps honouring the
+   ::-webkit rules. Any other value makes Chrome ignore EVERY ::-webkit rule on
+   that element and paint its default bars: `thin` on .board-cards is exactly
+   how the board columns once got white scrollbars in dark mode. The same goes
+   for `scrollbar-color`, so it is not set anywhere. */
 * {
   scrollbar-width: none;
 }
@@ -5056,7 +5119,37 @@ body.is-col-resizing {
   display: none;
 }
 
-/* ---- Named tag colour palette (Welle 28), Notion-style ---- */
+/* The one exception: a wide board hides the columns past its right edge, and
+   with a mouse and no trackpad its bar is the only way to reach them (#98).
+   Not on touch, where a swipe already does. Inset from the panel's rounded
+   corners, and quiet until it is pointed at. */
+@media (hover: hover) {
+  .board {
+    scrollbar-width: auto;
+  }
+
+  .board::-webkit-scrollbar {
+    display: block;
+    height: 10px;
+  }
+
+  .board::-webkit-scrollbar-track {
+    background: transparent;
+    margin: 0 12px;
+  }
+
+  .board::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--fg) 20%, transparent) padding-box;
+    border: 2px solid transparent;
+    border-radius: 6px;
+  }
+
+  .board::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(in srgb, var(--fg) 36%, transparent);
+  }
+}
+
+/* ---- Named tag colour palette (W28), Notion-style ---- */
 .tag-gray   { background: hsl(220 14% 90%); color: hsl(220 10% 34%); }
 .tag-brown  { background: hsl(28 30% 87%);  color: hsl(25 40% 34%); }
 .tag-orange { background: hsl(32 85% 90%);  color: hsl(28 70% 36%); }
@@ -5104,7 +5197,7 @@ body.is-col-resizing {
 .db-row-tags { display: inline-flex; flex-wrap: wrap; gap: 4px; margin-left: 6px; vertical-align: middle; }
 .db-row-tags .row-tag { font-size: 11px; border-radius: 999px; padding: 1px 7px; white-space: nowrap; }
 
-/* ---- Page description (Welle 27) ---- */
+/* ---- Page description (W27) ---- */
 .page-description {
   margin: 0 0 8px;
   font-size: 15px;
@@ -5179,7 +5272,7 @@ body.is-col-resizing {
 .ws-img { width: 18px; height: 18px; border-radius: 4px; object-fit: cover; flex: none; vertical-align: -4px; }
 .ws-emoji { font-size: 15px; line-height: 1; }
 
-/* Workspace switcher avatar + menu items (Welle 27) */
+/* Workspace switcher avatar + menu items (W27) */
 .ws-caret { margin-left: auto; color: var(--muted); flex: none; }
 .ws-letter {
   width: 18px; height: 18px; border-radius: 5px; flex: none;
@@ -5200,7 +5293,7 @@ body.is-col-resizing {
 .ws-menu .menu-item { display: flex; align-items: center; gap: 8px; }
 .ws-menu .menu-item svg { flex: none; color: var(--muted); }
 
-/* ---- Select / Multiselect cell editor (Welle 29) ---- */
+/* ---- Select / Multiselect cell editor (W29) ---- */
 .select-cell { display: inline-block; max-width: 100%; }
 .select-cell-value {
   display: inline-flex;
@@ -5283,7 +5376,7 @@ body.is-col-resizing {
 .select-empty { padding: 8px; font-size: 12.5px; color: var(--muted); }
 .tag-color-opt.danger { color: var(--danger); }
 
-/* ---- Tags + editable select props on Board / Gallery / Calendar cards (Welle 30) ---- */
+/* ---- Tags + editable select props on Board / Gallery / Calendar cards (W30) ---- */
 .card-tags { margin: 4px 0 2px; }
 .card-prop-edit { display: block; }
 .card-prop-edit .select-cell { width: 100%; }
@@ -5291,7 +5384,7 @@ body.is-col-resizing {
 .cal-event-tags { display: inline-flex; flex-wrap: wrap; gap: 3px; margin-left: 4px; }
 .cal-event-tags .row-tag { font-size: 10px; padding: 0 5px; }
 
-/* ---- Sidebar cleanup (Welle 31) ---- */
+/* ---- Sidebar cleanup (W31) ---- */
 .sidebar-footer-row {
   display: flex;
   align-items: center;
@@ -5545,7 +5638,7 @@ body.is-col-resizing {
 
 /* Tag chips deliberately WITHOUT a shadow — the colour is enough (user feedback, W43). */
 
-/* ---- Karten: Hover mit Lift + farbigem Schein ---- */
+/* ---- Cards: a lift and a coloured glow on hover ---- */
 
 .gallery-card {
   transition: box-shadow 0.18s ease, transform 0.15s ease, border-color 0.15s ease;
@@ -5568,7 +5661,7 @@ body.is-col-resizing {
   box-shadow: 0 4px 14px rgba(var(--accent-rgb), 0.12);
 }
 
-/* ---- Sidebar: Anlege-Buttons leuchten beim Hover ---- */
+/* ---- Sidebar: the create buttons light up on hover ---- */
 
 .new-page {
   border-radius: 8px;
@@ -5590,7 +5683,7 @@ body.is-col-resizing {
     0 4px 24px rgba(var(--accent-rgb), 0.1);
 }
 
-/* ---- Workspace-Knopf: Regenbogen-Ring beim Hover (Taskade-Badge) ---- */
+/* ---- Workspace button: a rainbow ring on hover (Taskade badge) ---- */
 
 .ws-btn {
   position: relative;
@@ -5605,7 +5698,7 @@ body.is-col-resizing {
     0 2px 12px rgba(var(--glow-pink), 0.12);
 }
 
-/* ---- Suchfeld: leuchtet beim Fokus/Hover dezent ---- */
+/* ---- Search field: a subtle glow on focus and hover ---- */
 
 .sidebar-search {
   transition: box-shadow 0.18s ease, border-color 0.15s ease;
@@ -5910,7 +6003,7 @@ body.is-col-resizing {
   box-shadow: 0 2px 10px rgba(var(--accent-rgb), 0.1);
 }
 
-/* ---- Dialoge: neutral-elegant (kein Rainbow) ---- */
+/* ---- Dialogs: neutral and quiet (no rainbow) ---- */
 
 .dialog {
   position: relative;
@@ -6058,7 +6151,7 @@ a.btn {
   color: var(--fg);
 }
 
-/* ---- W43: Anlege-Zeile unter dem Titel (Emoji / Cover / Beschreibung) ---- */
+/* ---- W43: the add row under the title (emoji / cover / description) ---- */
 
 .head-adders {
   position: relative;
@@ -7683,7 +7776,7 @@ a,
   margin: 12px 0;
 }
 
-/* ---------- Kanban: Dichte und Lesbarkeit (Trello-Vorbild) ---------- */
+/* ---------- Kanban: density and legibility (after Trello) ---------- */
 
 /* Empty select fields disappear and come back on hover. Without that, a row of
    placeholders sits under every title. On touch there is no hover — there you
@@ -7715,7 +7808,7 @@ a,
 :root[data-theme='light'] .prop-date.is-overdue { color: #c2410c; }
 :root[data-theme='light'] .prop-date.is-soon { color: #a16207; }
 
-/* URL als kompakter Verweis statt als volle Zeile Rohtext. */
+/* A URL as a compact link instead of a full line of raw text. */
 .prop-url-chip {
   display: inline-flex;
   align-items: center;
@@ -8046,7 +8139,7 @@ a,
   border-color: var(--fg);
 }
 
-/* ---------- W97: Profil-2FA-Zeile, Passwort-Fehler, Nutzerverwaltung ---------- */
+/* ---------- W97: profile 2FA row, password errors, user management ---------- */
 
 .profile-2fa-row {
   display: flex;
@@ -8212,7 +8305,7 @@ a,
 }
 .ws-access-name { font-weight: 600; font-size: 13.5px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* Rollenauswahl als Segment-Schalter — ein Klick setzt die Rolle. */
+/* The role picker as a segmented switch: one click sets the role. */
 .ws-role-seg {
   display: inline-flex;
   border: 1px solid var(--border);

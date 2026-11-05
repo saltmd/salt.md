@@ -2,7 +2,9 @@ package server
 
 import (
 	"log"
+	"strconv"
 	"strings"
+	"unicode"
 )
 
 // i18n-ok-file: the German IS the subject here — this file implements folding
@@ -35,7 +37,64 @@ import (
 
 // ftsVersion is the version this build expects. Raise it whenever the
 // tokenizer line or the column layout changes.
-const ftsVersion = "3"
+const ftsVersion = "4"
+
+// cjkGap is what ftsText puts between two characters. The tokenizer splits on
+// anything that is no letter or digit, so a space would do for the index, but
+// the excerpt shown to people comes out of the same text. This character is in
+// nothing anybody wrote, so the excerpt can lose exactly what was added and a
+// real space between two words stays.
+const cjkGap = "\x03"
+
+// isCJK says whether a character belongs to a script written without spaces
+// between its words, or, for Korean, with word endings attached to the word.
+func isCJK(r rune) bool {
+	return unicode.In(r, unicode.Han, unicode.Hiragana, unicode.Katakana, unicode.Hangul)
+}
+
+// splitCJK puts gap around every such character. `unicode61` only knows spaces
+// and punctuation, so it took a whole clause of Chinese for one word and the
+// prefix search reached its first characters and nothing else. With every
+// character a token of its own, a word is a phrase of tokens, and it is found
+// wherever it stands. Other text comes back as it went in.
+func splitCJK(s, gap string) string {
+	if !strings.ContainsFunc(s, isCJK) {
+		return s
+	}
+	var b strings.Builder
+	b.Grow(len(s) + len(s)/2)
+	prev := false
+	for _, r := range s {
+		cjk := isCJK(r)
+		if (cjk || prev) && b.Len() > 0 {
+			b.WriteString(gap)
+		}
+		b.WriteRune(r)
+		prev = cjk
+	}
+	return b.String()
+}
+
+// ftsText is what goes into the index. Everything written to pages_fts and
+// chunks_fts goes through it, and a change here needs a new ftsVersion.
+func ftsText(s string) string {
+	return splitCJK(s, cjkGap)
+}
+
+// readableSnippet takes the index's gaps back out of an excerpt.
+func readableSnippet(s string) string {
+	return strings.ReplaceAll(s, cjkGap, "")
+}
+
+// snippetTokens is how much text an excerpt carries, in FTS5's only unit. A
+// token of Chinese is one character, so the number that gives a line of German
+// gives three words there. 64 is the most FTS5 takes.
+func snippetTokens(match string, words int) string {
+	if strings.ContainsFunc(match, isCJK) {
+		return "48"
+	}
+	return strconv.Itoa(words)
+}
 
 // foldQuery folds a search term exactly the way the index does.
 //
@@ -111,7 +170,9 @@ func ftsMatch(q string) string {
 				return
 			}
 			seen[t] = true
-			alts = append(alts, `"`+strings.ReplaceAll(t, `"`, `""`)+`"*`)
+			// Quoted text of several tokens is a phrase, so a word of Chinese
+			// has to stand exactly as typed, in that order, with nothing between.
+			alts = append(alts, `"`+strings.ReplaceAll(splitCJK(t, " "), `"`, `""`)+`"*`)
 		}
 		add(raw)
 		add(stemLite(raw))

@@ -906,7 +906,7 @@ func (s *Server) reindexPage(id string) error {
 	// fake <mark> tags into search results.
 	clean := strings.NewReplacer("\x01", "", "\x02", "")
 	if _, err := s.db.Exec(`INSERT INTO pages_fts (id, title, body) VALUES (?, ?, ?)`,
-		id, clean.Replace(title), clean.Replace(body)); err != nil {
+		id, ftsText(clean.Replace(title)), ftsText(clean.Replace(body))); err != nil {
 		return err
 	}
 	// Passages in the same breath (see chunks.go). A failure here may not make the
@@ -1158,7 +1158,7 @@ func (s *Server) searchChunks(userID, match string, ws []string, want int) []sea
 		qArgs := append([]any{}, args...)
 		rows, err := s.db.Query(`
 			SELECT c.page_id, p.title, p.icon, c.heading,
-			       snippet(chunks_fts, 3, char(1), char(2), '…', 18)
+			       snippet(chunks_fts, 3, char(1), char(2), '…', `+snippetTokens(match, 18)+`)
 			FROM chunks_fts
 			JOIN page_chunks c ON c.id = chunks_fts.chunk_id
 			JOIN pages p ON p.id = c.page_id
@@ -1175,6 +1175,7 @@ func (s *Server) searchChunks(userID, match string, ws []string, want int) []sea
 		for rows.Next() {
 			var res searchResult
 			if rows.Scan(&res.ID, &res.Title, &res.Icon, &res.Heading, &res.Snippet) == nil {
+				res.Snippet = readableSnippet(res.Snippet)
 				cand = append(cand, res)
 			}
 		}
@@ -1210,7 +1211,7 @@ func (s *Server) searchPagesFallback(userID, match string, ws []string, want int
 	for offset, round := 0, 0; len(out) < want && round < 8; round++ {
 		qArgs := append([]any{}, args...)
 		rows, err := s.db.Query(`
-			SELECT p.id, p.title, p.icon, snippet(pages_fts, 2, char(1), char(2), '…', 14)
+			SELECT p.id, p.title, p.icon, snippet(pages_fts, 2, char(1), char(2), '…', `+snippetTokens(match, 14)+`)
 			FROM pages_fts JOIN pages p ON p.id = pages_fts.id
 			WHERE pages_fts MATCH ? AND p.trashed_at IS NULL AND p.workspace_id IN (`+placeholders(len(ws))+`)
 			ORDER BY bm25(pages_fts, 0.0, 5.0, 1.0)
@@ -1222,6 +1223,7 @@ func (s *Server) searchPagesFallback(userID, match string, ws []string, want int
 		for rows.Next() {
 			var res searchResult
 			if rows.Scan(&res.ID, &res.Title, &res.Icon, &res.Snippet) == nil {
+				res.Snippet = readableSnippet(res.Snippet)
 				cand = append(cand, res)
 			}
 		}

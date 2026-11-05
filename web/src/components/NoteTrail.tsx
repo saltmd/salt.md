@@ -7,6 +7,7 @@ import { AgentMark } from './AgentBadge';
 import { confirm } from '../dialog';
 import { toast } from '../toast';
 import { t, plural } from '../i18n';
+import { imeComposing } from '../keys';
 
 // The raw trail at the foot of a page — see server/notelog.go for what it is
 // and why nothing here can edit an entry.
@@ -171,7 +172,7 @@ export default function NoteTrail({ pageId, canWrite }: { pageId: string; canWri
                   // Enter sends. A trail entry is one thought — the moment it
                   // wants paragraphs it wants to be a document instead, and
                   // needing a modifier is exactly the friction this avoids.
-                  if (e.key === 'Enter' && !e.shiftKey) {
+                  if (e.key === 'Enter' && !e.shiftKey && !imeComposing(e)) {
                     e.preventDefault();
                     void add();
                   }

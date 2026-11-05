@@ -48,6 +48,7 @@ const REGIONS = [
   'en-GB', 'en-US', 'en-IE', 'en-AU', 'en-CA',   // i18n-ok: same
   'fr-FR', 'fr-CH', 'it-IT', 'es-ES', 'nl-NL',   // i18n-ok: same
   'pl-PL', 'pt-BR', 'sv-SE', 'da-DK', 'cs-CZ',   // i18n-ok: same
+  'zh-CN', 'zh-TW', 'zh-HK',                     // i18n-ok: same
 ];
 
 export function LanguageTimeModal({ onClose }: { onClose: () => void }) {

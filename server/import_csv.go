@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-// Notion database import (Welle 46): Notion's "Export → Markdown & CSV" writes
+// Notion database import (W46): Notion's "Export → Markdown & CSV" writes
 // each database as a "<Name> <id>.csv" (all rows + property columns) plus a
 // "<Name> <id>/" folder with one .md per row (the row body). The plain-Markdown
 // importer only ingested the .md files, so databases arrived as loose pages

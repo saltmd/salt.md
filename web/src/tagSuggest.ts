@@ -59,7 +59,7 @@ function editDistance(a: string, b: string, max: number): number {
 export interface TagSuggestion {
   tag: string;
   count: number;
-  /** true = kein Treffer im Text, sondern ein Tippfehler-Verdacht. */
+  /** true = not a hit in the text but a suspected typo. */
   similar?: boolean;
 }
 

@@ -178,8 +178,9 @@ sign-in via Google or Microsoft 365 works if you want it.
 
 ### Language and time
 
-The interface ships in English and German; more languages are one command away
-(a translation tool fills the gaps and never overwrites a human correction).
+The interface ships in English, German, Spanish and Simplified Chinese; more
+languages are one command away (a translation tool fills the gaps and never
+overwrites a human correction).
 
 Each account chooses — or leaves on automatic — its language, date and number
 format, time zone, 12- or 24-hour clock, and which day the week starts on. The
@@ -354,8 +355,9 @@ Read this section as a sign that the rest is accurate.
 - **No mobile apps.** The web app works on a phone and boards can be dragged
   with a finger, but there is nothing in an app store. Two more codebases is not
   a trade this project wants to make yet.
-- **Two languages ship** — English and German. Others take one command and a
-  translation pass, but nobody has done Spanish or French yet.
+- **Four languages ship** — English, German, Spanish and Simplified Chinese.
+  Others take one command and a translation pass, but nobody has done French
+  yet.
 - **No hosted version yet.** Today you host it yourself. A hosted option is the
   plan for teams that outgrow doing that; it does not exist at the time of
   writing.

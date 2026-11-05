@@ -36,6 +36,11 @@ whole and on top (#21), ↑ from the second block stops in an empty first block
 instead of jumping to the title (#25), and the library's shelves scroll inside
 a narrow pane (#19).
 
+Language covers which catalog a browser gets (a Traditional tag is not sent to
+the Simplified one, a regional tag still reaches its language), a choice that
+survives a reload, lists that used to be constants, and Enter leaving a word
+alone while an input method is composing it (#124).
+
 Shortcuts covers the single letters (#23): each acts only while nothing is
 being typed, stays a plain letter while something is, and appears in the sheet.
 

@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-// Page lifecycle: deep duplication and Markdown import (Welle 16).
+// Page lifecycle: deep duplication and Markdown import (W16).
 
 type dupRow struct {
 	id, parentID, title, icon, cover, content, typ, props, visibility string

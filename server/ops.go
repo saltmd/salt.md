@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// Operational hardening (Welle 14): login brute-force throttling, a background
+// Operational hardening (W14): login brute-force throttling, a background
 // cleanup loop (expired sessions / idempotency keys / stale rate buckets /
 // trash auto-purge), readiness health, and per-field input caps.
 

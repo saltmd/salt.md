@@ -20,6 +20,9 @@ export const LOCALES: Record<string, string> = {
   en: 'English',
   de: 'Deutsch',
   es: 'Español',
+  // Keyed by script, not by country: one Simplified catalog serves zh-CN and
+  // zh-SG alike, and dates still follow each reader's own regional variant.
+  'zh-Hans': '简体中文',
 };
 
 /** Plural categories as Intl names them. Which ones a language actually uses
@@ -34,7 +37,12 @@ type Catalog = Record<string, Entry>;
 // Every file under locales/ is picked up automatically, so adding a language
 // means dropping in one JSON file — no code change, which is the point of the
 // translation tool.
-const files = import.meta.glob<{ default: Catalog }>('./locales/*.json');
+// The <locale>.machine.json lists beside them say which entries nobody has
+// reviewed yet; they are for translators, not for the app.
+const files = import.meta.glob<{ default: Catalog }>([
+  './locales/*.json',
+  '!./locales/*.machine.json',
+]);
 
 let locale = 'en';
 let catalog: Catalog = {};
@@ -138,11 +146,42 @@ function cached(): Prefs {
 function preferred(p: Prefs): string {
   if (p.language && p.language in LOCALES) return p.language;
   for (const tag of navigator.languages ?? [navigator.language]) {
-    const base = tag.split('-')[0];
-    if (base in LOCALES) return base;
+    const hit = catalogFor(tag);
+    if (hit) return hit;
   }
   return 'en';
 }
+
+/** The catalog a browser tag asks for: the exact tag first, then language plus
+ *  script.
+ *
+ *  The primary subtag alone is not enough once a catalog is keyed by script.
+ *  'zh-CN' and a bare 'zh' are written in Simplified characters and 'zh-TW' in
+ *  Traditional; maximize() says so ('zh-Hans-CN', 'zh-Hant-TW'), and a
+ *  Traditional reader is better served by English until they pick 简体中文
+ *  themselves. For a language with one script nothing changes: 'de-AT' and
+ *  'de' both maximize to Latin German. */
+function catalogFor(tag: string): string | null {
+  if (tag in LOCALES) return tag;
+  const want = maximized(tag);
+  if (!want) return null;
+  for (const code of Object.keys(LOCALES)) {
+    const have = maximized(code);
+    if (have && have.language === want.language && have.script === want.script) return code;
+  }
+  return null;
+}
+
+function maximized(tag: string): Intl.Locale | null {
+  try {
+    return new Intl.Locale(tag).maximize();
+  } catch {
+    return null; // a malformed tag in navigator.languages asks for nothing
+  }
+}
+
+/** The primary language subtag: 'zh' for 'zh-Hans', 'de' for 'de-AT'. */
+const baseOf = (tag: string) => tag.split('-')[0].toLowerCase();
 
 /** Show a set of settings WITHOUT changing the language.
  *
@@ -201,10 +240,15 @@ export async function applyPrefs(next: Prefs): Promise<void> {
  *
  *  So: translate by language, format by whichever regional variant of that
  *  language the browser already asked for. Their operating system settled this
- *  question long ago and got it right. */
+ *  question long ago and got it right.
+ *
+ *  Matched on the primary subtag, not on the catalog key: a reader in Taipei
+ *  who picks the Simplified catalog ('zh-Hans') still writes dates the way
+ *  'zh-TW' does, and the script of the interface is no reason to change that. */
 function formattingTag(lang: string): string {
+  const base = baseOf(lang);
   for (const tag of navigator.languages ?? [navigator.language]) {
-    if (tag.split('-')[0] === lang) return tag;
+    if (baseOf(tag) === base) return tag;
   }
   return lang;
 }

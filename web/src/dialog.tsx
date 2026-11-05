@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Portal from './components/Portal';
 import { t } from './i18n';
+import { imeComposing } from './keys';
 
 // In-app confirm / prompt dialogs (replacing native window.confirm/prompt,
 // which look out of place and can't be styled). Promise-based: call
@@ -98,7 +99,7 @@ export function DialogHost() {
               value={value}
               onChange={(e) => setValue(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') ok();
+                if (e.key === 'Enter' && !imeComposing(e)) ok();
               }}
             />
           )}

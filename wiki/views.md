@@ -310,7 +310,8 @@ A row made in a filtered view starts with the values its filters fix: in a view
 filtered to *Status is Done*, **New** makes a row whose status is Done. A filter
 that allows several values (*is any of*) leaves the property empty rather than
 picking one, a board column's value always wins (the *No …* column's empty one
-included), and a relative day like *today* is stored as that day's date. If the
+included), a relative day like *today* is stored as that day's date, and
+**Current user** is stored as whoever made the row. If the
 new row still does not match the filters, a message says so: *"The new row does
 not match this view's filters, so it is not shown here."* An embedded collection
 does the same with its own filters.
@@ -338,7 +339,8 @@ and the labels change to suit it:
 | --- | --- |
 | number, rollup, formula | is · is not · **greater than** · **less than** · **between** · is empty · is not empty |
 | date | is · is not · **after** · **before** · **between** · is empty · is not empty |
-| text, person | is · is not · **contains** · is empty · is not empty |
+| person | **is any of** · **is none of** · **contains** · is empty · is not empty |
+| text | is · is not · **contains** · is empty · is not empty |
 | select, multi-select, relation | **is any of** · **is none of** · is empty · is not empty |
 | everything else | is · is not · is empty · is not empty |
 
@@ -355,9 +357,9 @@ What they mean:
 | `lt` | less than, same rule |
 | `between` | inside a range, **inclusive at both ends**: a range named by two dates contains the days it is named after. Takes two values, and does nothing until both are set. |
 
-Where the values come from a fixed list (a select, a multi-select, a relation),
-`is` and `is_not` take **several** values at once and read *is any of* and *is
-none of*. That is one condition with two boxes ticked, not two conditions that
+Where the values come from a fixed list (a select, a multi-select, a relation, a
+person), `is` and `is_not` take **several** values at once and read *is any of* and
+*is none of*. That is one condition with two boxes ticked, not two conditions that
 happen to be about the same column: "class is none of A, H" is a single thing to
 read and a single thing to change.
 
@@ -373,9 +375,16 @@ Three behaviours that surprise people:
 - **`is` and `contains` look inside lists.** Filtering a multi-select or a
   relation for one value needs no special operator.
 - **You never type an id.** The value box adapts to the property: a select offers
-  its options, a checkbox offers **Checked** and **Unchecked**, and a relation or
+  its options, a checkbox offers **Checked** and **Unchecked**, a person offers
+  workspace members with **Current user** (`@me`) at the top, and a relation or
   backrelation offers the titles of the rows it points at. Free text is only for
   the types that have nothing to offer.
+- **A person filter accepts `@me`.** Filtering an Assignee column by **Current user**
+  resolves to whoever is looking at the view, per query on the server and live in
+  the browser. A shared "My tasks" view therefore shows each colleague their own
+  tasks without needing a separate view per person. It belongs to *is any of* and
+  *is none of*; under *contains* it is plain text. An agent filtering with `@me`
+  gets the account its key or sign-in belongs to.
 
 The row **title** is not a property and cannot be filtered. To find rows by
 title use [Search](search.md).

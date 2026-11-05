@@ -1,14 +1,18 @@
 import { filterIsArmed, filterValues, matchesFilter } from './collectionFilters';
 import { resolveSmartDate } from './format';
-import type { Filter, PropDef } from './types';
+import type { Filter, PropDef, User } from './types';
 
 /** Infer only values fixed by equality conditions. Alternatives are not a
  * choice we can make for the author; derived properties cannot be assigned.
- * Board/calendar presets are explicit choices and take precedence. */
+ * Board/calendar presets are explicit choices and take precedence.
+ *
+ * "@me" on a person is the one who makes the row. Stored as written it would
+ * name whoever looks at it, so everybody would see the row as their own. */
 export function collectionDefaults(
   schema: PropDef[],
   filters: Filter[],
   presets: Record<string, unknown> = {},
+  currentUser: User | null = null,
 ): Record<string, unknown> {
   const props: Record<string, unknown> = {};
   for (const prop of schema) {
@@ -18,9 +22,11 @@ export function collectionDefaults(
     const normalize = (value: string) => {
       if (prop.type === 'date') return resolveSmartDate(value) ?? value;
       if (prop.type === 'number' && value.trim() !== '' && Number.isFinite(Number(value))) return String(Number(value));
+      // Nobody signed in: nobody to assign, so the value drops out.
+      if (prop.type === 'person' && value === '@me') return currentUser?.id ?? null;
       return value;
     };
-    const sets = conditions.map(f => filterValues(f).map(normalize))
+    const sets = conditions.map(f => filterValues(f).map(normalize).filter((value): value is string => value !== null))
       .filter(values => values.length > 0);
     if (!sets.length) continue;
     const multiple = prop.type === 'relation' || prop.type === 'multiselect' ||
@@ -47,7 +53,8 @@ export function collectionDefaults(
   // Reuse the view's evaluator rather than inventing a second set of rules.
   // Contradictory or restrictive conditions must not produce misleading defaults.
   for (const prop of schema) {
-    if (filters.some(f => f.property === prop.id && !matchesFilter({ props }, f, prop.type === 'date', prop.type === 'number'))) {
+    if (filters.some(f => f.property === prop.id &&
+      !matchesFilter({ props }, f, prop.type === 'date', prop.type === 'number', prop.type === 'person', currentUser))) {
       delete props[prop.id];
     }
   }

@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-// ZIP import (Welle 19): imports a Markdown export — including Notion's
+// ZIP import (W19): imports a Markdown export — including Notion's
 // "Export as Markdown" zips — as a page tree. Folders become parent pages,
 // .md files become pages; Notion's trailing 32-hex-id suffixes are stripped
 // from titles, and a file that pairs with a same-named folder fills that

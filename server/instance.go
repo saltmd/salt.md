@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-// Instance operations (Welle 36): admin info panel and one-click backup
+// Instance operations (W36): admin info panel and one-click backup
 // download — the ops counterpart to the settings UI.
 
 var startedAt = time.Now()

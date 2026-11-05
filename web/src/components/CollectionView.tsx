@@ -8,6 +8,7 @@ import { useBoardDrag } from '../boardDrag';
 import { tagColorClass } from '../tags';
 import { compare, firstWeekday, formatDay, formatMonth, isReadableDay, resolveSmartDate, toDayString, today, weekdayNames } from '../format';
 import { plural, t } from '../i18n';
+import { imeComposing } from '../keys';
 import { confirm, promptText } from '../dialog';
 import type {
   CollectionConfig,
@@ -19,9 +20,12 @@ import type {
   PropOption,
   PropType,
   Sort,
+  User as AuthUser,
   ViewDef,
 } from '../types';
-import PropertyValue, { PersonStack, idList, loadRelationOptions, type RelOption } from './PropertyValue';
+import PropertyValue, { PersonChip, PersonStack, idList, loadMembers, loadRelationOptions, type Member, type RelOption } from './PropertyValue';
+import { useCurrentUser } from '../userContext';
+import { initials, nameColor } from './CommentsPanel';
 import { openCollectionRow, openPageAux } from '../pageOpen';
 import { readViewId, readViewScroll, writeViewId, writeViewScroll } from '../pageUiState';
 import { AgentDot } from './AgentBadge';
@@ -152,14 +156,16 @@ function groupValueFor(schema: PropDef[], propId: string, optId: string): unknow
 }
 
 // Apply a view's filters and sort to the row set.
-function applyView(rows: Row[], view: ViewDef, schema: PropDef[]): Row[] {
+function applyView(rows: Row[], view: ViewDef, schema: PropDef[], currentUser: AuthUser | null = null): Row[] {
   const dateProps = new Set(schema.filter((p) => p.type === 'date').map((p) => p.id));
   const numberProps = new Set(schema.filter((p) => p.type === 'number').map((p) => p.id));
+  const personProps = new Set(schema.filter((p) => p.type === 'person').map((p) => p.id));
   let out = rows;
   for (const f of view.filters ?? []) {
     const isDate = dateProps.has(f.property);
     const isNumber = numberProps.has(f.property);
-    out = out.filter((r) => matchesFilter(r, f, isDate, isNumber));
+    const isPerson = personProps.has(f.property);
+    out = out.filter((r) => matchesFilter(r, f, isDate, isNumber, isPerson, currentUser));
   }
   const sort = view.sort;
   if (sort) {
@@ -176,6 +182,8 @@ function applyView(rows: Row[], view: ViewDef, schema: PropDef[]): Row[] {
 }
 
 export default function CollectionView({ collectionId, pages, tagColors, onNavigate, onOpenInNewTab, onPagesChanged, embed }: Props) {
+  // Who "@me" is in a person filter, and who a new row made under one goes to.
+  const currentUser = useCurrentUser();
   const [config, setConfig] = useState<CollectionConfig | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
   // A full page remembers its view across tab switches and reloads (see
@@ -296,7 +304,7 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
         sort: serverSort,
         today: todayStr,
       });
-      if (epoch !== epochRef.current) return; // inzwischen neu geladen
+      if (epoch !== epochRef.current) return; // reloaded in the meantime
       const mapped: Row[] = res.rows.map((r) => ({
         id: r.id,
         title: r.title,
@@ -473,9 +481,14 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
     // interface shows for that, in the reader's language. Stored, it stayed
     // English in every language and turned up in search and exports.
     const filters = view?.filters ?? [];
-    const props = collectionDefaults(schema, filters, presetProps);
+    const props = collectionDefaults(schema, filters, presetProps, currentUser);
     await api.createPage(collectionId, '', 'doc', props);
-    if (filters.some((f) => !matchesFilter({ props }, f, schema.some((p) => p.id === f.property && p.type === 'date'), schema.some((p) => p.id === f.property && p.type === 'number')))) {
+    const typeOf = (propId: string) => schema.find((p) => p.id === propId)?.type;
+    const fits = (f: Filter) => {
+      const ty = typeOf(f.property);
+      return matchesFilter({ props }, f, ty === 'date', ty === 'number', ty === 'person', currentUser);
+    };
+    if (!filters.every(fits)) {
       toast(t("The new row does not match this view's filters, so it is not shown here."));
     }
     onPagesChanged();
@@ -623,7 +636,7 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
     setAddViewOpen(false);
   };
 
-  const viewRows = applyView(rows, view, schema);
+  const viewRows = applyView(rows, view, schema, currentUser);
   const emptyLabel =
     rows.length > 0 && viewRows.length === 0
       ? t('No rows match the current filter.')
@@ -1137,7 +1150,7 @@ function FormView({
               placeholder={t('Name of the entry')}
               onChange={(e) => setTitle(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') void submit();
+                if (e.key === 'Enter' && !imeComposing(e)) void submit();
               }}
             />
           </label>
@@ -1332,6 +1345,147 @@ function DateFilterValue({ value, onChange }: { value: string; onChange: (v: str
   );
 }
 
+/** "@me" in a person filter: whoever opens the view. Only the filter knows the
+ *  marker. A cell that holds it shows the text, never the reader's own face,
+ *  which would make a row look like everybody's own. */
+function MeChip() {
+  const me = useCurrentUser();
+  const label = t('Current user');
+  return (
+    <span className="prop-person" title={me?.name ? `${label} (${me.name})` : label}>
+      <span
+        className="cp-avatar prop-person-av"
+        style={{ background: me?.avatar ? 'transparent' : me?.color || nameColor(me?.name ?? '') }}
+      >
+        {me?.avatar ? <img src={me.avatar} alt="" /> : initials(me?.name ?? '')}
+      </span>
+      <span className="prop-person-name">
+        {label}
+        {me?.name ? <span className="fs-person-mename"> ({me.name})</span> : null}
+      </span>
+    </span>
+  );
+}
+
+/** The people a person filter can name: Current user first, which is whoever
+ *  opens the view, then the members of the workspaces this account sees. */
+function PersonFilterValue({ filter, onChange }: { filter: Filter; onChange: (patch: Partial<Filter>) => void }) {
+  const [members, setMembers] = useState<Member[]>([]);
+  useEffect(() => {
+    let alive = true;
+    void loadMembers().then((m) => alive && setMembers(m));
+    return () => {
+      alive = false;
+    };
+  }, []);
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const boxRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (boxRef.current && !boxRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    window.addEventListener('mousedown', onDown);
+    return () => window.removeEventListener('mousedown', onDown);
+  }, [open]);
+
+  const picked = filterValues(filter);
+  const q = query.trim().toLowerCase();
+  const filtered = members.filter((m) => m.name.toLowerCase().includes(q) || m.userId.toLowerCase().includes(q));
+  const holds = (m: Member) => picked.includes(m.userId) || picked.includes(m.name);
+
+  const toggle = (v: string) => {
+    let next: string[];
+    if (v === '@me') {
+      next = picked.includes('@me') ? picked.filter((x) => x !== '@me') : [...picked, '@me'];
+    } else {
+      const m = members.find((x) => x.userId === v || x.name === v);
+      if (m) {
+        const on = holds(m);
+        next = on ? picked.filter((x) => x !== m.userId && x !== m.name) : [...picked, m.userId];
+      } else {
+        next = picked.includes(v) ? picked.filter((x) => x !== v) : [...picked, v];
+      }
+    }
+    onChange({ values: next, value: '' });
+  };
+
+  return (
+    <div className="relation-value fs-person-value" ref={boxRef}>
+      <button
+        type="button"
+        className="relation-open fs-person-btn"
+        onClick={() => setOpen((v) => !v)}
+      >
+        {picked.length ? (
+          <span className="fs-person-chips">
+            {picked.map((id) => (
+              id === '@me' ? <MeChip key={id} /> : <PersonChip key={id} raw={id} members={members} />
+            ))}
+          </span>
+        ) : (
+          <span className="prop-empty">{t('＋ Person')}</span>
+        )}
+      </button>
+      {open && (
+        <div className="menu relation-menu fs-person-menu">
+          <input
+            className="prop-input"
+            autoFocus
+            placeholder={t('Search or type a name…')}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                e.stopPropagation();
+                setOpen(false);
+                return;
+              }
+              if (e.key !== 'Enter') return;
+              e.preventDefault();
+              if (filtered.length === 1) toggle(filtered[0].userId);
+              else if (query.trim()) toggle(query.trim());
+            }}
+          />
+          <div className="relation-options">
+            <button
+              type="button"
+              className={'relation-option' + (picked.includes('@me') ? ' on' : '')}
+              onClick={() => toggle('@me')}
+            >
+              <span className="relation-check">{picked.includes('@me') ? '✓' : ''}</span>
+              <MeChip />
+            </button>
+            {filtered.map((m) => (
+              <button
+                key={m.userId}
+                type="button"
+                className={'relation-option' + (holds(m) ? ' on' : '')}
+                onClick={() => toggle(m.userId)}
+              >
+                <span className="relation-check">{holds(m) ? '✓' : ''}</span>
+                <PersonChip raw={m.userId} members={members} />
+              </button>
+            ))}
+            {q && !filtered.some((m) => m.name.toLowerCase() === q || m.userId.toLowerCase() === q) && q !== '@me' && (
+              <button type="button" className="relation-option" onClick={() => toggle(query.trim())}>
+                <span className="relation-check">{picked.includes(query.trim()) ? '✓' : ''}</span>
+                <span className="prop-person">
+                  <span className="prop-person-name">{t('Use “{name}”', { name: query.trim() })}</span>
+                </span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function FilterSortControls({
   schema,
   view,
@@ -1396,8 +1550,8 @@ function FilterSortControls({
     }
     if (prop.type === 'checkbox') {
       return [
-        { value: 'true', label: 'Checked' },
-        { value: 'false', label: 'Unchecked' },
+        { value: 'true', label: t('Checked') },
+        { value: 'false', label: t('Unchecked') },
       ];
     }
     // A relation stores page ids. Offering a free-text box here meant filtering
@@ -1452,7 +1606,7 @@ function FilterSortControls({
   function takesSeveral(propId: string): boolean {
     const ty = schema.find((p) => p.id === propId)?.type;
     return (
-      ty === 'select' || ty === 'multiselect' || ty === 'relation' || ty === 'backrelation'
+      ty === 'select' || ty === 'multiselect' || ty === 'relation' || ty === 'backrelation' || ty === 'person'
     );
   }
 
@@ -1462,7 +1616,7 @@ function FilterSortControls({
         className={'btn-sm' + (filters.length ? ' active' : '')}
         onClick={() => setOpen(open === 'filter' ? null : 'filter')}
       >
-        <FilterIcon size={14} /> Filter{filters.length ? ` (${filters.length})` : ''}
+        <FilterIcon size={14} /> {t('Filter')}{filters.length ? ` (${filters.length})` : ''}
       </button>
       <button
         className={'btn-sm' + (sort ? ' active' : '')}
@@ -1507,6 +1661,7 @@ function FilterSortControls({
             const rowKey = `${f.property}::${f.op ?? ''}::${occurrence}`;
             const propType = schema.find((p) => p.id === f.property)?.type;
             const isDate = propType === 'date';
+            const isPerson = propType === 'person';
             const picked = filterValues(f);
             const several = takesSeveral(f.property) && (op === 'is' || op === 'is_not');
             // A tick list writes `values`, everything else writes `value` — the
@@ -1552,7 +1707,9 @@ function FilterSortControls({
                 </div>
                 {hasValueInput(op) && (
                   <div className="fs-filter-value">
-                    {several && options.length > 0 ? (
+                    {isPerson && (op === 'is' || op === 'is_not') ? (
+                      <PersonFilterValue filter={f} onChange={patch} />
+                    ) : several && options.length > 0 ? (
                       <div className="fs-checks">
                         {options.map((o) => (
                           <label key={o.value} className={'fs-check' + (picked.includes(o.value) ? ' on' : '')}>
@@ -2129,7 +2286,7 @@ function BoardView({
         </div>
       ))}
 
-      {/* Die schwebende Karte folgt dem Zeiger. Als letztes Kind mit
+      {/* The floating card follows the pointer. The last child, with
           position:fixed so it sits above everything; pointer-events:none so it
           does not disturb hit testing underneath. */}
       {drag && drag.title && (

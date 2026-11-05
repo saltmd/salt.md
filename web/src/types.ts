@@ -104,7 +104,7 @@ export interface User {
   color: string;
   avatar: string;
   isAdmin: boolean;
-  /** Instanzrolle: owner betreibt die Instanz, admin verwaltet Menschen. */
+  /** Instance role: the owner runs the instance, an admin manages people. */
   orgRole?: 'owner' | 'admin' | 'member';
   /** Deactivated: no sign-in, but everything stays attributable. */
   disabled?: boolean;

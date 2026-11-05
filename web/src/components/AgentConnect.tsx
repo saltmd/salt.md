@@ -74,6 +74,11 @@ const agentHint = (id: string): string =>
     other: t('Any MCP-capable client (streamable HTTP).'),
   })[id] ?? '';
 
+// The one entry that is a description rather than a product's name, so the one
+// entry that gets translated. AGENTS itself is a module constant, where t() would
+// resolve once and keep that language forever.
+const agentName = (a: AgentDef) => (a.id === 'other' ? t('Other agent') : a.name);
+
 const AGENTS: AgentDef[] = [
   {
     id: 'claude-app',
@@ -293,14 +298,14 @@ export default function AgentConnectModal({
                 onClick={() => setAgent(a)}
               >
                 <span className="agent-logo">{a.logo}</span>
-                <span className="agent-name">{a.name}</span>
+                <span className="agent-name">{agentName(a)}</span>
               </button>
             ))}
           </div>
 
           <div className="conf-block agent-snippet">
             <div className="conf-head">
-              <span>{agent.name}: {agentHint(agent.id)}</span>
+              <span>{agentName(agent)}: {agentHint(agent.id)}</span>
               <button className="btn-sm" onClick={copy}>
                 {copied ? <Check size={13} /> : <Copy size={13} />} {t('Copy')}
               </button>
