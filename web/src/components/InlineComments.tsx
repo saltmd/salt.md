@@ -19,7 +19,7 @@ function locate(editor: SaltEditor, provider: SaltProvider, anchor: CommentAncho
   try {
     const fragment = provider.doc.getXmlFragment('blocknote');
     const start = Y.createRelativePositionFromJSON(anchor.from);
-    // ponytail: if the first selected character is deleted, detach instead of
+    // If the first selected character is deleted, detach instead of
     // guessing whether replacement text belongs to the original comment.
     if (!start.item || Y.getItem(provider.doc.store, start.item).deleted) return null;
     const from = relativePositionToAbsolutePosition(provider.doc, fragment, start, binding.mapping);

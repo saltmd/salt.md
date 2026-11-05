@@ -1189,5 +1189,6 @@
   "Copy of {title}": "Copia de {title}",
   "Comment on selected text": "Comentar el texto seleccionado",
   "Original text no longer available": "El texto original ya no está disponible",
-  "Remove selected text": "Quitar el texto seleccionado"
+  "Remove selected text": "Quitar el texto seleccionado",
+  "The page changed. Select the text again.": "La página ha cambiado. Selecciona el texto de nuevo."
 }

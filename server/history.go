@@ -252,7 +252,7 @@ func (s *Server) handleCreateComment(w http.ResponseWriter, r *http.Request) {
 		httpError(w, 500, err.Error())
 		return
 	} else if n == 0 {
-		httpError(w, 409, "The page changed. Select the text again.")
+		httpErrorCode(w, 409, "comment_anchor_stale", "The page changed. Select the text again.")
 		return
 	}
 	writeJSON(w, map[string]string{"id": id})

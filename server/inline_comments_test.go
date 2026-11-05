@@ -180,10 +180,84 @@ func TestInlineCommentStaleAfterAgentWriteAndRestore(t *testing.T) {
 		}
 		if rec := requestAs(t, s, tab.cookie, "POST", "/api/pages/"+tab.page+"/comments", payload); rec.Code != http.StatusConflict {
 			t.Fatalf("stale after replacement (restore=%v): %d", restore, rec.Code)
+		} else {
+			var problem struct{ Code, Error string }
+			if err := json.Unmarshal(rec.Body.Bytes(), &problem); err != nil || problem.Code != "comment_anchor_stale" || problem.Error != "The page changed. Select the text again." {
+				t.Fatalf("stale anchor must carry a translatable code and readable fallback: %s (%v)", rec.Body.String(), err)
+			}
 		}
 	}
 	if comments, err := s.pageComments(tab.page); err != nil || len(comments) != 2 {
 		t.Fatalf("replacement removed comments or wrote a stale one: %v %v", comments, err)
+	}
+}
+
+func TestInlineCommentMCPQuotesWithoutPositions(t *testing.T) {
+	s, tab, u := newEditorTab(t)
+	read := func() []map[string]json.RawMessage {
+		t.Helper()
+		out, err := callTool(t, s, u, "comments", `{"page_id":"`+tab.page+`"}`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		start, end := strings.Index(out, "["), strings.LastIndex(out, "]")
+		var comments []map[string]json.RawMessage
+		if start < 0 || end < start || !strings.Contains(out, "BEGIN UNTRUSTED CONTENT") {
+			t.Fatalf("comments must remain a marked JSON list: %s", out)
+		}
+		if err := json.Unmarshal([]byte(out[start:end+1]), &comments); err != nil {
+			t.Fatal(err)
+		}
+		return comments
+	}
+	if comments := read(); comments == nil || len(comments) != 0 {
+		t.Fatalf("empty comments must stay []: %v", comments)
+	}
+	const quote = "A quoted \"passage\" with 中文 and 😀"
+	var anchor map[string]any
+	if err := json.Unmarshal([]byte(testCommentAnchor), &anchor); err != nil {
+		t.Fatal(err)
+	}
+	anchor["quote"] = quote
+	payload, err := json.Marshal(map[string]any{"body": "feedback", "anchor": anchor})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rec := requestAs(t, s, tab.cookie, "POST", "/api/pages/"+tab.page+"/comments", string(payload)); rec.Code != http.StatusOK {
+		t.Fatalf("create: %d %s", rec.Code, rec.Body.String())
+	}
+	if _, err := callTool(t, s, u, "comments", `{"page_id":"`+tab.page+`","action":"add","body":"page feedback"}`); err != nil {
+		t.Fatal(err)
+	}
+	// Both attached and detached comments must still explain their passage.
+	for _, replace := range []bool{false, true} {
+		if replace {
+			if code, _ := tab.patch("", "replacement"); code != http.StatusOK {
+				t.Fatalf("replace: %d", code)
+			}
+		}
+		comments := read()
+		if len(comments) != 2 {
+			t.Fatalf("comments: %v", comments)
+		}
+		for _, c := range comments {
+			for _, key := range []string{"anchor", "from", "to", "gen"} {
+				if _, ok := c[key]; ok {
+					t.Fatalf("MCP leaked editor positions: %v", c)
+				}
+			}
+			if string(c["body"]) == `"feedback"` {
+				var got string
+				if err := json.Unmarshal(c["quote"], &got); err != nil || got != quote {
+					t.Fatalf("quote: %q (%v)", got, err)
+				}
+			} else if _, ok := c["quote"]; ok {
+				t.Fatal("page comments must not invent a quote")
+			}
+		}
+	}
+	if rec := requestAs(t, s, tab.cookie, "GET", "/api/pages/"+tab.page+"/comments", ""); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"anchor":`) || !strings.Contains(rec.Body.String(), `"from":`) {
+		t.Fatalf("the browser must retain its stored anchor: %d %s", rec.Code, rec.Body.String())
 	}
 }
 

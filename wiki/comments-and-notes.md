@@ -93,8 +93,6 @@ If the page changes while you are drafting, the comment text stays in the box.
 Select the passage again before sending, or remove the quote to send a page
 comment instead.
 
-![Starting a comment on selected text](img/inline-comment-selection.png)
-
 Open comments highlight their text. Select the highlight to open the comment, or
 select the quote in the comment to return to the passage. On narrow screens the
 panel closes to reveal the text. Resolving or deleting a comment removes its

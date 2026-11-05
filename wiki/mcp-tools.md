@@ -963,8 +963,11 @@ Errors: `unknown action "x" — use list (the default), get or restore`;
 | `agent` | string | no, `add` only |
 | `label` | string | no, `add` only |
 
-`list` returns the page's comments as JSON. `add` posts one; give `block_id` to
-attach it to a single block instead of the page. `resolve` ticks one off,
+`list` returns the page's comments as JSON. A selection comment includes its
+original passage in `quote`, even when that passage is no longer available;
+editor anchors and Yjs positions are omitted. Page comments have no `quote`.
+`add` posts one; give `block_id` to attach it to a single block instead of the
+page. `resolve` ticks one off,
 `reopen` un-ticks it.
 
 A comment added here carries the agent that wrote it, the way a note does:
