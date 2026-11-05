@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import { toast } from '../toast';
-import type { Comment } from '../types';
+import type { Comment, CommentAnchor } from '../types';
 import { Check, MessageSquareText, Trash2, X } from 'lucide-react';
 import { formatRelative } from '../format';
 import { t, plural } from '../i18n';
@@ -67,14 +67,27 @@ export default function CommentsPanel({
   myUserId,
   open,
   onClose,
+  pending,
+  draft: body,
+  onDraftChange: setBody,
+  onClearPending,
+  activeComment,
+  anchorStatuses,
+  narrow,
 }: {
   pageId: string;
   myUserId: string;
   open: boolean;
   onClose: () => void;
+  pending: { anchor: CommentAnchor; blockId: string } | null;
+  draft: string;
+  onDraftChange: (draft: string) => void;
+  onClearPending: () => void;
+  activeComment: string | null;
+  anchorStatuses: Record<string, boolean>;
+  narrow: boolean;
 }) {
   const [comments, setComments] = useState<Comment[]>([]);
-  const [body, setBody] = useState('');
   const [showResolved, setShowResolved] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const boxRef = useRef<HTMLTextAreaElement>(null);
@@ -96,6 +109,13 @@ export default function CommentsPanel({
     if (open) requestAnimationFrame(() => boxRef.current?.focus());
   }, [open, pageId]);
 
+  useEffect(() => {
+    if (pending) requestAnimationFrame(() => boxRef.current?.focus());
+  }, [pending]);
+  useEffect(() => {
+    if (activeComment) requestAnimationFrame(() => listRef.current?.querySelector(`[data-panel-comment="${CSS.escape(activeComment)}"]`)?.scrollIntoView({ block: 'nearest' }));
+  }, [activeComment, comments]);
+
   const add = async (e?: React.FormEvent) => {
     e?.preventDefault();
     const text = body.trim();
@@ -103,7 +123,8 @@ export default function CommentsPanel({
     setBody('');
     if (boxRef.current) boxRef.current.style.height = '';
     try {
-      await api.createComment(pageId, text);
+      await api.createComment(pageId, text, pending?.blockId ?? '', pending?.anchor);
+      onClearPending();
       load();
       // Your own contribution should be visible, not below the fold.
       requestAnimationFrame(() => listRef.current?.scrollTo({ top: 1e6, behavior: 'smooth' }));
@@ -172,7 +193,7 @@ export default function CommentsPanel({
           visible.map((c) => {
             const name = c.authorName || t('unknown');
             return (
-              <article key={c.id} className={'cp-item' + (c.resolvedAt ? ' is-resolved' : '')}>
+              <article key={c.id} data-panel-comment={c.id} className={'cp-item' + (c.resolvedAt ? ' is-resolved' : '') + (activeComment === c.id ? ' is-active' : '')}>
                 <div className="cp-item-head">
                   <span
                     className="cp-avatar"
@@ -191,6 +212,12 @@ export default function CommentsPanel({
                   ) : null}
                   <time className="cp-time">{when(c.createdAt)}</time>
                 </div>
+                {c.anchor && (
+                  <button type="button" className="cp-quote" onClick={() => { window.dispatchEvent(new CustomEvent('salt:comment-jump', { detail: c.id })); if (narrow || window.matchMedia('(max-width: 900px)').matches) onClose(); }} disabled={anchorStatuses[c.id] === false}>
+                    <span>{c.anchor.quote}</span>
+                    {anchorStatuses[c.id] === false && <small>{t('Original text no longer available')}</small>}
+                  </button>
+                )}
                 <div className="cp-body">{c.body}</div>
                 <div className="cp-actions">
                   <button
@@ -213,6 +240,7 @@ export default function CommentsPanel({
       </div>
 
       <form className="cp-compose" onSubmit={add}>
+        {pending && <div className="cp-pending"><span>{pending.anchor.quote}</span><button type="button" onClick={onClearPending} aria-label={t('Remove selected text')}>×</button></div>}
         <textarea
           ref={boxRef}
           value={body}

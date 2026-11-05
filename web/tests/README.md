@@ -21,6 +21,10 @@ of downloading Chromium, skip the browser installation and set
 The browser dependency is isolated in this test package; the application has no
 additional runtime dependencies. Tests do not upload fixtures or screenshots.
 
+Inline comments cover selection creation, saved anchors after reload,
+resolve/reopen, narrow light/dark navigation, localized stale-anchor errors in
+German, Spanish and Chinese, draft retention, detachment and deletion.
+
 Callout coverage: all seven preset icons, immediate background changes when
 cycling icons, existing saved blocks, light/dark appearance, dark-mode text
 contrast, and persistence after reload without changing the callout text.

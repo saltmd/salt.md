@@ -40,6 +40,9 @@ export function serverMessage(code: string, fallback: string, data?: ErrorData):
     case 'no_writable_workspace':
       return t('There is no workspace this account may create pages in.');
 
+    case 'comment_anchor_stale':
+      return t('The page changed. Select the text again.');
+
     // ---- agent keys from listed addresses only ----
     case 'agent_addresses_invalid':
       return t('Line {line} of the address list is neither an address nor a network: {entry}', {

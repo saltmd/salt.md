@@ -1177,5 +1177,9 @@
   "Some uploaded files could not be read, so the backup would be incomplete. The server log names them.": "Einige hochgeladene Dateien konnten nicht gelesen werden, die Sicherung wäre also unvollständig. Das Server-Protokoll nennt sie.",
   "Written by an agent through this account": "Von einem Agenten über dieses Konto geschrieben",
   "Agent": "Agent",
-  "Copy of {title}": "Kopie von {title}"
+  "Copy of {title}": "Kopie von {title}",
+  "Comment on selected text": "Ausgewählten Text kommentieren",
+  "Original text no longer available": "Originaltext nicht mehr verfügbar",
+  "Remove selected text": "Ausgewählten Text entfernen",
+  "The page changed. Select the text again.": "Die Seite wurde geändert. Wähle den Text erneut aus."
 }

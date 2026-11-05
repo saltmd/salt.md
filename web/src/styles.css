@@ -10414,3 +10414,32 @@ body:has(.live-down) .update-banner {
 .prop-url-open { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 24px; height: 24px; color: var(--muted); border-radius: 4px; }
 .prop-url-open:hover { color: var(--accent); background: var(--hover); }
 .prop-url-value :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Inline comments use the same quiet accent as the rest of the editor. */
+.salt-comment-highlight {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  box-shadow: inset 0 -2px var(--accent);
+  cursor: pointer;
+}
+.cp-item.is-active { outline: 2px solid var(--accent); outline-offset: 6px; border-radius: 3px; }
+.cp-quote, .cp-pending {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 6px 0;
+  padding: 7px 9px;
+  border: 0;
+  border-left: 2px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  color: var(--fg);
+  text-align: left;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.cp-quote { cursor: pointer; }
+.cp-quote:disabled { cursor: default; border-color: var(--muted); }
+.cp-quote small { display: block; color: var(--muted); margin-top: 4px; }
+.cp-pending { display: flex; gap: 8px; justify-content: space-between; max-height: 100px; overflow: auto; }
+.cp-pending button { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 18px; align-self: start; }

@@ -21,6 +21,10 @@ Screenshots are held to the same standard. Each one records which source files
 it shows; when one of those changes, the build says which pictures have started
 lying and `web/scripts/shoot-wiki.mjs` retakes them.
 
+The pending [selection-comment recipe](inline-comment-selection.recipe.json)
+can be added to `wiki/screenshots.json` when its light and dark images are taken
+with `node scripts/shoot-wiki.mjs inline-comment-selection` from `web/`.
+
 ## Start here
 
 | If you are | Read |
