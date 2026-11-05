@@ -1097,8 +1097,8 @@ type searchResult struct {
 	Icon    string `json:"icon"`
 	Snippet string `json:"snippet"`
 	// Heading: the heading path of the passage that matched, for example
-	// "Contract › Termination". Empty when the hit comes from the fallback or
-	// sits under no heading at all.
+	// "Contract › Termination". Empty when the hit comes from the whole-page
+	// index or sits under no heading at all.
 	Heading string `json:"heading,omitempty"`
 }
 
@@ -1109,35 +1109,41 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, results)
 		return
 	}
-	match := ftsMatch(q)
-
 	userID := requestUser(r).ID
 	ws := s.scopeWorkspacesFor(requestUser(r), s.visibleWorkspaces(userID))
 	if len(ws) == 0 {
 		writeJSON(w, results)
 		return
 	}
-	wargs := make([]any, 0, len(ws)+1)
-	wargs = append(wargs, match)
-	for _, v := range ws {
-		wargs = append(wargs, v)
+	writeJSON(w, s.searchHits(userID, ftsMatch(q), ws, 20))
+}
+
+// searchHits is the search, for the browser and for agents alike.
+//
+// The PASSAGES answer first, not whole pages (see chunks.go): the excerpt then
+// comes from the paragraph that actually matches, and carries its heading path
+// along.
+//
+// The whole-page index fills what is left of the list. It is the foundation, and
+// it knows what no passage holds: the text of an attached PDF, a row's property
+// values, two words in different passages, a word a hard cut split in two. Asked
+// only when the passages found nothing, it lost all of these to a match on any
+// other page (#127).
+//
+// Both fetch in rounds rather than 40 at once: the canRead filter throws hits
+// away, and with a fixed LIMIT the list stayed short as soon as a workspace held
+// many private pages belonging to other people — you got four results and
+// believed there were no more.
+func (s *Server) searchHits(userID, match string, ws []string, want int) []searchResult {
+	out := s.searchChunks(userID, match, ws, want)
+	if len(out) >= want {
+		return out
 	}
-	// The search runs over the PASSAGES, not over whole pages (see chunks.go):
-	// the excerpt then comes from the paragraph that actually matches, and carries
-	// its heading path along.
-	//
-	// Fetching in rounds rather than 40 at once: the canRead filter below throws
-	// hits away, and with a fixed LIMIT the list stayed short as soon as a
-	// workspace held many private pages belonging to other people — you got four
-	// results and believed there were no more.
-	results = s.searchChunks(userID, match, ws, 20)
-	// Fallback: if the passage search finds nothing, the old page search counts.
-	// It is the foundation; a mistake in the cutting may not make content
-	// unfindable.
-	if len(results) == 0 {
-		results = s.searchPagesFallback(userID, match, ws, 20)
+	found := make(map[string]bool, len(out))
+	for _, res := range out {
+		found[res.ID] = true
 	}
-	writeJSON(w, results)
+	return append(out, s.searchWholePages(userID, match, ws, want-len(out), found)...)
 }
 
 // searchChunks searches the passages and returns the BEST one per page.
@@ -1200,8 +1206,9 @@ func (s *Server) searchChunks(userID, match string, ws []string, want int) []sea
 	return out
 }
 
-// searchPagesFallback is the old, page-by-page search.
-func (s *Server) searchPagesFallback(userID, match string, ws []string, want int) []searchResult {
+// searchWholePages is the page-by-page search. Pages in skip are left out: the
+// passages already found them, with a better excerpt.
+func (s *Server) searchWholePages(userID, match string, ws []string, want int, skip map[string]bool) []searchResult {
 	out := []searchResult{}
 	args := make([]any, 0, len(ws)+1)
 	args = append(args, match)
@@ -1232,7 +1239,7 @@ func (s *Server) searchPagesFallback(userID, match string, ws []string, want int
 			if len(out) >= want {
 				break
 			}
-			if s.canRead(userID, res.ID) {
+			if !skip[res.ID] && s.canRead(userID, res.ID) {
 				out = append(out, res)
 			}
 		}

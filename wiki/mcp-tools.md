@@ -272,8 +272,8 @@ somewhere in this 4000-word page". Up to 20 results, one per line:
   …notice period of three months…
 ```
 
-If passage search finds nothing, a whole-page search runs as a fallback. Empty
-answer: `No results.` Errors: `query is required`.
+Passages answer first, and a whole-page search fills what is left of the list.
+Empty answer: `No results.` Errors: `query is required`.
 
 See [Search](search.md) for what is indexed and how German words are folded.
 

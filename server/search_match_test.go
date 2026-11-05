@@ -61,8 +61,9 @@ func TestSearchFindsEveryWordCombination(t *testing.T) {
 		if err := json.Unmarshal(rec.Body.Bytes(), &hits); err != nil {
 			t.Fatalf("%q: %d %s", q, rec.Code, rec.Body.String())
 		}
-		if len(hits) != 1 || hits[0].ID != id {
-			t.Errorf("%q found %d pages, want the one page", q, len(hits))
+		// First, not alone: the welcome page holds some of these words as well.
+		if len(hits) == 0 || hits[0].ID != id {
+			t.Errorf("%q found %d pages, want this one first", q, len(hits))
 		}
 	}
 	// A word that is not on the page still narrows: AND, not OR.
@@ -111,8 +112,8 @@ func TestSearchFindsCJKWordsInsideASentence(t *testing.T) {
 		"数据库 迁移", "模板 天气", "API接口", "接口", "api", "2026年", "needs review",
 		"データベース", "移行", "베이스", "옮겼습니다",
 	} {
-		if hits := search(q); len(hits) != 1 {
-			t.Errorf("%q: got %d hits, want the page", q, len(hits))
+		if hits := search(q); len(hits) == 0 || hits[0].ID != id {
+			t.Errorf("%q: got %d hits, want the page first", q, len(hits))
 		}
 	}
 

@@ -60,7 +60,7 @@ taking part.
 | It is absent from | Note |
 | --- | --- |
 | The sidebar tree | it moves into the Trash section instead |
-| [Search](search.md) | both the passage search and the page-title fallback skip it |
+| [Search](search.md) | both the passage search and the whole-page search skip it |
 | The [library](library.md), the graph and the tag counts | none |
 | **Linked from** under a page, and the **← Backlinks** column in the library | it disappears from the backlinks of every page it pointed at |
 | Every [view](views.md) of its collection (table, board, list, gallery, calendar and timeline) | a trashed row is not a row any more |

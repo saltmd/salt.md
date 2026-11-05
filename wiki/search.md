@@ -73,8 +73,8 @@ narrow the search with a word that only one of them contains.
 | Page title | yes |
 | Body text of every block | yes |
 | The visible label of a link to another page | yes |
-| Property values of database rows, where the value is text or a list of text | yes, but see the limit below |
-| Text extracted from an attached PDF | yes, but see the limit below |
+| Property values of database rows, where the value is text or a list of text | yes, after the passages (see below) |
+| Text extracted from an attached PDF | yes, after the passages (see below) |
 | Templates | yes (a template is a page) |
 | Database rows | yes (a row is a page) |
 | Page description and tags | no |
@@ -85,16 +85,17 @@ narrow the search with a word that only one of them contains.
 
 Three entries in that table deserve a sentence each.
 
-**PDF text and property values sit in a second index that is only consulted as
-a fallback.** salt.md keeps two indexes: one over the **passages** of a page
-(see below), and one over the page as a whole. A PDF's extracted text and a
-row's property values go into the whole-page index only. The search asks the
-passage index first and asks the whole-page index **only when the passage
-search finds nothing at all**, so a phrase that appears in a PDF *and*
-anywhere in the body of any other page returns the other page, and the PDF's
-carrier never appears. In practice this means a PDF is reliably findable by a
-word that occurs nowhere else in the instance. When you need to be sure, use
-the file list instead, or put a distinctive term on the carrier page.
+**PDF text and property values sit in a second index that comes after the
+passages.** salt.md keeps two indexes: one over the **passages** of a page (see
+below), and one over the page as a whole. A PDF's extracted text and a row's
+property values go into the whole-page index only. The search asks the passage
+index first, and the whole-page index **fills what is left of the list**,
+leaving out pages already on it. So a word that appears in a PDF *and* in the
+body of another page returns both pages, the other page first. Such a hit takes
+its excerpt from the page's text and shows no heading path. With twenty passage
+hits the list is full before its turn comes, so a common word can still push
+the PDF's carrier off the end. When you need to be sure, use the file list
+instead, or put a distinctive term on the carrier page.
 
 **Property values are indexed as they are stored, not as they are shown.** A
 `select` or `multiselect` value is stored as the option's internal id, not as
@@ -142,10 +143,11 @@ page you have only named is still findable.
 Every word you type is treated as the **start** of a word. Typing `cont` finds
 *contract* and *container*. You never have to type a word out.
 
-Several words are joined with **and**: every one of them has to appear
-somewhere in the same passage. The title of the page is folded into every one
-of its passages, so a two-word search still works when one word is in the title
-and the other in a paragraph.
+Several words are joined with **and**: every one of them has to appear on the
+page. Pages that have them together in one passage come first. The title of the
+page is folded into every one of its passages, so a word in the title and a word
+in a paragraph count as together. Pages that have them in different passages
+follow from the whole-page index.
 
 Before matching, both the stored text and your query are put through the same
 two steps.
@@ -238,11 +240,11 @@ name. The text is pulled out when the file is uploaded and joins the index
 under the page that carries it.
 
 One limit is worth knowing before you rely on it, and it is the one from the
-table above: extracted PDF text lives in the whole-page index, which salt.md
-consults only when the passage search finds nothing at all. A phrase that
-appears in a PDF and also in the body of some other page returns that other
-page, not the PDF's carrier. Search a term that is distinctive, or reach for
-the file list, when the answer has to be certain.
+table above: extracted PDF text lives in the whole-page index, whose hits come
+after the passage hits. A word that appears in a PDF and also in the body of
+twenty other pages fills the list before the PDF's carrier gets a place. Search
+a term that is distinctive, or reach for the file list, when the answer has to
+be certain.
 
 This applies to uploads from the browser and to uploads made by an agent with
 `upload_file`, and in both cases only when the file is attached to a page. A
@@ -348,9 +350,8 @@ already looking at, or skip searching altogether.
 ## For agents
 
 The `search` tool over MCP is the same search with the same two permission
-stages, including the same fallback behaviour: passages first, the whole-page
-index only when passages return nothing. It takes a single search string and
-returns up to 20 hits:
+stages and in the same order: passages first, then the whole-page index for what
+is left of the list. It takes a single search string and returns up to 20 hits:
 
 ```
 • Contract renewal › Termination › Deadlines (id: 8f2c…)
@@ -393,7 +394,7 @@ excerpt and heading path. See [API](api.md).
 | Limit | Value |
 | --- | --- |
 | Results returned | 20 |
-| Excerpt around a hit | ~18 words (passage), ~14 words (whole-page fallback) |
+| Excerpt around a hit | ~18 words (passage), ~14 words (whole-page index) |
 | Recently opened remembered | 8 pages, per browser |
 | Target passage size | ~700 bytes, hard split at 1800 |
 | Text kept per PDF | 500,000 bytes |

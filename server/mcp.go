@@ -1404,10 +1404,7 @@ func (s *Server) mcpSearch(u *user, q string) (string, error) {
 	// real difference: it gets the paragraph that matches together with its heading
 	// path — instead of "something is in this 4000-word page" plus having to load
 	// the whole thing.
-	hits := s.searchChunks(userID, ftsMatch(q), ws, 20)
-	if len(hits) == 0 {
-		hits = s.searchPagesFallback(userID, ftsMatch(q), ws, 20)
-	}
+	hits := s.searchHits(userID, ftsMatch(q), ws, 20)
 	var b strings.Builder
 	n := 0
 	for _, h := range hits {
