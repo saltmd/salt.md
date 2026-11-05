@@ -1,0 +1,29 @@
+{
+  "id": "reply-inbox",
+  "page": "comments-and-notes.md",
+  "caption": "The personal inbox keeps reply notifications and unread state across sessions.",
+  "shows": [
+    "web/src/components/Inbox.tsx",
+    "web/src/components/CommentsPanel.tsx",
+    "web/src/App.tsx",
+    "web/src/styles.css",
+    "web/src/theme.css"
+  ],
+  "steps": [
+    {
+      "goto": "/"
+    },
+    {
+      "waitFor": ".sidebar"
+    },
+    {
+      "click": "[aria-label=\"Inbox\"]"
+    },
+    {
+      "waitFor": ".inbox-dialog"
+    },
+    {
+      "wait": 600
+    }
+  ]
+}

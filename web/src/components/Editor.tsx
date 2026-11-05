@@ -24,6 +24,8 @@ import CollectionView from './CollectionView';
 import { HistoryModal } from './PageHistory';
 import CommentsPanel, {
   COMMENTS_CHANGED,
+  newCommentDraft,
+  type CommentDraft,
   commentsPanelOpen,
   initials,
   setCommentsPanelOpen,
@@ -65,6 +67,11 @@ function consistentGroups(dict: typeof coreEn): typeof coreEn {
   return { ...dict, slash_menu: local as unknown as typeof dict.slash_menu };
 }
 
+// Account/page-scoped drafts survive visiting the inbox and other pages;
+// comment text is kept in memory rather than browser storage.
+const commentDrafts = new Map<string, CommentDraft>();
+window.addEventListener('salt:clear-comment-drafts', () => commentDrafts.clear());
+
 export interface EditorProps {
   pageId: string;
   pagesById: Map<string, PageMeta>;
@@ -101,6 +108,14 @@ export default function Editor(props: EditorProps) {
   // his colleagues work in them all day and reported the old shape as awkward:
   // at the very bottom, and two lines to write in.
   const [commentsOpen, setCommentsOpen] = useState(commentsPanelOpen);
+
+  const draftKey = props.user.id + ':' + props.pageId;
+  const [commentDraft, setCommentDraft] = useState<CommentDraft>(() => commentDrafts.get(draftKey) ?? newCommentDraft());
+  const [activeComment, setActiveComment] = useState<string | null>(null);
+  const [commentOpenRequest, setCommentOpenRequest] = useState(0);
+  useEffect(() => {
+    if (commentDraft.body) commentDrafts.set(draftKey, commentDraft); else commentDrafts.delete(draftKey);
+  }, [draftKey, commentDraft]);
 
   // Both panels occupy the same strip on the right, so opening one closes the
   // other. Sharing the width would leave two columns too narrow to be either.
@@ -184,6 +199,17 @@ export default function Editor(props: EditorProps) {
     };
   }, [props.pageId, nonce]);
 
+  useEffect(() => {
+    if (!page) return;
+    const openLinkedComment = () => {
+      const id = new URLSearchParams(window.location.hash.slice(1)).get('comment');
+      if (id) { setActiveComment(id); setCommentOpenRequest((n) => n + 1); showComments(true); }
+    };
+    openLinkedComment();
+    window.addEventListener('hashchange', openLinkedComment);
+    return () => window.removeEventListener('hashchange', openLinkedComment);
+  }, [page?.id]);
+
   if (error) {
     return (
       <div className="editor-error">
@@ -255,6 +281,11 @@ export default function Editor(props: EditorProps) {
         <CommentsPanel
           pageId={page.id}
           myUserId={props.user.id}
+          canWrite={props.canEdit}
+          draft={commentDraft}
+          onDraftChange={setCommentDraft}
+          activeComment={activeComment}
+          openRequest={commentOpenRequest}
           open
           onClose={() => showComments(false)}
         />
@@ -565,15 +596,20 @@ function PageHeader({
     const count = () =>
       api
         .listComments(pageId)
-        .then((l) => alive && setOpenComments(l.filter((c) => !c.resolvedAt).length))
+        .then((l) => alive && setOpenComments(l.filter((c) => !c.threadId && !c.resolvedAt && (!c.deletedAt || l.some((r) => r.threadId === c.id && !r.deletedAt))).length))
         .catch(() => {});
     void count();
     // The panel says when it changed something. An event rather than a prop:
     // the count has to be right whether the panel is open or not, so the header
     // owns its own fetch and the panel only nudges it.
+    const live = (e: Event) => { if ((e as CustomEvent<string>).detail === pageId) void count(); };
+    window.addEventListener('salt:comments-live', live);
+    window.addEventListener('salt:comments-refresh', count);
     window.addEventListener(COMMENTS_CHANGED, count);
     return () => {
       alive = false;
+      window.removeEventListener('salt:comments-live', live);
+      window.removeEventListener('salt:comments-refresh', count);
       window.removeEventListener(COMMENTS_CHANGED, count);
     };
   }, [pageId, canComment]);

@@ -18,7 +18,8 @@ copy links by hand.
 | Emergency access notice | `Emergency access to <workspace name>` | every admin of that workspace | the instance owner takes time-limited read access |
 | Test message | `salt.md test message` | the admin who pressed the button | you press **Send test mail** |
 
-That is the whole list. There are no comment notifications, no mention alerts,
+That is the email list. Replies notify the personal in-app Inbox; they do not
+send email. There are no mention alerts,
 no page-change digests, no form-submission emails, and no marketing of any kind.
 The body of a page, the contents of a collection and the files you upload never
 travel by mail.

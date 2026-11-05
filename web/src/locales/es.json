@@ -415,7 +415,6 @@
   "Manage": "Gestionar",
   "Manage users": "Gestionar usuarios",
   "Manual (your own reverse proxy)": "Manual (tu propio proxy inverso)",
-  "Mark as resolved": "Marcar como resuelto",
   "Markdown (.md)": "Markdown (.md)",
   "Markdown link copied": "Enlace Markdown copiado",
   "Material": "Material",
@@ -676,7 +675,6 @@
   "Reopen": "Reabrir",
   "Reset": "Restablecer",
   "Reset the link": "Restablecer el enlace",
-  "Resolved": "Resuelto",
   "Restore": "Restaurar",
   "Restore the version from {when}? The current state is saved as a version first.": "¿Restaurar la versión de {when}? El estado actual se guardará como una versión primero.",
   "Restoring failed": "Error al restaurar",
@@ -736,10 +734,6 @@
   "Show the document's icon": "Mostrar el icono del documento",
   "Show what happened to this row": "Mostrar lo ocurrido con esta fila",
   "Show where pages are filed": "Mostrar dónde están archivadas las páginas",
-  "Show {n} resolved": {
-    "one": "Mostrar {n} resuelto",
-    "other": "Mostrar {n} resueltos"
-  },
   "Shown": "Mostrado",
   "Shown in the switcher and on cards": "Visible en el selector y en las tarjetas",
   "Shown in your time zone.": "Mostrado en tu zona horaria.",
@@ -1114,10 +1108,6 @@
     "one": "{n} página privada",
     "other": "{n} páginas privadas"
   },
-  "{n} resolved comments": {
-    "one": "{n} comentario resuelto",
-    "other": "{n} comentarios resueltos"
-  },
   "{n} rows": {
     "one": "{n} fila",
     "other": "{n} filas"
@@ -1186,5 +1176,56 @@
   "Some uploaded files could not be read, so the backup would be incomplete. The server log names them.": "Algunos archivos subidos no se pudieron leer, así que la copia de seguridad quedaría incompleta. El registro del servidor los nombra.",
   "Written by an agent through this account": "Escrito por un agente a través de esta cuenta",
   "Agent": "Agente",
-  "Copy of {title}": "Copia de {title}"
+  "Copy of {title}": "Copia de {title}",
+  "Cancel reply": "Cancelar respuesta",
+  "Could not copy the link": "No se pudo copiar el enlace",
+  "Could not load comments": "No se pudieron cargar los comentarios",
+  "Could not load the inbox": "No se pudo cargar la bandeja de entrada",
+  "Could not save the comment": "No se pudo guardar el comentario",
+  "Could not update the inbox": "No se pudo actualizar la bandeja de entrada",
+  "Delete this comment? Other replies will be kept.": "¿Eliminar este comentario? Se conservarán las demás respuestas.",
+  "Deleted comment": "Comentario eliminado",
+  "Filter notifications": "Filtrar notificaciones",
+  "Inbox": "Bandeja de entrada",
+  "Load more": "Cargar más",
+  "Mark all as read": "Marcar todo como leído",
+  "Mark as read": "Marcar como leído",
+  "Mark as unread": "Marcar como no leído",
+  "New replies will appear here.": "Las nuevas respuestas aparecerán aquí.",
+  "No notifications yet": "Todavía no hay notificaciones",
+  "Reopen this thread before replying. Your draft is preserved.": "Vuelve a abrir este hilo antes de responder. Tu borrador se conserva.",
+  "Replies to your comments": "Respuestas a tus comentarios",
+  "Reply": "Responder",
+  "Replying to {name}": "Respondiendo a {name}",
+  "Resolve thread": "Resolver hilo",
+  "Send reply": "Enviar respuesta",
+  "Sending…": "Enviando…",
+  "Show resolved threads": "Mostrar hilos resueltos",
+  "This comment is no longer available.": "Este comentario ya no está disponible.",
+  "This comment was deleted. Choose another reply target.": "Se eliminó este comentario. Elige otro al que responder.",
+  "This conversation is no longer available.": "Esta conversación ya no está disponible.",
+  "Unread": "No leído",
+  "Use your current draft to reply to {name}?": "¿Usar tu borrador actual para responder a {name}?",
+  "When someone replies to your comment, you’ll see it here.": "Cuando alguien responda a tu comentario, lo verás aquí.",
+  "Write a reply…": "Escribe una respuesta…",
+  "You’re all caught up": "Estás al día",
+  "replied to your comment": "respondió a tu comentario",
+  "{n} replies": {
+    "one": "{n} respuesta",
+    "other": "{n} respuestas"
+  },
+  "{n} unread notifications": {
+    "one": "{n} notificación sin leer",
+    "other": "{n} notificaciones sin leer"
+  },
+  "This submission id already belongs to another comment": "Este identificador de envío ya pertenece a otro comentario",
+  "You cannot write comments on this page.": "No puedes escribir comentarios en esta página.",
+  "Invalid comment body or request id": "El texto del comentario o el identificador de solicitud no es válido",
+  "Replies use the original comment's block.": "Las respuestas usan el bloque del comentario original.",
+  "Comment not found": "No se encontró el comentario",
+  "The thread changed. Reopen it before replying.": "El hilo cambió. Vuelve a abrirlo antes de responder.",
+  "The page changed. Reload it before commenting.": "La página cambió. Vuelve a cargarla antes de comentar.",
+  "Invalid comment request": "La solicitud de comentario no es válida",
+  "Invalid notification update": "La actualización de la notificación no es válida",
+  "Notification not found": "No se encontró la notificación"
 }

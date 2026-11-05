@@ -63,3 +63,11 @@ Signed-in connections covers ending an agent's sign-in from the interface
 Signed-in connections shows the client, its scope, its workspace and the
 address it was last used from, and ending it there (after a confirmation)
 leaves its access token and its refresh token useless.
+
+Reply and inbox coverage uses two browser sessions for live delivery, reply drafts,
+failed sends, exact links (including reopening the same notification), read state,
+thread resolution and phone layouts. Real server conflicts are rendered in German,
+Spanish and Simplified Chinese, retaining the reply draft. Run the focused check
+with `GO_BINARY=/path/to/go PLAYWRIGHT_CHANNEL=chrome npm run test:comments --prefix web/tests`.
+Go coverage includes migration/restart persistence, atomic failure, concurrent retries,
+MCP/REST attribution, coded errors, recipient deduplication and credential scope.
