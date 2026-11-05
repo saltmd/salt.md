@@ -423,6 +423,7 @@ body:not(.opt-ws) .cover-ws{display:none}
 .doc-comment{margin:0 0 .8em;font-size:.95em}
 .doc-comment .who{font-weight:600}
 .doc-comment .when{color:#8a8a85;font-size:.85em;margin-left:.4em}
+.doc-comment .quote{display:block;margin:.15em 0;padding-left:.7em;border-left:2px solid #e3e2df;color:#5b5b57}
 
 /* A sheet is a real sheet of paper: fixed size, its own margins, its own foot.
    The document is cut into these by the script below rather than left to the
@@ -532,7 +533,14 @@ func (srv *Server) pageHTML(p *page, printMode bool, o printOptions) string {
 			if len(c.CreatedAt) >= 10 {
 				b.WriteString(`<span class="when">` + esc(c.CreatedAt[:10]) + `</span>`)
 			}
-			b.WriteString("<br>" + esc(c.Body) + "</p>")
+			// Paper has no highlight, so the passage has to say itself what the
+			// comment is about.
+			sep := "<br>"
+			if q := commentQuote(c.Anchor); q != "" {
+				b.WriteString(`<span class="quote">` + esc(q) + `</span>`)
+				sep = ""
+			}
+			b.WriteString(sep + esc(c.Body) + "</p>")
 		}
 		b.WriteString("</section>")
 	}

@@ -258,6 +258,17 @@ func (s *Server) handleCreateComment(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]string{"id": id})
 }
 
+// commentQuote is the passage a comment was written on. A page comment has none.
+func commentQuote(anchor json.RawMessage) string {
+	var a struct {
+		Quote string `json:"quote"`
+	}
+	if len(anchor) > 0 {
+		json.Unmarshal(anchor, &a)
+	}
+	return a.Quote
+}
+
 // Yjs relative positions name a shared type and, optionally, an item in it.
 // Validate their shape here; only the collaborative editor can resolve them.
 func validCommentPosition(raw json.RawMessage) bool {

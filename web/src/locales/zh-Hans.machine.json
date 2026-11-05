@@ -7,6 +7,7 @@
   "Backrelation",
   "Checkbox",
   "Checklist",
+  "Comment on selected text",
   "Count",
   "Create “{name}”",
   "Filter",
@@ -17,16 +18,19 @@
   "Max (= 100%)",
   "Min",
   "Multi-select",
+  "Original text no longer available",
   "Other agent",
   "Percent",
   "Person",
   "Property",
   "Reference other properties with",
   "Relation",
+  "Remove selected text",
   "Rollup",
   "Sum",
   "Supports",
   "Tags",
   "Teal",
-  "Text"
+  "Text",
+  "The page changed. Select the text again."
 ]

@@ -148,6 +148,8 @@ async function run(page, step) {
   // something it is about to photograph.
   if (step.goto !== undefined) return page.goto(page.__base + step.goto, { waitUntil: 'load' });
   if (step.click !== undefined) return page.click(step.click, { timeout: 10000 });
+  // Selects a block. The keys that do it differ between macOS and the rest.
+  if (step.tripleclick !== undefined) return page.click(step.tripleclick, { clickCount: 3, timeout: 10000 });
   if (step.hover !== undefined) return page.hover(step.hover, { timeout: 10000 });
   if (step.fill !== undefined) return page.fill(step.fill[0], step.fill[1]);
   if (step.press !== undefined) return page.keyboard.press(step.press);

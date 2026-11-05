@@ -89,6 +89,8 @@ bar. The panel shows the selected quote above the comment box. Send as usual, or
 remove the quote to write a page comment instead. Selections are limited to
 2,000 characters in a single block.
 
+![Selecting text opens a comment draft with the original quote.](img/inline-comment-selection.png)
+
 If the page changes while you are drafting, the comment text stays in the box.
 Select the passage again before sending, or remove the quote to send a page
 comment instead.

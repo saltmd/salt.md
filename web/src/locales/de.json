@@ -141,6 +141,7 @@
   "Colour / delete": "Farbe / löschen",
   "Colours": "Farben",
   "Columns": "Spalten",
+  "Comment on selected text": "Ausgewählten Text kommentieren",
   "Comments": "Kommentare",
   "Configured": "Eingerichtet",
   "Confirm": "Bestätigen",
@@ -563,6 +564,7 @@
   "Or like one you already have": "Oder wie einer, den du schon hast",
   "Or the classic way: SMTP": "Oder klassisch: SMTP",
   "Orange": "Orange",
+  "Original text no longer available": "Originaltext nicht mehr verfügbar",
   "Orphaned personal space: clean up only, do not open.": "Verwaister persönlicher Bereich: nur aufräumen, nicht öffnen.",
   "Other agent": "Anderer Agent",
   "Outgoing @-links": "Ausgehende @-Links",
@@ -645,6 +647,7 @@
   "Remove icon": "Icon entfernen",
   "Relative": "Relativ",
   "Remove picture": "Bild entfernen",
+  "Remove selected text": "Ausgewählten Text entfernen",
   "Remove tag": "Tag entfernen",
   "Remove tag {tag}": "Tag {tag} entfernen",
   "Remove template flag": "Vorlagen-Markierung entfernen",
@@ -797,6 +800,7 @@
   "The owner cannot be deleted. Hand the owner role to another account first.": "Der Owner kann nicht gelöscht werden. Übertrage die Owner-Rolle zuerst an ein anderes Konto.",
   "The owner runs this instance. Their role is not changed here.": "Der Owner betreibt diese Instanz. Seine Rolle wird hier nicht geändert.",
   "The owner’s rights cannot be revoked. Hand the owner role on first.": "Dem Owner können die Rechte nicht entzogen werden. Übertrage die Owner-Rolle zuerst.",
+  "The page changed. Select the text again.": "Die Seite wurde geändert. Wähle den Text erneut aus.",
   "The personal space “{name}” will be deleted too ({pages}).": "Der persönliche Bereich „{name}“ wird mit gelöscht ({pages}).",
   "The provider did not supply an email address.": "Der Anbieter hat keine E-Mail-Adresse geliefert.",
   "The provider refused the connection.": "Der Anbieter hat die Verbindung abgelehnt.",
@@ -1177,9 +1181,5 @@
   "Some uploaded files could not be read, so the backup would be incomplete. The server log names them.": "Einige hochgeladene Dateien konnten nicht gelesen werden, die Sicherung wäre also unvollständig. Das Server-Protokoll nennt sie.",
   "Written by an agent through this account": "Von einem Agenten über dieses Konto geschrieben",
   "Agent": "Agent",
-  "Copy of {title}": "Kopie von {title}",
-  "Comment on selected text": "Ausgewählten Text kommentieren",
-  "Original text no longer available": "Originaltext nicht mehr verfügbar",
-  "Remove selected text": "Ausgewählten Text entfernen",
-  "The page changed. Select the text again.": "Die Seite wurde geändert. Wähle den Text erneut aus."
+  "Copy of {title}": "Kopie von {title}"
 }

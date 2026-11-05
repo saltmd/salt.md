@@ -80,7 +80,7 @@
       ],
       "takenAt": {
         "web/src/components/Sidebar.tsx": "d2dba3370c99",
-        "web/src/components/Editor.tsx": "02cbbcfc8b08",
+        "web/src/components/Editor.tsx": "6a067efa5ffd",
         "web/src/App.tsx": "5f18773ed53b",
         "web/src/theme.css": "6a5de72d7e2c"
       }
@@ -141,7 +141,7 @@
         }
       ],
       "takenAt": {
-        "web/src/components/Editor.tsx": "02cbbcfc8b08",
+        "web/src/components/Editor.tsx": "6a067efa5ffd",
         "web/src/theme.css": "6a5de72d7e2c"
       }
     },
@@ -201,7 +201,53 @@
         }
       ],
       "takenAt": {
-        "web/src/components/CommentsPanel.tsx": "cc634cf373c3",
+        "web/src/components/CommentsPanel.tsx": "1d138c776ef5",
+        "web/src/theme.css": "6a5de72d7e2c"
+      }
+    },
+    {
+      "id": "inline-comment-selection",
+      "page": "comments-and-notes.md",
+      "caption": "Selecting text opens a comment draft with the original quote.",
+      "shows": [
+        "web/src/components/Editor.tsx",
+        "web/src/components/CommentsPanel.tsx",
+        "web/src/components/InlineComments.tsx",
+        "web/src/theme.css"
+      ],
+      "steps": [
+        {
+          "goto": "/"
+        },
+        {
+          "waitFor": ".bn-editor"
+        },
+        {
+          "wait": 800
+        },
+        {
+          "tripleclick": ".bn-editor [data-content-type=\"paragraph\"]"
+        },
+        {
+          "wait": 400
+        },
+        {
+          "click": "[aria-label=\"Comment on selected text\"]"
+        },
+        {
+          "fill": [
+            ".cp-compose textarea",
+            "Can we make this description more specific?"
+          ]
+        },
+        {
+          "wait": 600
+        }
+      ],
+      "takenAt": {
+        "web/src/components/Editor.tsx": "6a067efa5ffd",
+        "web/src/components/CommentsPanel.tsx": "1d138c776ef5",
+        "web/src/components/InlineComments.tsx": "8e4c5276df4f",
         "web/src/theme.css": "6a5de72d7e2c"
       }
     },
@@ -459,7 +505,7 @@
       ],
       "takenAt": {
         "server/public.go": "62d933047cbe",
-        "web/src/components/Editor.tsx": "02cbbcfc8b08",
+        "web/src/components/Editor.tsx": "6a067efa5ffd",
         "web/src/theme.css": "6a5de72d7e2c"
       }
     },
@@ -854,7 +900,7 @@
       "element": ".dialog",
       "takenAt": {
         "web/src/components/AdminSettings.tsx": "6713e2be48ac",
-        "server/export_html.go": "281966e21eb0",
+        "server/export_html.go": "c6d050d8e19d",
         "web/src/theme.css": "6a5de72d7e2c"
       }
     },

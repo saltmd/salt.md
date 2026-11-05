@@ -87,17 +87,10 @@ func (s *Server) mcpComments(u *user, pageID, action, body, blockID, commentID, 
 		}
 		comments := make([]quotedComment, 0, len(list))
 		for _, c := range list {
-			var anchor struct {
-				Quote string `json:"quote"`
-			}
-			if len(c.Anchor) > 0 {
-				if err := json.Unmarshal(c.Anchor, &anchor); err != nil {
-					return "", err
-				}
-			}
 			// Agents need the passage, not the collaborative editor's positions.
+			quote := commentQuote(c.Anchor)
 			c.Anchor = nil
-			comments = append(comments, quotedComment{c, anchor.Quote})
+			comments = append(comments, quotedComment{c, quote})
 		}
 		out, err := json.Marshal(comments)
 		if err != nil {

@@ -154,6 +154,7 @@
   "Colour / delete": "颜色 / 删除",
   "Colours": "颜色",
   "Columns": "列",
+  "Comment on selected text": "评论所选文本",
   "Comments": "评论",
   "Configured": "已配置",
   "Confirm": "确认",
@@ -598,6 +599,7 @@
   "Or like one you already have": "或者仿照你已有的工作区",
   "Or the classic way: SMTP": "或者用传统方式：SMTP",
   "Orange": "橙色",
+  "Original text no longer available": "原文已不可用",
   "Orphaned personal space: clean up only, do not open.": "无人管理的个人空间：只能清理，不能打开。",
   "Other agent": "其他智能体",
   "Outgoing @-links": "出链（@ 链接）",
@@ -681,6 +683,7 @@
   "Remove from favourites": "从收藏中移除",
   "Remove icon": "移除图标",
   "Remove picture": "移除图片",
+  "Remove selected text": "移除所选文本",
   "Remove tag": "移除标签",
   "Remove tag {tag}": "移除标签 {tag}",
   "Remove template flag": "取消模板标记",
@@ -839,6 +842,7 @@
   "The owner cannot be deleted. Hand the owner role to another account first.": "无法删除所有者。请先将所有者角色移交给其他账号。",
   "The owner runs this instance. Their role is not changed here.": "所有者负责运行此实例，其角色不在此处更改。",
   "The owner’s rights cannot be revoked. Hand the owner role on first.": "无法撤销所有者的权限。请先移交所有者角色。",
+  "The page changed. Select the text again.": "页面已更改。请重新选择文本。",
   "The personal space “{name}” will be deleted too ({pages}).": "个人空间“{name}”也将被删除（{pages}）。",
   "The provider did not supply an email address.": "服务商未提供邮件地址。",
   "The provider refused the connection.": "服务商拒绝了连接。",
@@ -1174,9 +1178,5 @@
   "⚠ This is the URL of the running quick tunnel. It changes on every start. For OAuth that lasts, use a named tunnel or your own domain and enter it as the base URL.": "⚠ 这是当前运行的快速隧道的 URL，每次启动都会变化。要让 OAuth 长期可用，请使用命名隧道或你自己的域名，并将其填为基础 URL。",
   "✓ Resolved": "✓ 已解决",
   "＋ Link": "＋ 链接",
-  "＋ Person": "＋ 人员",
-  "The page changed. Select the text again.": "页面已更改。请重新选择文本。",
-  "Comment on selected text": "评论所选文本",
-  "Original text no longer available": "原文已不可用",
-  "Remove selected text": "移除所选文本"
+  "＋ Person": "＋ 人员"
 }

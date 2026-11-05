@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"path/filepath"
 	"strconv"
@@ -274,5 +275,35 @@ func TestInlineCommentQuoteStaysOutOfPublicPage(t *testing.T) {
 	}
 	if rec := requestAs(t, s, "", "GET", "/api/pages/"+tab.page+"/comments", ""); rec.Code != http.StatusUnauthorized {
 		t.Fatalf("anonymous comment read: %d", rec.Code)
+	}
+}
+
+// A comment printed without its passage reads as a remark about nothing: paper
+// has no highlight to point at.
+func TestPrintedCommentCarriesItsQuote(t *testing.T) {
+	_, tab, _ := newEditorTab(t)
+	anchor := strings.Replace(testCommentAnchor, `selected text`, `a <b>passage</b> & more`, 1)
+	req, _ := http.NewRequest("POST", tab.srv.URL+"/api/pages/"+tab.page+"/comments", strings.NewReader(`{"body":"anchored remark","anchor":`+anchor+`}`))
+	req.Header.Set("Cookie", tab.cookie)
+	req.Header.Set("Content-Type", "application/json")
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("create: %d", res.StatusCode)
+	}
+	req, _ = http.NewRequest("GET", tab.srv.URL+"/api/export/"+tab.page+"?format=html&print=1", nil)
+	req.Header.Set("Cookie", tab.cookie)
+	res, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	body, _ := io.ReadAll(res.Body)
+	got := string(body)
+	if !strings.Contains(got, `<span class="quote">a &lt;b&gt;passage&lt;/b&gt; &amp; more</span>anchored remark`) {
+		t.Fatalf("printed comment has no quote:\n%s", got[strings.Index(got, "doc-comments\"")-20:])
 	}
 }
