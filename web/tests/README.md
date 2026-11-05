@@ -23,7 +23,7 @@ additional runtime dependencies. Tests do not upload fixtures or screenshots.
 
 Inline comments cover selection creation, saved anchors after reload,
 resolve/reopen, narrow light/dark navigation, localized stale-anchor errors in
-German, Spanish and Chinese, draft retention, detachment and deletion.
+German, Spanish, Simplified Chinese and Traditional Chinese, draft retention, detachment and deletion.
 
 Callout coverage: all seven preset icons, immediate background changes when
 cycling icons, existing saved blocks, light/dark appearance, dark-mode text
@@ -68,3 +68,14 @@ Signed-in connections covers ending an agent's sign-in from the interface
 Signed-in connections shows the client, its scope, its workspace and the
 address it was last used from, and ending it there (after a confirmation)
 leaves its access token and its refresh token useless.
+
+Reply and inbox coverage uses two browser sessions for live delivery, reply drafts,
+failed sends, exact links (including reopening the same notification), read state,
+thread resolution and phone layouts. Real server conflicts are rendered in German,
+Spanish, Simplified Chinese and Traditional Chinese, retaining the reply draft. Run the focused check
+with `GO_BINARY=/path/to/go PLAYWRIGHT_CHANNEL=chrome npm run test:comments --prefix web/tests`.
+Go coverage includes migration/restart persistence, atomic failure, concurrent retries,
+MCP/REST attribution, coded errors, recipient deduplication, credential scope,
+read retention, permission-aware keyset batches, typed-inbox migration and targeted
+deletion invalidations. Anchored roots with replies cover thread/highlight
+resolution, stale-anchor rejection and deletion without losing replies.

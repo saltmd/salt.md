@@ -209,12 +209,16 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
   useEffect(() => {
     if (!workspaceId) return;
     let alive = true;
-    api
-      .commentCounts(workspaceId)
-      .then((c) => alive && setCommentCounts(c))
-      .catch(() => {});
+    const load = () => { void api.commentCounts(workspaceId).then((counts) => { if (alive) setCommentCounts(counts); }).catch(() => {}); };
+    load();
+    window.addEventListener('salt:comments-live', load);
+    window.addEventListener('focus', load);
+    window.addEventListener('salt:comments-refresh', load);
     return () => {
       alive = false;
+      window.removeEventListener('salt:comments-live', load);
+      window.removeEventListener('focus', load);
+      window.removeEventListener('salt:comments-refresh', load);
     };
     // Deliberately hangs off workspaceId alone: `pages` gets a new identity on
     // every change and would set off an endless loop here.

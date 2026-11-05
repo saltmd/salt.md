@@ -358,9 +358,27 @@ func openDB(path string) (*sql.DB, error) {
 	if _, err := db.Exec(schema); err != nil {
 		return nil, fmt.Errorf("migrate: %w", err)
 	}
-	if err := ensureColumn(db, "comments", "anchor", `anchor TEXT NOT NULL DEFAULT ''`); err != nil {
-		return nil, fmt.Errorf("migrate comments.anchor: %w", err)
+	for _, col := range []struct{ name, ddl string }{
+		{"anchor", `anchor TEXT NOT NULL DEFAULT ''`},
+		{"thread_id", "thread_id TEXT NOT NULL DEFAULT ''"},
+		{"reply_to_id", "reply_to_id TEXT NOT NULL DEFAULT ''"},
+		{"request_id", "request_id TEXT NOT NULL DEFAULT ''"},
+		{"deleted_at", "deleted_at TEXT"},
+	} {
+		if err := ensureColumn(db, "comments", col.name, col.ddl); err != nil {
+			return nil, fmt.Errorf("migrate comments.%s: %w", col.name, err)
+		}
 	}
+	if _, err := db.Exec(`
+        CREATE INDEX IF NOT EXISTS idx_comment_thread ON comments(thread_id, created_at);
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_comment_request ON comments(author_id, request_id) WHERE request_id <> '';
+    `); err != nil {
+		return nil, fmt.Errorf("migrate reply indexes: %w", err)
+	}
+	if err := migrateNotifications(db); err != nil {
+		return nil, fmt.Errorf("migrate reply inbox: %w", err)
+	}
+
 	if err := ensureColumn(db, "pages", "type", `type TEXT NOT NULL DEFAULT 'doc'`); err != nil {
 		return nil, fmt.Errorf("migrate pages.type: %w", err)
 	}
@@ -619,4 +637,51 @@ func (s *Server) seed() error {
 		return err
 	}
 	return s.reindexPage(id)
+}
+
+// migrateNotifications also upgrades the early reply-inbox schema without losing
+// notification ids or read state. Page targets let other kinds omit a comment.
+func migrateNotifications(db *sql.DB) error {
+	const table = `CREATE TABLE IF NOT EXISTS notifications (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        kind TEXT NOT NULL DEFAULT 'comment_reply',
+        recipient_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        page_id TEXT NOT NULL REFERENCES pages(id) ON DELETE CASCADE,
+        comment_id TEXT REFERENCES comments(id) ON DELETE CASCADE,
+        created_at TEXT NOT NULL,
+        read_at TEXT,
+        UNIQUE(recipient_id, kind, comment_id)
+    )`
+	var legacy int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('notifications') WHERE name='comment_id' AND "notnull"=1`).Scan(&legacy); err != nil {
+		return err
+	}
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if legacy != 0 {
+		if _, err := tx.Exec(`ALTER TABLE notifications RENAME TO notifications_legacy`); err != nil {
+			return err
+		}
+	}
+	if _, err := tx.Exec(table); err != nil {
+		return err
+	}
+	if legacy != 0 {
+		if _, err := tx.Exec(`INSERT INTO notifications(id,kind,recipient_id,page_id,comment_id,created_at,read_at)
+            SELECT n.id,'comment_reply',n.recipient_id,c.page_id,n.comment_id,n.created_at,n.read_at
+            FROM notifications_legacy n JOIN comments c ON c.id=n.comment_id;
+            DROP TABLE notifications_legacy`); err != nil {
+			return err
+		}
+	}
+	if _, err := tx.Exec(`CREATE INDEX IF NOT EXISTS idx_notification_recipient ON notifications(recipient_id,kind,id DESC);
+        CREATE INDEX IF NOT EXISTS idx_notification_unread ON notifications(recipient_id,kind,page_id,id) WHERE read_at IS NULL;
+        CREATE INDEX IF NOT EXISTS idx_notification_read ON notifications(read_at) WHERE read_at IS NOT NULL;
+        CREATE INDEX IF NOT EXISTS idx_notification_comment ON notifications(comment_id) WHERE comment_id IS NOT NULL;`); err != nil {
+		return err
+	}
+	return tx.Commit()
 }

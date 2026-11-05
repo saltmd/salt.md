@@ -649,6 +649,9 @@ export default function App() {
           warnedVersion = true;
           toast(t('A new version is available: reload the page'));
         }
+        if (['notifications', 'hello', 'pages', 'workspaces'].includes(msg.type)) window.dispatchEvent(new Event('salt:notifications'));
+        if (msg.type === 'hello') window.dispatchEvent(new Event('salt:comments-refresh'));
+        if (msg.type === 'comments' && msg.id) window.dispatchEvent(new CustomEvent('salt:comments-live', { detail: msg.id }));
         if (msg.type === 'pages') {
           window.clearTimeout(reloadTimer.current);
           reloadTimer.current = window.setTimeout(() => void loadPages(), 250);
@@ -684,7 +687,11 @@ export default function App() {
     // expects to see current state, so that is when it is fetched, regardless of
     // what the stream thinks.
     const onVisible = () => {
-      if (document.visibilityState === 'visible') void loadPages();
+      if (document.visibilityState === 'visible') {
+        void loadPages();
+        window.dispatchEvent(new Event('salt:comments-refresh'));
+        window.dispatchEvent(new Event('salt:notifications'));
+      }
     };
     document.addEventListener('visibilitychange', onVisible);
     window.addEventListener('focus', onVisible);
@@ -1235,6 +1242,7 @@ export default function App() {
         onSetTheme={setThemePref}
         onLogout={async () => {
           await api.logout();
+          window.dispatchEvent(new Event('salt:clear-comment-drafts'));
           // Inside the marketing site's demo frame, '/' is the marketing home
           // page — loaded into the frame, with no way back to the application.
           // There the session IS the in-memory store, so a reload is the
