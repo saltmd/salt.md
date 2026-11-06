@@ -91,7 +91,7 @@
   "Ascending": "Ascendente",
   "Auto-generated list of every heading": "Lista generada automáticamente de cada encabezado",
   "Automatic (follows the system)": "Automático (sigue el sistema)",
-  "Automatic ({value})": "Automático ({value})",
+  "Automatic · {value}": "Automático · {value}",
   "Automatic follows this browser and is right most of the time. Set a value yourself when it is not: a laptop on the wrong continent, or a language you read but do not want your dates in.": "Automático sigue a este navegador y acierta la mayor parte del tiempo. Elige un valor tú mismo si no es así: un portátil en el continente equivocado o un idioma que lees pero en el que no quieres tus fechas.",
   "Available:": "Disponibles:",
   "Average": "Promedio",

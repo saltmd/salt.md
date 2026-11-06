@@ -87,7 +87,7 @@
   "Appearance": "Design",
   "Ascending": "Aufsteigend",
   "Auto-generated list of every heading": "Auto-Liste aller Überschriften",
-  "Automatic ({value})": "Automatisch ({value})",
+  "Automatic · {value}": "Automatisch · {value}",
   "Automatic follows this browser and is right most of the time. Set a value yourself when it is not: a laptop on the wrong continent, or a language you read but do not want your dates in.": "Automatisch folgt diesem Browser und stimmt meistens. Stell etwas von Hand ein, wenn nicht: ein Rechner auf dem falschen Kontinent, oder eine Sprache, die du liest, in der du aber keine Datumsangaben willst.",
   "Automatic (follows the system)": "Automatisch (folgt dem System)",
   "Available:": "Verfügbar:",

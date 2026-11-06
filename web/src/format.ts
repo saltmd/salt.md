@@ -403,11 +403,11 @@ export function weekdayLabel(index: number): string {
  *  Example: "Deutsch (Österreich)" — i18n-ok: a German example. */
 export function regionLabel(tag: string): string {
   try {
-    const dn = new Intl.DisplayNames([locale], { type: 'region' });
-    const parts = new Intl.Locale(tag);
-    const lang = new Intl.DisplayNames([locale], { type: 'language' }).of(parts.language);
-    const reg = parts.region ? dn.of(parts.region) : '';
-    return reg ? `${lang} (${reg})` : lang || tag;
+    // The browser names language and region together, in the punctuation of the
+    // language it writes: "English (UK)", "中文（香港）". Gluing the two by hand
+    // gave Chinese half-width brackets. Short, because the long form of Hong
+    // Kong depends on the browser's locale data and fills the dropdown.
+    return new Intl.DisplayNames([locale], { type: 'language', languageDisplay: 'standard', style: 'short' }).of(tag) || tag;
   } catch {
     return tag;
   }

@@ -50,10 +50,9 @@ language on the spot, with no reload.
 | **Week starts on** | the first column of a calendar | what the region implies |
 
 Every one of them is a single dropdown whose first entry is **Automatic**, and
-that entry names in brackets what it currently amounts to: **Automatic
-(Europe/Berlin)**, **Automatic (24-hour)**, **Automatic (Monday)**. On an account
-that has not set that value by hand, the bracketed name is exactly what automatic
-resolves to. A setting whose automatic value is invisible is one people switch to
+that entry names what it currently amounts to: **Automatic · Europe/Berlin**,
+**Automatic · 24-hour**, **Automatic · Monday**. On an account that has not set
+that value by hand, the name after the dot is exactly what automatic resolves to. A setting whose automatic value is invisible is one people switch to
 manual merely to find out what it was.
 
 ### Language

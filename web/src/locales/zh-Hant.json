@@ -98,7 +98,7 @@
   "Ascending": "升序",
   "Auto-generated list of every heading": "自動生成的所有標題清單",
   "Automatic (follows the system)": "自動（跟隨系統）",
-  "Automatic ({value})": "自動（{value}）",
+  "Automatic · {value}": "自動 · {value}",
   "Automatic follows this browser and is right most of the time. Set a value yourself when it is not: a laptop on the wrong continent, or a language you read but do not want your dates in.": "“自動”跟隨此瀏覽器，大多數情況下是正確的。不正確時請自行設定：比如筆記型電腦設成了另一個大洲的地區，或者某種語言你能讀懂，但不想讓日期用它顯示。",
   "Available:": "可用：",
   "Average": "平均值",

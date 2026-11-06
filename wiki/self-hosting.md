@@ -54,7 +54,7 @@ Two variables change what it does:
 | Variable | Effect |
 | --- | --- |
 | `BIN_DIR=/path` | install there instead of the automatic choice |
-| `SALT_VERSION=v1.1.5` | download that release tag instead of `latest` |
+| `SALT_VERSION=v1.1.7` | download that release tag instead of `latest` |
 
 The tag needs its leading `v`: it goes into the download URL unchanged.
 
@@ -393,7 +393,7 @@ written whenever the figure is worked out, which happens before anything else at
 startup, so it appears above every other line here, and again later whenever a
 PDF is sized up.
 
-**`salt.md v1.1.5 listening on :8420 (data: /opt/salt/data)`**
+**`salt.md v1.1.7 listening on :8420 (data: /opt/salt/data)`**
 The server is up. Two variants: `(TLS, data: …)` when you supplied a certificate
 pair, and `(auto-HTTPS for notes.example.com, data: …)` when the built-in
 Let's Encrypt path is active. That one listens on `:443` and answers the ACME
@@ -421,7 +421,7 @@ A clean shutdown prints `received terminated, shutting down…`, then
 
 ```
 GET /api/health
-{"status":"ok","version":"v1.1.5"}
+{"status":"ok","version":"v1.1.7"}
 ```
 
 No credential needed. It **pings the database**, so it distinguishes a
@@ -430,8 +430,8 @@ the response is `503` with `{"status":"unavailable"}`. Point an uptime monitor,
 a Docker health check or an orchestrator at it.
 
 One inconsistency to know about when you compare strings: a release **binary**
-is stamped with the tag as written (`v1.1.5`), while the **container image** is
-stamped without the leading `v` (`1.1.5`). Same release, two spellings.
+is stamped with the tag as written (`v1.1.7`), while the **container image** is
+stamped without the leading `v` (`1.1.7`). Same release, two spellings.
 
 Instance settings → **Maintenance** shows the same facts in the browser:
 *Version* (with the Go version and the OS/arch it was built for), *Uptime*,
@@ -591,20 +591,20 @@ from), and a container image on GHCR tagged both with the version and as
 `latest`.
 
 **Installed with the script:** re-run it. Pin with
-`SALT_VERSION=v1.1.5` if you do not want the newest.
+`SALT_VERSION=v1.1.7` if you do not want the newest.
 
 **By hand, with the checksum verified:**
 
 ```sh
-mkdir -p /tmp/salt-1.1.5 && cd /tmp/salt-1.1.5
+mkdir -p /tmp/salt-1.1.7 && cd /tmp/salt-1.1.7
 wget -O salt-linux-amd64 \
-  https://github.com/saltmd/salt.md/releases/download/v1.1.5/salt-linux-amd64
+  https://github.com/saltmd/salt.md/releases/download/v1.1.7/salt-linux-amd64
 wget -O SHA256SUMS.txt \
-  https://github.com/saltmd/salt.md/releases/download/v1.1.5/SHA256SUMS.txt
+  https://github.com/saltmd/salt.md/releases/download/v1.1.7/SHA256SUMS.txt
 grep salt-linux-amd64 SHA256SUMS.txt | sha256sum -c -
 
 systemctl stop salt
-SALT_DATA=/opt/salt/data /opt/salt/salt backup /var/backups/salt-before-1.1.5.tar.gz
+SALT_DATA=/opt/salt/data /opt/salt/salt backup /var/backups/salt-before-1.1.7.tar.gz
 cp -a /opt/salt/salt /opt/salt/salt.bak
 install -m 755 salt-linux-amd64 /opt/salt/salt
 systemctl start salt
@@ -612,7 +612,7 @@ systemctl start salt
 
 The `SALT_DATA=` on the backup line is not decoration. That shell is sitting in
 the download directory and knows nothing about the unit's `Environment=` lines,
-so without it the command looks in `/tmp/salt-1.1.5/data` and stops with
+so without it the command looks in `/tmp/salt-1.1.7/data` and stops with
 "no database at …".
 
 Download into a **fresh, empty directory**. `wget` without `-O` does not

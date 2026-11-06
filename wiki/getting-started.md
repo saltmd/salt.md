@@ -41,7 +41,7 @@ Two variables change what it does:
 | Variable | Effect |
 | --- | --- |
 | `BIN_DIR=/path` | install there instead of the default |
-| `SALT_VERSION=v1.1.5` | fetch that release rather than the latest |
+| `SALT_VERSION=v1.1.7` | fetch that release rather than the latest |
 
 Each release carries five binaries and a checksum file:
 

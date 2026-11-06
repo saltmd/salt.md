@@ -123,7 +123,7 @@ export function LanguageTimeModal({ onClose }: { onClose: () => void }) {
             onChange={(e) => change({ language: e.target.value })}
           >
             <option value="">
-              {t('Automatic ({value})', {
+              {t('Automatic · {value}', {
                 value: LOCALES[localeNow()] ?? localeNow(),
               })}
             </option>
@@ -147,7 +147,7 @@ export function LanguageTimeModal({ onClose }: { onClose: () => void }) {
             onChange={(e) => change({ region: e.target.value })}
           >
             <option value="">
-              {t('Automatic ({value})', { value: regionLabel(automaticFormatTag(prefs)) })}
+              {t('Automatic · {value}', { value: regionLabel(automaticFormatTag(prefs)) })}
             </option>
             {REGIONS.map((tag) => (
               <option key={tag} value={tag}>
@@ -162,7 +162,7 @@ export function LanguageTimeModal({ onClose }: { onClose: () => void }) {
             value={prefs.timeZone ?? ''}
             onChange={(e) => change({ timeZone: e.target.value })}
           >
-            <option value="">{t('Automatic ({value})', { value: resolvedTimeZone() })}</option>
+            <option value="">{t('Automatic · {value}', { value: resolvedTimeZone() })}</option>
             {zones.map((z) => (
               <option key={z} value={z}>
                 {z}
@@ -177,7 +177,7 @@ export function LanguageTimeModal({ onClose }: { onClose: () => void }) {
             onChange={(e) => change({ clock: e.target.value })}
           >
             <option value="">
-              {t('Automatic ({value})', {
+              {t('Automatic · {value}', {
                 value: resolvedClock() === '12' ? t('12-hour') : t('24-hour'),
               })}
             </option>
@@ -192,7 +192,7 @@ export function LanguageTimeModal({ onClose }: { onClose: () => void }) {
             onChange={(e) => change({ weekStart: e.target.value })}
           >
             <option value="">
-              {t('Automatic ({value})', {
+              {t('Automatic · {value}', {
                 value: weekdayLabel(firstWeekday()),
               })}
             </option>

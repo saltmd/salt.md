@@ -35,6 +35,12 @@ if (process.env.SALT_FMT_BUNDLE) {
 
   fmt.setFormatLocale('en-GB');
 
+  // One name for a regional format, brackets as its language writes them (#131).
+  check('regionLabel en-GB', fmt.regionLabel('en-GB'), 'English (UK)');
+  fmt.setFormatLocale('zh-HK');
+  check('regionLabel zh-HK', fmt.regionLabel('zh-HK'), '中文（香港）');
+  fmt.setFormatLocale('en-GB');
+
   // A stored deadline. The day shown must be the day stored, everywhere.
   check('formatDay 2026-07-18', fmt.formatDay('2026-07-18', 'date'), '18/07/2026');
   check('formatDay 2026-01-01', fmt.formatDay('2026-01-01', 'date'), '01/01/2026');

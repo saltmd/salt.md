@@ -96,7 +96,7 @@
   "Ascending",
   "Auto-generated list of every heading",
   "Automatic (follows the system)",
-  "Automatic ({value})",
+  "Automatic · {value}",
   "Automatic follows this browser and is right most of the time. Set a value yourself when it is not: a laptop on the wrong continent, or a language you read but do not want your dates in.",
   "Available:",
   "Average",
