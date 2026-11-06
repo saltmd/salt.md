@@ -120,8 +120,18 @@ asking itself for consent.
 
 What the client gets back is an access token good for one hour plus a renewal
 token it uses in the background, so nobody signs in again every hour. The
-renewal token changes on every use: the previous one stops working at that
-moment. The connection itself stays the same one through all of that.
+renewal token changes on every use: the previous one stops working five minutes
+later, so that a client running on several machines does not lose its connection
+when two of them renew at once. The connection itself stays the same one through
+all of that.
+
+An address with a token in it can carry a sign-in as well, because Claude offers
+one as soon as it finds this server can do it. Then there are two credentials,
+and they can part ways: if the sign-in ends, requests still get through on the
+token, so every chat keeps working, while Claude lists the connector as needing a
+reconnect and leaves it out of scheduled runs. **Signed-in connections** shows
+that state: its last use stands still while the token's moves on. Connecting
+again in Claude repairs it.
 
 The grant is written to the activity log under your name, with the client's
 name and the scope. See [History and audit](history-and-audit.md).

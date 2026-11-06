@@ -43,6 +43,10 @@ type Server struct {
 	tokenRate   *rateLimiter
 	formRate    *rateLimiter
 	sharePwRate *rateLimiter
+	// Refresh tokens replaced a moment ago, by the hash of the old one; see
+	// oauthRefresh.
+	renewMu     sync.Mutex
+	renewals    map[string]oauthRenewal
 	stopCleanup chan struct{}
 	// webhookTransport overrides how webhook deliveries reach the network. Nil
 	// in every real build; set only by tests, whose receiver lives on an address
@@ -123,6 +127,7 @@ func New(dataDir string, dist fs.FS) (*Server, error) {
 		// Passwords on shared pages, per link and address. A share password was
 		// checked as fast as anybody could send guesses.
 		sharePwRate: newRateLimiter(10, 5),
+		renewals:    map[string]oauthRenewal{},
 		stopCleanup: make(chan struct{}),
 	}
 	if err := s.seed(); err != nil {

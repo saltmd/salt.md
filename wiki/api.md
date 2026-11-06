@@ -147,11 +147,19 @@ workspace created next month is covered too.
 
 `POST /oauth/token` answers `access_token`, `token_type`, `expires_in`
 (3600), `refresh_token` and `scope`. **The refresh token rotates**: each refresh
-hands out a new one, and the previous one stops working. The grant itself stays
-the same one, with its id, its creation date and its last use, so the list of
-connections below does not change under you every hour. Of two refreshes racing
-with the same refresh token, one gets through and the other gets
-`invalid_grant`.
+hands out a new one, and the previous one stops working five minutes later. The
+grant itself stays the same one, with its id, its creation date and its last
+use, so the list of connections below does not change under you every hour.
+
+Those five minutes are for clients that renew from several places at once, as
+hosted connectors do. Inside them the previous token is answered with the same
+new refresh token and a fresh access token, so it does not matter which answer
+the client stores last. A refresh leaves the access token it replaces alone, and
+that token runs out by itself. After the five minutes, or once the connection
+has been ended, the previous token gets `invalid_grant`, and the server log says
+`oauth: refused renewal from <address>: <reason>`. The fail2ban filter does not
+read that line, because these requests come from the address of the agent
+platform.
 
 ### Connections you have granted
 

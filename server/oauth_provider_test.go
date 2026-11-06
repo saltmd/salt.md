@@ -146,7 +146,9 @@ func TestSigningInGivesAWorkingShortLivedToken(t *testing.T) {
 	if out["access_token"] == access {
 		t.Error("refreshing handed back the same access token — nothing rotated")
 	}
-	// The old refresh token is dead: rotation, or the long-lived secret is back.
+	// The old refresh token dies: rotation, or the long-lived secret is back. Not
+	// on the spot, see TestRenewalsAtTheSameMomentKeepTheConnection.
+	endTheOverlap(s)
 	if status, _ := tokenCall(s, url.Values{
 		"grant_type": {"refresh_token"}, "refresh_token": {refresh}, "client_id": {client},
 	}); status == http.StatusOK {

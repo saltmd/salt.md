@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -56,7 +57,17 @@ const (
 	oauthCodeTTL    = 60 * time.Second
 	oauthAccessTTL  = time.Hour
 	oauthCodeLength = 32
+	// How long a refresh token that was just replaced still gets an answer; see
+	// oauthRefresh.
+	oauthRenewalOverlap = 5 * time.Minute
 )
+
+// oauthRenewal is one rotation, remembered for a moment.
+type oauthRenewal struct {
+	grantID string
+	next    string // the refresh token this rotation handed out
+	until   time.Time
+}
 
 // The only two scopes that exist mirror an API token's: this is the same
 // permission model, reached a different way.
@@ -429,22 +440,63 @@ func (s *Server) oauthExchangeCode(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) oauthRefresh(w http.ResponseWriter, r *http.Request) {
-	refresh := r.PostFormValue("refresh_token")
+	old := tokenHash(r.PostFormValue("refresh_token"))
+
+	// Finding the token, replacing it and remembering that are one step, or two
+	// requests with the same token could both miss the memory.
+	s.renewMu.Lock()
+	defer s.renewMu.Unlock()
+
 	var id, clientID, scope string
-	err := s.db.QueryRow(`SELECT id, client_id, scope FROM oauth_grants WHERE refresh_hash = ?`,
-		tokenHash(refresh)).Scan(&id, &clientID, &scope)
+	err := s.db.QueryRow(`SELECT id, client_id, scope FROM oauth_grants WHERE refresh_hash = ?`, old).
+		Scan(&id, &clientID, &scope)
+
+	// A token that was replaced a moment ago is not an unknown token.
+	//
+	// A hosted client does not renew from one place. Claude's connectors run on
+	// several machines that share one stored pair, so when an access token runs
+	// out two of them can renew at the same moment, and an hourly renewal meets
+	// that sooner or later. Refusing the second one looks strict and costs the
+	// whole connection: Claude takes the refusal for a revoked grant and asks a
+	// person to connect again. For a connector with a key in its address that
+	// is invisible, every chat keeps working over the key, and only a scheduled
+	// run, which gets connected connectors alone, starts without it. It stood
+	// that way for days on production, three morning runs in a row.
+	//
+	// So for a few minutes the old token gets the answer the first request got:
+	// the SAME new refresh token and a fresh access token. The same one is the
+	// point. Two different ones would leave one dead, and which of the two
+	// answers a client stores last is not ours to decide. That is why this lives
+	// in memory: the disk holds hashes, and the answer needs the token itself.
+	// After a restart the overlap is gone, which is the behaviour without it.
+	var overlap oauthRenewal
+	overlapping := false
 	if err != nil {
-		oauthError(w, 400, "invalid_grant", "unknown refresh token")
+		if overlap, overlapping = s.renewedAMomentAgo(old); overlapping {
+			// Only while the connection stands on what that rotation handed out:
+			// ended is ended, however recent the renewal.
+			err = s.db.QueryRow(`SELECT id, client_id, scope FROM oauth_grants WHERE id = ? AND refresh_hash = ?`,
+				overlap.grantID, tokenHash(overlap.next)).Scan(&id, &clientID, &scope)
+		}
+	}
+	if err != nil {
+		s.refuseRenewal(w, r, 400, "invalid_grant", "unknown refresh token")
 		return
 	}
 	if r.PostFormValue("client_id") != clientID {
-		oauthError(w, 400, "invalid_grant", "the grant belongs to a different client")
+		s.refuseRenewal(w, r, 400, "invalid_grant", "the grant belongs to a different client")
 		return
 	}
 	if !s.oauthClientOK(clientID, r.PostFormValue("client_secret")) {
-		oauthError(w, 401, "invalid_client", "client authentication failed")
+		s.refuseRenewal(w, r, 401, "invalid_client", "client authentication failed")
 		return
 	}
+	if overlapping {
+		log.Printf("oauth: overlapping renewal answered for connection %s", id)
+		s.issueAccess(w, id, overlap.next, scope)
+		return
+	}
+
 	// The previous refresh token stops working — rotation. A refresh token that
 	// stays valid forever is the long-lived secret this whole thing exists to
 	// avoid.
@@ -455,22 +507,54 @@ func (s *Server) oauthRefresh(w http.ResponseWriter, r *http.Request) {
 	// row, as this used to, moved "connected" to the latest renewal (an hour ago
 	// for anything in use), and an End pressed after a renewal aimed at an id
 	// that no longer existed while the connection carried on under a new one.
-	//
-	// The old hash is part of the condition, so of two requests racing with the
-	// same refresh token exactly one gets through.
 	next := randomToken(32)
 	res, err := s.db.Exec(`UPDATE oauth_grants SET refresh_hash = ? WHERE id = ? AND refresh_hash = ?`,
-		tokenHash(next), id, tokenHash(refresh))
+		tokenHash(next), id, old)
 	if err != nil {
 		oauthError(w, 500, "server_error", "could not renew the grant")
 		return
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
-		oauthError(w, 400, "invalid_grant", "unknown refresh token")
+		s.refuseRenewal(w, r, 400, "invalid_grant", "unknown refresh token")
 		return
 	}
-	s.db.Exec(`DELETE FROM oauth_access WHERE grant_id = ?`, id)
+	s.renewals[old] = oauthRenewal{grantID: id, next: next, until: time.Now().Add(oauthRenewalOverlap)}
+
+	// The access token this replaces is left to run out by itself. It is good for
+	// an hour at most, and another machine of the same client may be holding it
+	// right now: taking it away turns a request in flight into a 401, and a 401
+	// sends that machine off to renew with a token that is already old. Ending a
+	// connection is what clears them all at once.
 	s.issueAccess(w, id, next, scope)
+}
+
+// renewedAMomentAgo finds the rotation that replaced a refresh token, if it is
+// recent enough to count as the same renewal. What it handed out may have been
+// replaced in turn, so the answer is always the newest token of the line.
+func (s *Server) renewedAMomentAgo(hash string) (oauthRenewal, bool) {
+	rn, ok := s.renewals[hash]
+	if !ok || time.Now().After(rn.until) {
+		return oauthRenewal{}, false
+	}
+	for {
+		later, ok := s.renewals[tokenHash(rn.next)]
+		if !ok {
+			return rn, true
+		}
+		rn.next = later.next
+	}
+}
+
+// refuseRenewal answers a renewal that will not be granted and says so in the
+// log, because a client that is refused here usually drops the connection and
+// nothing else records why.
+//
+// The prefix is deliberately not the "auth: rejected" of logAuthFailure, which
+// fail2ban reads. These requests come from the address of the agent platform,
+// and banning that address cuts every connector behind it.
+func (s *Server) refuseRenewal(w http.ResponseWriter, r *http.Request, status int, code, reason string) {
+	log.Printf("oauth: refused renewal from %s: %s", s.clientIP(r), reason)
+	oauthError(w, status, code, reason)
 }
 
 // issueGrant writes a new connection and answers with its pair: a short access
@@ -633,6 +717,14 @@ func (s *Server) sweepOAuth() {
 	cutoff := time.Now().UTC().Format(time.RFC3339Nano)
 	s.db.Exec(`DELETE FROM oauth_access WHERE expires_at < ?`, cutoff)
 	s.db.Exec(`DELETE FROM oauth_codes WHERE expires_at < ?`, cutoff)
+
+	s.renewMu.Lock()
+	defer s.renewMu.Unlock()
+	for hash, rn := range s.renewals {
+		if time.Now().After(rn.until) {
+			delete(s.renewals, hash)
+		}
+	}
 }
 
 // ---- what the browser needs ------------------------------------------------
