@@ -178,7 +178,7 @@ creates the account; the other is told *setup already completed*.
 The theme switch in the top right corner of the screen works before you
 have an account: **Light**, **Automatic (follows the system)**, **Dark**. So
 does the language: the interface takes it from your browser, and today there are
-four catalogues, English, German, Spanish and Simplified Chinese.
+five catalogues, English, German, Spanish, Simplified Chinese and Traditional Chinese.
 
 The two are remembered in different places, which matters the moment you use a
 second device. **The language lives on your account** once you are signed in,

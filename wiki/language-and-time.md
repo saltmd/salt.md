@@ -58,12 +58,12 @@ manual merely to find out what it was.
 
 ### Language
 
-Four languages ship today: **English**, **Deutsch**, **Español** and
-**简体中文** (Simplified Chinese). English is the source language of the
-product, so English is never a translation and never has gaps. German is kept
-complete by the build; Spanish and Simplified Chinese were contributed and can
-trail a release behind, in which case the newest texts show in English until
-they catch up.
+Five languages ship today: **English**, **Deutsch**, **Español**,
+**简体中文** (Simplified Chinese) and **繁體中文** (Traditional Chinese).
+English is the source language of the product, so English is never a translation
+and never has gaps. German is kept complete by the build; Spanish and both
+Chinese catalogues were contributed and can trail a release behind, in which
+case the newest texts show in English until they catch up.
 
 Automatic walks your browser's list of preferred languages and takes the first
 one salt.md has a catalogue for; if there is none, English. That is why a German
@@ -73,10 +73,12 @@ chosen anything.
 A catalogue is matched by language and script, not by language alone. Chinese
 is one language written two ways: a browser set to `zh-CN` or plain `zh` asks
 for Simplified characters and gets 简体中文, while one set to `zh-TW` or
-`zh-HK` asks for Traditional characters, which salt.md has no catalogue for, and
-stays in English until its reader picks 简体中文 by hand. Dates and numbers
+`zh-HK` asks for Traditional characters and gets 繁體中文. Dates and numbers
 are not affected either way: they follow the browser's own regional variant, so
 a reader in Taipei on the Simplified interface still gets dates the `zh-TW` way.
+
+The Traditional catalogue is machine-marked throughout: regional wording
+corrections from readers in Taiwan and Hong Kong are welcome.
 
 The language changes the interface: menus, buttons, dialogs, dates spelled in
 words. It does not change anything you or your colleagues wrote. See

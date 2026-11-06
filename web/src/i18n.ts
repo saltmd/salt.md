@@ -23,6 +23,7 @@ export const LOCALES: Record<string, string> = {
   // Keyed by script, not by country: one Simplified catalog serves zh-CN and
   // zh-SG alike, and dates still follow each reader's own regional variant.
   'zh-Hans': '简体中文',
+  'zh-Hant': '繁體中文',
 };
 
 /** Plural categories as Intl names them. Which ones a language actually uses
@@ -157,10 +158,9 @@ function preferred(p: Prefs): string {
  *
  *  The primary subtag alone is not enough once a catalog is keyed by script.
  *  'zh-CN' and a bare 'zh' are written in Simplified characters and 'zh-TW' in
- *  Traditional; maximize() says so ('zh-Hans-CN', 'zh-Hant-TW'), and a
- *  Traditional reader is better served by English until they pick 简体中文
- *  themselves. For a language with one script nothing changes: 'de-AT' and
- *  'de' both maximize to Latin German. */
+ *  Traditional; maximize() says so ('zh-Hans-CN', 'zh-Hant-TW'), so each
+ *  reader gets the catalog for their script. For a language with one script
+ *  nothing changes: 'de-AT' and 'de' both maximize to Latin German. */
 function catalogFor(tag: string): string | null {
   if (tag in LOCALES) return tag;
   const want = maximized(tag);
