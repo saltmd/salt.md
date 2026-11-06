@@ -6,7 +6,7 @@ import {
   FormattingToolbarController,
 } from '@blocknote/react';
 import { filterSuggestionItems, insertOrUpdateBlockForSlashMenu } from '@blocknote/core';
-import { de as coreDe, en as coreEn, es as coreEs, zh as coreZh } from '@blocknote/core/locales';
+import { de as coreDe, en as coreEn, es as coreEs, zh as coreZh, zhTW as coreZhTW } from '@blocknote/core/locales';
 import { BlockNoteView } from '@blocknote/mantine';
 import { api, ApiError, materializeQuery } from '../api';
 import { toast } from '../toast';
@@ -48,6 +48,7 @@ const blockNoteDictionaries: Record<string, typeof coreEn> = {
   es: consistentGroups(coreEs),
   // BlockNote's 'zh' is written in Simplified characters.
   'zh-Hans': consistentGroups(coreZh),
+  'zh-Hant': consistentGroups(coreZhTW),
 };
 
 // One section per kind of block in the slash menu. BlockNote's German
