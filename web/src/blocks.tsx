@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { createReactBlockSpec } from '@blocknote/react';
-import { Table2 } from 'lucide-react';
+import { FileText, Table2 } from 'lucide-react';
 import { useBlockCtx } from './blockContext';
 import { MERMAID_REV, renderMermaid } from './mermaidLoader';
 import { PageIcon } from './pageIcon';
 import { openPage, openPageAux } from './pageOpen';
+import type { SaltEditor } from './pageLink';
 import CollectionView, { type EmbedState } from './components/CollectionView';
 import { plural, t } from './i18n';
 import { imeComposing } from './keys';
@@ -151,8 +152,55 @@ export const tocSpec = createReactBlockSpec(
 );
 
 // ---- Sub-pages ----
-// The page's direct children as an inline block, next to Contents. The same
-// data the Structure panel shows, but placed by the author in the document.
+// Both the automatic list and the optional author-placed block use the same
+// permission-filtered page tree and navigation.
+function Subpages({ automatic = false }: { automatic?: boolean }) {
+  const { pagesById, pageId, onNavigate, onOpenInNewTab } = useBlockCtx();
+  if (!pageId) return null;
+  const openers = { onNavigate, onOpenInNewTab };
+  const kids = [...pagesById.values()]
+    .filter((p) => p.parentId === pageId && !p.trashed)
+    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+  if (automatic && kids.length === 0) return null;
+  return (
+    <div className={automatic ? 'child-pages' : 'bn-toc bn-subpages'} contentEditable={false}>
+      {!automatic && <div className="bn-toc-title">{t('Sub-pages')}</div>}
+      {!automatic && kids.length === 0 && <div className="bn-toc-empty">{t('No sub-pages')}</div>}
+      {kids.map((p) => (
+        <button
+          key={p.id}
+          type="button"
+          className={automatic ? 'child-page-link' : 'bn-toc-entry'}
+          onClick={(e) => openPage(e, p.id, openers)}
+          onAuxClick={(e) => openPageAux(e, p.id, openers)}
+          title={p.title || t('Untitled')}
+        >
+          <PageIcon icon={p.icon} size={automatic ? 18 : 14} fallback={automatic ? <FileText size={18} /> : undefined} />
+          {' '}<span className={automatic ? 'child-page-title' : undefined}>{p.title || t('Untitled')}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export function AutomaticSubpages({ editor }: { editor: SaltEditor }) {
+  const [hasListing, setHasListing] = useState(false);
+  useEffect(() => {
+    const check = () => {
+      let found = false;
+      editor.forEachBlock((block) => {
+        if (block.type === 'subpages') found = true;
+        return !found;
+      });
+      setHasListing(found);
+    };
+    check();
+    return editor.onChange(check);
+  }, [editor]);
+  // Render the live tree without inserting or saving document blocks.
+  return hasListing ? null : <Subpages automatic />;
+}
+
 export const subpagesSpec = createReactBlockSpec(
   {
     type: 'subpages',
@@ -160,32 +208,7 @@ export const subpagesSpec = createReactBlockSpec(
     content: 'none',
   } as const,
   {
-    render: () => {
-      const { pagesById, pageId, onNavigate, onOpenInNewTab } = useBlockCtx();
-      if (!pageId) return null;
-      const openers = { onNavigate, onOpenInNewTab };
-      const kids = [...pagesById.values()]
-        .filter((p) => p.parentId === pageId && !p.trashed)
-        .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
-      return (
-        <div className="bn-toc bn-subpages" contentEditable={false}>
-          <div className="bn-toc-title">{t('Sub-pages')}</div>
-          {kids.length === 0 && <div className="bn-toc-empty">{t('No sub-pages')}</div>}
-          {kids.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              className="bn-toc-entry"
-              onClick={(e) => openPage(e, p.id, openers)}
-              onAuxClick={(e) => openPageAux(e, p.id, openers)}
-              title={p.title || t('Untitled')}
-            >
-              <PageIcon icon={p.icon} size={14} /> {p.title || t('Untitled')}
-            </button>
-          ))}
-        </div>
-      );
-    },
+    render: () => <Subpages />,
   },
 );
 
