@@ -25,6 +25,9 @@ import CollectionView from './CollectionView';
 import { HistoryModal } from './PageHistory';
 import CommentsPanel, {
   COMMENTS_CHANGED,
+  newCommentDraft,
+  newCommentRequestId,
+  type CommentDraft,
   commentsPanelOpen,
   initials,
   setCommentsPanelOpen,
@@ -68,6 +71,11 @@ function consistentGroups(dict: typeof coreEn): typeof coreEn {
   return { ...dict, slash_menu: local as unknown as typeof dict.slash_menu };
 }
 
+// Account/page-scoped drafts survive visiting the inbox and other pages;
+// comment text is kept in memory rather than browser storage.
+const commentDrafts = new Map<string, CommentDraft>();
+window.addEventListener('salt:clear-comment-drafts', () => commentDrafts.clear());
+
 export interface EditorProps {
   pageId: string;
   pagesById: Map<string, PageMeta>;
@@ -105,24 +113,30 @@ export default function Editor(props: EditorProps) {
   // at the very bottom, and two lines to write in.
   const [commentsOpen, setCommentsOpen] = useState(commentsPanelOpen);
   const [comments, setComments] = useState<Comment[]>([]);
-  const [pendingComment, setPendingComment] = useState<{ anchor: CommentAnchor; blockId: string } | null>(null);
-  const [commentDraft, setCommentDraft] = useState('');
-  const [activeComment, setActiveComment] = useState<string | null>(null);
   const [anchorStatuses, setAnchorStatuses] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     let alive = true;
     setComments([]);
-    setPendingComment(null);
-    setCommentDraft('');
     setActiveComment(null);
     setAnchorStatuses({});
     const load = () => void api.listComments(props.pageId).then((items) => { if (alive) setComments(items); }).catch(() => {});
     load();
+    const live = (e: Event) => { if ((e as CustomEvent<string>).detail === props.pageId) load(); };
     window.addEventListener(COMMENTS_CHANGED, load);
+    window.addEventListener('salt:comments-live', live);
+    window.addEventListener('salt:comments-refresh', load);
     window.addEventListener('focus', load);
-    return () => { alive = false; window.removeEventListener(COMMENTS_CHANGED, load); window.removeEventListener('focus', load); };
+    return () => { alive = false; window.removeEventListener(COMMENTS_CHANGED, load); window.removeEventListener('salt:comments-live', live); window.removeEventListener('salt:comments-refresh', load); window.removeEventListener('focus', load); };
   }, [props.pageId]);
+
+  const draftKey = props.user.id + ':' + props.pageId;
+  const [commentDraft, setCommentDraft] = useState<CommentDraft>(() => commentDrafts.get(draftKey) ?? newCommentDraft());
+  const [activeComment, setActiveComment] = useState<string | null>(null);
+  const [commentOpenRequest, setCommentOpenRequest] = useState(0);
+  useEffect(() => {
+    if (commentDraft.body || commentDraft.anchor) commentDrafts.set(draftKey, commentDraft); else commentDrafts.delete(draftKey);
+  }, [draftKey, commentDraft]);
 
   // Both panels occupy the same strip on the right, so opening one closes the
   // other. Sharing the width would leave two columns too narrow to be either.
@@ -206,6 +220,17 @@ export default function Editor(props: EditorProps) {
     };
   }, [props.pageId, nonce]);
 
+  useEffect(() => {
+    if (!page) return;
+    const openLinkedComment = () => {
+      const id = new URLSearchParams(window.location.hash.slice(1)).get('comment');
+      if (id) { setActiveComment(id); setCommentOpenRequest((n) => n + 1); showComments(true); }
+    };
+    openLinkedComment();
+    window.addEventListener('hashchange', openLinkedComment);
+    return () => window.removeEventListener('hashchange', openLinkedComment);
+  }, [page?.id]);
+
   if (error) {
     return (
       <div className="editor-error">
@@ -271,7 +296,7 @@ export default function Editor(props: EditorProps) {
             onPagesChanged={props.onPagesChanged}
             onReset={() => setNonce((n) => n + 1)}
             comments={comments}
-            onCommentSelection={(anchor, blockId) => { setPendingComment({ anchor, blockId }); setActiveComment(null); showComments(true); }}
+            onCommentSelection={(anchor, blockId) => { setCommentDraft({ ...commentDraft, anchor, blockId, replyToId: '', requestId: newCommentRequestId() }); setActiveComment(null); showComments(true); }}
             onCommentOpen={(id) => { setActiveComment(id); showComments(true); }}
             onAnchorStatuses={(statuses) => setAnchorStatuses((previous) => JSON.stringify(previous) === JSON.stringify(statuses) ? previous : statuses)}
           />
@@ -281,13 +306,13 @@ export default function Editor(props: EditorProps) {
         <CommentsPanel
           pageId={page.id}
           myUserId={props.user.id}
-          open
-          onClose={() => showComments(false)}
-          pending={pendingComment}
+          canWrite={props.canEdit}
           draft={commentDraft}
           onDraftChange={setCommentDraft}
-          onClearPending={() => setPendingComment(null)}
           activeComment={activeComment}
+          openRequest={commentOpenRequest}
+          open
+          onClose={() => showComments(false)}
           anchorStatuses={anchorStatuses}
           narrow={narrow}
         />
@@ -598,15 +623,20 @@ function PageHeader({
     const count = () =>
       api
         .listComments(pageId)
-        .then((l) => alive && setOpenComments(l.filter((c) => !c.resolvedAt).length))
+        .then((l) => alive && setOpenComments(l.filter((c) => !c.threadId && !c.resolvedAt && (!c.deletedAt || l.some((r) => r.threadId === c.id && !r.deletedAt))).length))
         .catch(() => {});
     void count();
     // The panel says when it changed something. An event rather than a prop:
     // the count has to be right whether the panel is open or not, so the header
     // owns its own fetch and the panel only nudges it.
+    const live = (e: Event) => { if ((e as CustomEvent<string>).detail === pageId) void count(); };
+    window.addEventListener('salt:comments-live', live);
+    window.addEventListener('salt:comments-refresh', count);
     window.addEventListener(COMMENTS_CHANGED, count);
     return () => {
       alive = false;
+      window.removeEventListener('salt:comments-live', live);
+      window.removeEventListener('salt:comments-refresh', count);
       window.removeEventListener(COMMENTS_CHANGED, count);
     };
   }, [pageId, canComment]);

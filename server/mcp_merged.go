@@ -74,7 +74,7 @@ func (s *Server) mcpRevisions(u *user, pageID, action, revisionID string, limit 
 
 // mcpComments replaces get_comments, add_comment and resolve_comment.
 // delete_comment stays its own tool: see the note at the top of this file.
-func (s *Server) mcpComments(u *user, pageID, action, body, blockID, commentID, agent, label string, resolved *bool) (string, error) {
+func (s *Server) mcpComments(u *user, pageID, action, body, blockID, commentID, agent, label string, resolved *bool, replyToID, requestID string) (string, error) {
 	switch action {
 	case "", "list":
 		list, err := s.pageComments(pageID)
@@ -104,11 +104,12 @@ func (s *Server) mcpComments(u *user, pageID, action, body, blockID, commentID, 
 		// Every comment added here comes through an agent's credential, so it
 		// always carries an agent: "generic" when the caller names none (#116).
 		agent, label := commentAgent(agent, label)
-		id := newID()
-		if _, err := s.db.Exec(`INSERT INTO comments (id, page_id, block_id, author_id, author_name, body, created_at, agent, agent_label) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			id, pageID, blockID, u.ID, u.Name, strings.TrimSpace(body), now(), agent, label); err != nil {
+		in := commentInput{Body: body, BlockID: blockID, Agent: agent, Label: label, ReplyToID: replyToID, RequestID: requestID}
+		id, err := s.createThreadComment(u, pageID, in)
+		if err != nil {
 			return "", err
 		}
+
 		return "Added comment " + id, nil
 	case "resolve", "reopen":
 		if commentID == "" {

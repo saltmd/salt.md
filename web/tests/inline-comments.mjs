@@ -33,8 +33,17 @@ await withFixture(async ({ page, api, base, workspace }) => {
   await page.locator('.salt-comment-highlight').waitFor();
   assert.equal(await page.locator('.cp-quote span').textContent(), text);
 
-  await page.locator('.cp-act[title="Mark as resolved"]').click();
-  await eventually(async () => (await comments())[0].resolvedAt);
+  const reply = await api('POST', `/api/pages/${doc.id}/comments`, { body: 'Reply on the selected passage', replyToId: saved.id, requestId: 'anchored-reply' });
+  await page.locator(`[data-panel-comment="${reply.id}"]`).waitFor();
+  // Resolution from another client must update highlights with the panel closed.
+  await page.locator('.comments-panel').getByRole('button', { name: 'Close', exact: true }).click();
+  await api('POST', `/api/comments/${reply.id}/resolve`, { resolved: true });
+  await eventually(async () => (await page.locator('.salt-comment-highlight').count()) === 0);
+  await api('POST', `/api/comments/${saved.id}/resolve`, { resolved: false });
+  await page.locator('.salt-comment-highlight').waitFor();
+  await page.locator('.salt-comment-highlight').click();
+  await page.getByRole('button', { name: 'Resolve thread', exact: true }).click();
+  await eventually(async () => (await comments()).every((c) => c.resolvedAt));
   await eventually(async () => (await page.locator('.salt-comment-highlight').count()) === 0);
   await page.locator('.cp-toggle input').check();
   await page.getByRole('button', { name: 'Reopen', exact: true }).click();
@@ -59,6 +68,7 @@ await withFixture(async ({ page, api, base, workspace }) => {
     ['de', 'Ausgewählten Text kommentieren', 'Die Seite wurde geändert. Wähle den Text erneut aus.'],
     ['es', 'Comentar el texto seleccionado', 'La página ha cambiado. Selecciona el texto de nuevo.'],
     ['zh-Hans', '评论所选文本', '页面已更改。请重新选择文本。'],
+    ['zh-Hant', '評論所選文字', '頁面已更改。請重新選擇文字。'],
   ]) {
     await api('PATCH', `/api/pages/${doc.id}`, { content });
     await api('PUT', '/api/me/prefs', { language });
@@ -71,16 +81,21 @@ await withFixture(async ({ page, api, base, workspace }) => {
     const rejected = await response;
     assert.equal(rejected.status(), 409);
     assert.equal((await rejected.json()).code, 'comment_anchor_stale');
-    await page.locator('.toast').filter({ hasText: message }).waitFor();
+    await page.getByRole('alert').filter({ hasText: message }).waitFor();
     assert.equal(await draft.inputValue(), `Keep this draft (${language}).`);
-    assert.equal((await comments()).length, 1, 'a rejected draft must not create a comment');
+    assert.equal((await comments()).length, 2, 'a rejected draft must not create a comment');
   }
 
   await api('PUT', '/api/me/prefs', { language: 'en' });
   await page.reload();
   await page.getByText('Original text no longer available', { exact: true }).waitFor();
   assert.equal(await page.locator('.cp-quote').isDisabled(), true);
-  await page.locator('.cp-act[title="Delete"]').click();
-  await eventually(async () => (await comments()).length === 0);
+  await page.locator(`[data-panel-comment="${saved.id}"]`).getByRole('button', { name: 'Delete', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Confirm', exact: true }).click();
+  await eventually(async () => (await comments()).find((c) => c.id === saved.id)?.deletedAt);
+  const remaining = await comments();
+  assert.equal(remaining.length, 2, 'deleting an anchored root preserves replies');
+  assert.equal(remaining.find((c) => c.id === saved.id).anchor, undefined);
+  assert.equal(remaining.find((c) => c.id === reply.id).body, 'Reply on the selected passage');
   console.log('Inline comments: create, reload, resolve/reopen, narrow light/dark navigation, translated 409s, retained drafts, detachment and deletion.');
 });

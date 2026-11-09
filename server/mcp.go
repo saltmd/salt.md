@@ -397,13 +397,15 @@ var mcpTools = []map[string]any{
 		"description": "Comments on a page. action: list (the default) | add | resolve | reopen. Deleting has its own tool, deliberately — it should be a choice, not an enum value you land on by mistake.",
 		"inputSchema": map[string]any{"type": "object",
 			"properties": map[string]any{
-				"page_id":    map[string]any{"type": "string"},
-				"action":     map[string]any{"type": "string", "description": "list (default) | add | resolve | reopen"},
-				"body":       map[string]any{"type": "string", "description": "add only: the comment text."},
-				"block_id":   map[string]any{"type": "string", "description": "add only: attach the comment to one block instead of the page."},
-				"comment_id": map[string]any{"type": "string", "description": "resolve and reopen only."},
-				"agent":      map[string]any{"type": "string", "description": "add only: which agent you are, one of " + knownAgentList() + ". Shown beside the comment with the account it came through, as on the note trail."},
-				"label":      map[string]any{"type": "string", "description": "add only: what you call yourself, when that is not the key above (e.g. \"Claude Code\"), same as in note and working_on."},
+				"page_id":     map[string]any{"type": "string"},
+				"action":      map[string]any{"type": "string", "description": "list (default) | add | resolve | reopen"},
+				"body":        map[string]any{"type": "string", "description": "add only: the comment text."},
+				"block_id":    map[string]any{"type": "string", "description": "add only: attach the comment to one block instead of the page."},
+				"comment_id":  map[string]any{"type": "string", "description": "resolve and reopen only."},
+				"reply_to_id": map[string]any{"type": "string", "description": "add only: reply to a comment on this page."},
+				"request_id":  map[string]any{"type": "string", "description": "add only: reuse this id when retrying the same comment."},
+				"agent":       map[string]any{"type": "string", "description": "add only: which agent you are, one of " + knownAgentList() + ". Shown beside the comment with the account it came through, as on the note trail."},
+				"label":       map[string]any{"type": "string", "description": "add only: what you call yourself, when that is not the key above (e.g. \"Claude Code\"), same as in note and working_on."},
 			},
 			"required": []string{"page_id"}},
 	},
@@ -812,6 +814,8 @@ func (s *Server) mcpCall(u *user, name string, rawArgs json.RawMessage, publicBa
 		// Agent parity A3.
 		RevisionID string `json:"revision_id"`
 		CommentID  string `json:"comment_id"`
+		ReplyToID  string `json:"reply_to_id"`
+		RequestID  string `json:"request_id"`
 		Resolved   *bool  `json:"resolved"`
 		// Agent parity A4.
 		WorkspaceID   string `json:"workspace_id"`
@@ -1302,7 +1306,7 @@ func (s *Server) mcpCall(u *user, name string, rawArgs json.RawMessage, publicBa
 		case "revisions":
 			return s.mcpRevisions(u, args.PageID, args.Action, args.RevisionID, args.Limit)
 		case "comments":
-			return s.mcpComments(u, args.PageID, args.Action, args.Body, args.BlockID, args.CommentID, args.Agent, args.Label, args.Resolved)
+			return s.mcpComments(u, args.PageID, args.Action, args.Body, args.BlockID, args.CommentID, args.Agent, args.Label, args.Resolved, args.ReplyToID, args.RequestID)
 		case "set_sharing":
 			return s.mcpSetSharing(requestBase{publicBase}, args.PageID, args.Public, args.ExpiresInDays, args.Password)
 		case "set_trashed":

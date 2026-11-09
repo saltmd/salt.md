@@ -63,21 +63,24 @@ a no-op half the times somebody reaches for it.
 1. Press the speech-bubble button. The panel opens with the cursor already in
    the box: the reason people press it is almost always that they want to
    write.
-2. Type. The placeholder reads `Write a comment…`. The box is six lines tall;
-   drag its bottom edge to make it taller, up to about half the window height.
+2. Type. The placeholder reads `Write a comment…`. The box stays beside the thread.
 3. Press **⌘↵** (**Ctrl+Enter** on Windows and Linux), or the **Send** button.
    Plain **Enter** starts a new paragraph. The hint under the box says
    `⌘↵ to send`.
 
-**Send** stays disabled while the box is empty. If sending fails, your text goes
-back into the box and a message appears; nothing is swallowed there. A comment
-written in the browser may be up to 10 000 characters. Comments added over MCP
-are not capped.
+**Send** stays disabled while the box is empty. If sending fails, your text stays
+in the box and a message appears. Browser and MCP comments share the
+10 000-character limit.
 
-Comments are plain text. They are not formatted, they carry no blocks, and they
-cannot be nested: there are no replies-to-a-reply, only a list in the order
-things were written, oldest at the top. Your own new comment scrolls the list to
-the bottom so you can see it land.
+Comments are plain text. **Reply** beneath a message addresses its author and
+shows **Replying to {name}** in the composer. Replies stay beneath the original
+comment in time order, with one indentation level. Replying to a reply names the
+person being addressed. **Cancel reply** keeps the draft as a standalone comment.
+
+Drafts stay in memory for the current account and page when closing the panel,
+opening Inbox or visiting another page. Failed sends keep the text and target.
+Drafts are not written to browser storage and do not survive a browser reload.
+Retrying the same submission id creates one comment and one alert per recipient.
 
 When there are none, the panel says `Nothing here yet. Write the first one.` and
 nothing else: the box below is already the invitation.
@@ -119,49 +122,63 @@ Claude Code*. As on the trail, the account is the verified half and the agent's
 name is a claim. Every comment added over MCP is marked this way, and so is one
 posted over the API with a token; one that names no agent shows *Agent*.
 
-The buttons under a comment appear when you point at it, and are always visible
-on a touch screen.
+Reply and message actions remain visible. **Copy link** addresses that exact
+message; a direct link can reveal a resolved thread.
 
 ### Resolving
 
-Every comment has a **Resolved** button (tooltip: **Mark as resolved**).
-Pressing it ticks the comment off: it fades, drops out of the list and stops
-counting in the topbar. The same button then reads **Reopen** and puts it back.
+**Resolve thread** closes the whole conversation and removes it from open-thread
+counts. **Show resolved threads** reveals it; **Reopen** restores it. Reopen a
+thread before adding a reply. A concurrent resolution returns a translated
+error and leaves the draft intact.
 
-Resolving does not delete anything. Once at least one comment on the page is
-resolved, a checkbox appears at the top of the panel (**Show 3 resolved**),
-and a quiet line at the bottom says how many are hidden. Tick the box to see
-them alongside the open ones, untick it to hide them again.
-
-Anyone who may write on the page may resolve or reopen a comment, not only the
-person who wrote it.
-
-A workspace **Viewer** may read comments but cannot write, resolve or reopen
-one (see [Permissions](permissions.md)). Nothing is hidden from a Viewer,
-though: the compose box, the **Send** button and the **Resolved** button are all
-on screen, and the action fails when it is attempted.
+Anyone who can write on the page can resolve/reopen its threads. Viewers can
+read them but do not see compose or mutation controls.
 
 ### Deleting
 
 The panel shows a delete button (a bin, tooltip **Delete**) only on your **own**
-comments. Deleting is immediate and permanent: a comment does not go to the
-trash and cannot be restored.
-
-The other two ways in are wider. Over the API a workspace admin can also delete
-somebody else's comment. Over MCP, `delete_comment` needs only write permission
-on the page, so any agent that may write there can remove any comment on it. The
-panel offers neither of those.
+comments. Deletion asks for confirmation and erases the message text. If replies
+depend on it, **Deleted comment** remains as a structural placeholder. Other
+authors' replies are preserved, and alerts for the deleted message are removed.
+REST retains the author/workspace-admin rule plus current page access. MCP
+retains its existing page-write permission rule.
 
 ### When something fails
 
-Sending is the one action that tells you. Resolving, reopening and deleting say
-nothing when they fail; the comment stays as it was and the list reloads. If you
-press **Resolved** as a Viewer, or delete a comment somebody else has already
-removed, that is what you will see: no message and no change.
+Posting, resolving, reopening and deletion report failures. New server errors
+carry stable codes translated into the reader's language. Failed submissions
+retain the draft and reply target.
+
+### Personal inbox
+
+**Inbox** beside Search combines reply notifications from accessible workspaces.
+The badge counts unread notifications, independently of the page's thread count.
+**Unread** and **All** filter the list; each item shows the author, workspace,
+page, reply excerpt and time. **Load more** fetches older items.
+
+A reply notifies the addressed message's author and original thread author,
+deduplicated and excluding the sender. Standalone comments, resolve/reopen and
+deletion create no new alerts. Migration does not notify about past comments.
+
+Opening Inbox alone leaves notifications unread. Opening an item loads its page,
+opens the thread, highlights the reply and marks that notification read after
+the message renders. **Mark as read**, **Mark as unread** and **Mark all as read**
+are explicit controls. Mark all affects items present at the displayed watermark;
+new replies remain unread. Read state persists across reloads and restarts, and
+notifications are available when an offline recipient returns. Unread items are kept
+until acknowledged; read items are retained for 30 days, then removed automatically.
+The list uses database pagination, and badge counts aggregate unread rows without
+loading read history.
+
+Current page access and credential scope apply to the list, badge and read
+updates. Trashed or inaccessible pages reveal no titles, excerpts or unread
+counts. Live signals carry no comment text. The inbox uses the existing SQLite
+database and SSE connection; there is no additional service or email delivery.
 
 ### The count in the topbar
 
-The number beside the speech-bubble icon is the number of **open** comments on
+The number beside the speech-bubble icon is the number of **open threads** on
 this page. Resolved ones do not count: a counter that only ever goes up gets
 ignored. It is fetched by the page header itself, so it is right whether the
 panel is open or shut.
@@ -169,16 +186,9 @@ panel is open or shut.
 **Board cards carry the same number.** A card in a board view shows a speech
 bubble and a count when its row has open comments, with the tooltip
 `3 open comments`. It is one request for the whole workspace rather than one per
-card, which has two consequences worth knowing. It is fetched once when you open
-the collection, so resolving a comment inside a row's panel does not change the
-card until you leave the view and come back. And it leaves out pages you may not
-read (trashed ones, and other people's private ones) because a counter must
-not reveal that a page exists.
-
-Neither the count nor the panel updates by itself. They are fetched when you
-open the page and again after you write, resolve or delete something in the
-panel. A comment somebody else adds while you are looking appears the next time
-you come back to the page. (The raw trail below behaves the other way round.)
+card. The count refreshes on live comment changes and when returning to the app.
+Unread notifications and open threads are separate counts. Trashed and private
+pages the reader cannot access are omitted.
 
 ### A database has no comment panel
 
@@ -189,7 +199,6 @@ own trail.
 
 (The interface says **collection** where the MCP surface says **database**. They
 are the same thing. See [Collections](collections.md).)
-
 ## The raw trail
 
 ### What it is
@@ -357,7 +366,8 @@ checked in on leaves nothing behind.
 
 `comments` always takes a page. Listing is a read, so a read-only token may do
 it; add, resolve and reopen need a write token and write permission on the page.
-Adding accepts an optional block id to attach the comment to one block instead
+Adding accepts `reply_to_id` for a message on this page and `request_id` for
+idempotent retries. Standalone comments accept an optional block id to attach the comment to one block instead
 of the whole page; the interface neither sets that nor shows it, and such a
 comment appears in the panel like any other. It also accepts `agent` and `label`,
 as `note` does, so the panel can say which agent wrote it.
@@ -403,10 +413,12 @@ API. See [API](api.md).
 | Route | Does |
 | --- | --- |
 | `GET /api/pages/{id}/comments` | every comment on a page, open and resolved |
-| `POST /api/pages/{id}/comments` | add one (`body`, optional `blockId`) |
+| `POST /api/pages/{id}/comments` | add one (`body`, optional `blockId`, `anchor`, `replyToId`, `requestId`) |
 | `POST /api/comments/{id}/resolve` | tick one off, or reopen it |
 | `DELETE /api/comments/{id}` | remove one (author or workspace admin) |
-| `GET /api/comment-counts` | open comments per page for one workspace |
+| `GET /api/comment-counts` | open threads per page for one workspace |
+| `GET /api/notifications` | personal inbox (`unread=1`, optional `before` cursor), unread count and watermark |
+| `POST /api/notifications/read` | set `id`/`read`, or mark existing items read with `through` |
 | `GET /api/pages/{id}/notes` | the whole raw trail, oldest first |
 | `POST /api/pages/{id}/notes` | append one note |
 | `DELETE /api/pages/{id}/notes` | discard the whole trail (signed-in session only) |
