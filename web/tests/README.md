@@ -25,6 +25,19 @@ Inline comments cover selection creation, saved anchors after reload,
 resolve/reopen, narrow light/dark navigation, localized stale-anchor errors in
 German, Spanish and Chinese, draft retention, detachment and deletion.
 
+Slash-menu coverage includes unique group headings and `/page` creation from
+documents and collection rows, keyboard/mouse selection, inherited workspace,
+title focus, reload persistence, the existing Sub-pages list, preserved parent
+text and visible creation refusal. Run it alone with
+`GO_BINARY=/path/to/go PLAYWRIGHT_CHANNEL=chrome node web/tests/slash-menu.mjs`.
+The Page action and its menu group are also checked in German, Spanish,
+Simplified Chinese and Traditional Chinese.
+
+The maintainer capture recipe is `wiki/page-command.recipe.json`. It uses the
+invented Team handbook from `web/scripts/seed-wiki-instance.mjs` on a throwaway
+instance. Keep it outside the active screenshot manifest until the images are
+taken; existing screenshot fingerprints are unchanged.
+
 Callout coverage: all seven preset icons, immediate background changes when
 cycling icons, existing saved blocks, light/dark appearance, dark-mode text
 contrast, and persistence after reload without changing the callout text.

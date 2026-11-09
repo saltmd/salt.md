@@ -14,7 +14,7 @@ shows while you read it.
 
 ## Creating a page
 
-There are six ways in, and they differ only in where the new page lands.
+There are seven ways in, and they differ only in where the new page lands.
 
 1. **The sidebar section header.** The `+` beside **Documents** (or **Pages**,
    when the sidebar is in mixed mode) makes a new document; the one beside
@@ -31,11 +31,15 @@ There are six ways in, and they differ only in where the new page lands.
    which is why the shortcut is this one.
 5. **From a mention.** Typing `@` or `[[` and then a name that does not exist
    yet offers `Create "…"`. See [Page links](#page-links-and-backlinks).
-6. **From a template**, from an import, or over MCP.
+6. **From the editor.** Type `/page`, choose **Page** and press Enter (or click
+   it). A new document is created under the current page and opens with its
+   title focused. This also works inside a collection row. **Sub-pages** is a
+   separate command that only inserts a list of existing children.
+7. **From a template**, from an import, or over MCP.
 
-A new page is created with no title and you land in it immediately. Nothing
-puts the cursor in the title; click the title to name it. Until you name it, it
-is called *Untitled* everywhere it appears.
+The sidebar, keyboard shortcut and `/page` command create a page with no title
+and open it immediately, with the title focused. Until you name it, it is called
+*Untitled* everywhere it appears.
 
 A page created **under a parent** inherits that parent's workspace. A page
 created **at the top level** goes into the workspace selected in the sidebar.
