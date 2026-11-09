@@ -66,6 +66,7 @@ other text, the new block is inserted **after** it.
 | **Callout** | Basic blocks | none |
 | **Embed a collection** | Basic blocks | none |
 | **Table of contents** | Basic blocks | none |
+| **Page** | Basic blocks | none |
 | **Sub-pages** | Basic blocks | none |
 | **Table** | Advanced | none |
 | **Diagram** | Advanced | none |
@@ -89,6 +90,13 @@ The seven salt.md blocks carry a one-line description in the menu:
 - **Embed a collection**: *Show an existing collection inside the document*
 - **Table of contents**: *Auto-generated list of every heading*
 - **Sub-pages**: *List of pages below this one*
+
+**Page** is an action rather than a block. Type `/page` and choose **Page**
+(*Create a subpage*) to create a document under the page you are editing. It
+opens immediately with its title focused, ready to name. The parent document's
+text stays in place; its **Sub-pages** block lists the new child automatically.
+Collection rows can have child pages too. Creation uses the same permissions
+and workspace inheritance as **Add inside** in the sidebar.
 
 **Columns** is a block that holds nothing itself. Inserting it gives you two
 empty blocks side by side; the small **2 / 3** control at its right edge, which
