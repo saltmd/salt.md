@@ -3605,6 +3605,42 @@ body.is-col-resizing {
   gap: 6px;
 }
 
+.child-pages {
+  margin-top: 4px;
+}
+
+.child-page-link {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 4px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--fg);
+  font-size: 16px;
+  line-height: 1.5;
+  text-align: left;
+  cursor: pointer;
+}
+
+.child-page-link:hover {
+  background: var(--hover);
+}
+
+.child-page-link > :first-child {
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+
+.child-page-title {
+  overflow-wrap: anywhere;
+  text-decoration: underline;
+  text-decoration-color: var(--border);
+  text-underline-offset: 3px;
+}
+
 .bn-bookmark-input {
   width: 100%;
 }

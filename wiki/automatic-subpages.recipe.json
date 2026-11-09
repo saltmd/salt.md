@@ -1,0 +1,18 @@
+{
+  "id": "automatic-subpages",
+  "page": "pages.md",
+  "caption": "Direct child pages appear below their parent's text without inserting a block.",
+  "shows": [
+    "web/src/blocks.tsx",
+    "web/src/components/Editor.tsx",
+    "web/src/styles.css",
+    "web/src/theme.css"
+  ],
+  "steps": [
+    { "goto": "/" },
+    { "waitFor": ".sidebar" },
+    { "click": ".sidebar >> text=Team handbook" },
+    { "waitFor": ".child-pages" },
+    { "wait": 400 }
+  ]
+}

@@ -337,7 +337,14 @@ Because it is generated on the spot, it exports as nothing at all.
 
 ### Sub-pages
 
-A list of the page's direct sub-pages, in their order in the sidebar, headed
+Direct sub-pages appear automatically as individual page entries below a
+document's text, including inside collection rows. Each has its icon and title,
+without a section heading or box. The entries hide when there are no children.
+Insert a **Sub-pages** block only to choose its position within the document;
+while that block exists, the automatic entries stay hidden. Both views read
+the page tree; their entries are not saved into the text.
+
+The block lists the page's direct sub-pages, in their order in the sidebar, headed
 **Sub-pages**. A click opens one; ⌘-click (Ctrl-click on Windows and Linux) or
 the middle button opens it in a second tab, the same as in the sidebar. It
 lists only sub-pages you may read, so a colleague's private sub-page does not
