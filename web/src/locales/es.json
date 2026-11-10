@@ -1190,5 +1190,6 @@
   "Some uploaded files could not be read, so the backup would be incomplete. The server log names them.": "Algunos archivos subidos no se pudieron leer, así que la copia de seguridad quedaría incompleta. El registro del servidor los nombra.",
   "Written by an agent through this account": "Escrito por un agente a través de esta cuenta",
   "Agent": "Agente",
-  "Copy of {title}": "Copia de {title}"
+  "Copy of {title}": "Copia de {title}",
+  "Undo board move": "Deshacer movimiento de tarjeta"
 }

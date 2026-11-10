@@ -119,13 +119,13 @@ export function useBoardDrag(onMove: (rowId: string, toCol: string) => void) {
       }
     };
 
-    const onPointerUp = () => {
+    const onPointerUp = (e: PointerEvent) => {
       const l = live.current;
       if (l?.holdTimer) clearTimeout(l.holdTimer);
       live.current = null;
       setDrag(null);
       setArmedRow(null);
-      if (l && l.started && l.over && l.over !== l.fromCol) {
+      if (e.type !== 'pointercancel' && l && l.started && l.over && l.over !== l.fromCol) {
         onMove(l.rowId, l.over);
       }
       // draggedRef stays set until the next click, so the card's click
