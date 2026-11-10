@@ -1178,5 +1178,6 @@
   "⚠ This is the URL of the running quick tunnel. It changes on every start. For OAuth that lasts, use a named tunnel or your own domain and enter it as the base URL.": "⚠ 这是当前运行的快速隧道的 URL，每次启动都会变化。要让 OAuth 长期可用，请使用命名隧道或你自己的域名，并将其填为基础 URL。",
   "✓ Resolved": "✓ 已解决",
   "＋ Link": "＋ 链接",
-  "＋ Person": "＋ 人员"
+  "＋ Person": "＋ 人员",
+  "Undo board move": "撤销卡片移动"
 }

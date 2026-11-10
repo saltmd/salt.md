@@ -1181,5 +1181,6 @@
   "Some uploaded files could not be read, so the backup would be incomplete. The server log names them.": "Einige hochgeladene Dateien konnten nicht gelesen werden, die Sicherung wäre also unvollständig. Das Server-Protokoll nennt sie.",
   "Written by an agent through this account": "Von einem Agenten über dieses Konto geschrieben",
   "Agent": "Agent",
-  "Copy of {title}": "Kopie von {title}"
+  "Copy of {title}": "Kopie von {title}",
+  "Undo board move": "Verschieben einer Karte rückgängig machen"
 }
