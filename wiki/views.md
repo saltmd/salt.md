@@ -109,6 +109,13 @@ would pick a card up instead. A floating copy follows the pointer, the target
 column lights up, and a column scrolls by itself when you hold a card near its
 top or bottom edge.
 
+**Undoing a move.** Press **Ctrl+Z** (**⌘Z** on Mac) to restore the previous
+value after dragging or choosing **Move to**. Repeated presses undo your moves
+in reverse order, including a move that is still saving. This history belongs
+to the current collection session and clears when you leave it or reload.
+Typing in a field or document keeps normal text undo. If the property's current
+value no longer matches your move, it is left alone and a message explains why.
+
 Note what a drag onto a multi-select or relation board does: it **replaces** the
 value with that one option. It does not add to what is there. And dragging a card
 into the catch-all column **clears** the value altogether; that is the only way

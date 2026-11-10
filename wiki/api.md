@@ -314,7 +314,10 @@ worth knowing before you write a script:
 
 - **`propsPatch` merges, `props` replaces.** Send only the keys you changed;
   a key set to `null` is removed. Two scripts editing different properties of
-  the same row then do not overwrite each other.
+  the same row then do not overwrite each other. When a `propsPatch` changed a
+  stored property, the answer carries `changeId`, the activity log entry that
+  recorded it; `POST /api/audit/{changeId}/revert` takes exactly that change
+  back. A write that changes nothing, or replaces `props` whole, carries none.
 - **What you read back is not all stored.** Rollups, formulas and backrelations
   are computed when a row is read, by `GET /api/pages/{id}` just as much as by
   the rows endpoint. Do not write the whole props object back.
@@ -480,6 +483,7 @@ archive is lossless and can be imported back.
 | `GET /api/pages/{id}/revisions/{revId}` | one older state, in full |
 | `POST /api/pages/{id}/revisions/{revId}/restore` | put the page back to it |
 | `GET /api/audit` | the activity log; `?limit=` and `?before=` page through it |
+| `POST /api/audit/{id}/revert` | take a recorded property change back, leaving values edited since alone |
 
 A note can never be edited or removed on its own; correct a wrong one by adding
 another. A version snapshot is taken at most once every two minutes per page and

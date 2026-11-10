@@ -358,7 +358,7 @@ export const api = {
     // gen: the document generation an autosave descends from (collab.ts).
     opts?: { materialize?: boolean; gen?: number | null; replaced?: boolean },
   ) =>
-    req<Page>(`/api/pages/${id}${materializeQuery(opts)}`, {
+    req<Page & { changeId?: number }>(`/api/pages/${id}${materializeQuery(opts)}`, {
       method: 'PATCH',
       body: JSON.stringify(patch),
     }),

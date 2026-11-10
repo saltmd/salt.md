@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { isTypingTarget } from './keys';
 
 // Pointer-based dragging for the kanban board.
 //
@@ -119,13 +120,13 @@ export function useBoardDrag(onMove: (rowId: string, toCol: string) => void) {
       }
     };
 
-    const onPointerUp = () => {
+    const onPointerUp = (e: PointerEvent) => {
       const l = live.current;
       if (l?.holdTimer) clearTimeout(l.holdTimer);
       live.current = null;
       setDrag(null);
       setArmedRow(null);
-      if (l && l.started && l.over && l.over !== l.fromCol) {
+      if (e.type !== 'pointercancel' && l && l.started && l.over && l.over !== l.fromCol) {
         onMove(l.rowId, l.over);
       }
       // draggedRef stays set until the next click, so the card's click
@@ -157,12 +158,22 @@ export function useBoardDrag(onMove: (rowId: string, toCol: string) => void) {
       // Left mouse button or finger only, and not on a control of the card
       // (the ⋯ menu, a select chip) — there you want to click, not drag.
       if (e.button !== 0) return;
+      // React passes presses inside a card's portals (its pickers) through
+      // the card; they are not on the card and must not start a drag.
+      if (!(e.currentTarget as Element).contains(e.target as Node)) return;
       if ((e.target as Element).closest?.('.card-move, .card-prop-edit, a, button, input')) return;
       const card = (e.currentTarget as HTMLElement).getBoundingClientRect();
       draggedRef.current = false;
       const touch = e.pointerType === 'touch' || e.pointerType === 'pen';
       // The browser can start selecting text before the drag threshold is met.
-      if (!touch) e.preventDefault();
+      if (!touch) {
+        e.preventDefault();
+        // A cancelled press moves no focus. A text field the reader was in
+        // (the page title, say) would keep it and answer Ctrl+Z itself, so it
+        // is left; an editor around an embedded board is left to that board.
+        const focused = document.activeElement;
+        if (focused instanceof HTMLElement && isTypingTarget(focused) && !focused.contains(e.currentTarget as Node)) focused.blur();
+      }
       live.current = {
         rowId,
         fromCol,
