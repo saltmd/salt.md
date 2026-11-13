@@ -27,6 +27,11 @@ import (
 //     client for a snapshot at seq N (enqueued right after update N, still
 //     under the lock), that client has provably been delivered every update
 //     ≤ N — so its snapshot covers them and the log rows ≤ N can be dropped.
+//     The same holds for the request sent right after the initial replay
+//     plus {"synced":true}: when a writer joins a room that is already over a
+//     threshold, asking then covers every row it was just replayed, so an
+//     over-threshold room shrinks the moment somebody who can write opens it,
+//     not only after the next persistUpdate.
 //
 //  2. Atomic reset. resetYjsDoc (API/MCP rewrote the materialized content)
 //     deletes the persisted state and bumps the room epoch under room.mu, and
@@ -49,7 +54,13 @@ const (
 	frameSnapshot  = 2
 
 	compactThreshold = 200
-	outBuffer        = 512
+	// Compacting on row count alone misses the room that holds two or three
+	// wide frames. A single large paste can put hundreds of kilobytes in a
+	// handful of rows, and a reconnect pushes the full document state
+	// (Y.encodeStateAsUpdate in web/src/collab.ts), so every WebSocket open
+	// replays it.
+	compactBytesThreshold = 64 << 10
+	outBuffer             = 512
 	// wsReadLimit caps a single inbound WS frame. Must exceed a full-document
 	// snapshot (pushed on reconnect); 32 MiB is far above realistic docs yet
 	// still bounds memory a hostile client can force us to read.
@@ -260,16 +271,37 @@ func encodeAwarenessRemoval(aware map[uint64]uint64) []byte {
 type collabRoom struct {
 	pageID string
 
-	mu          sync.Mutex
-	conns       map[*collabConn]struct{}
-	loaded      bool
-	seq         int64
-	pending     int64
-	compacting  bool
-	compactConn *collabConn
-	epoch       int64
-	seeded      bool
-	seedConn    *collabConn
+	mu           sync.Mutex
+	conns        map[*collabConn]struct{}
+	loaded       bool
+	seq          int64
+	pending      int64
+	pendingBytes int64
+	compacting   bool
+	compactConn  *collabConn
+	compactAt    time.Time
+	epoch        int64
+	seeded       bool
+	seedConn     *collabConn
+}
+
+// compactTimeout bounds how long a request for a snapshot blocks the next one.
+// A client can accept the request and never answer it — a backgrounded tab, a
+// dropped socket whose leave has not landed, an old build that ignores the
+// message — and without a deadline the room would try nobody else, so the log
+// would grow forever. A variable so a test does not have to wait 30s.
+var compactTimeout = 30 * time.Second
+
+// shouldCompactLocked reports whether this room is over a threshold and free to
+// ask somebody for a snapshot. Caller holds r.mu.
+func (r *collabRoom) shouldCompactLocked(now time.Time) bool {
+	if r.seq <= 0 {
+		return false
+	}
+	if r.pending < compactThreshold && r.pendingBytes < compactBytesThreshold {
+		return false
+	}
+	return !r.compacting || now.Sub(r.compactAt) > compactTimeout
 }
 
 // broadcast enqueues a frame to every connection except `from`. Caller holds room.mu.
@@ -326,6 +358,7 @@ func (h *collabHub) leave(r *collabConn, room *collabRoom) {
 	if room.compactConn == r {
 		room.compacting = false
 		room.compactConn = nil
+		room.compactAt = time.Time{}
 	}
 	empty := len(room.conns) == 0
 	room.mu.Unlock()
@@ -354,8 +387,10 @@ func (s *Server) resetYjsDoc(pageID string) {
 	room.loaded = false
 	room.seq = -1
 	room.pending = 0
+	room.pendingBytes = 0
 	room.compacting = false
 	room.compactConn = nil
+	room.compactAt = time.Time{}
 	room.seeded = false
 	room.seedConn = nil
 	conns := make([]*collabConn, 0, len(room.conns))
@@ -506,7 +541,12 @@ func (s *Server) handleCollab(w http.ResponseWriter, r *http.Request) {
 		if len(updates) > 0 {
 			room.seq = updates[len(updates)-1].seq
 		}
+		var pendingBytes int64
+		for _, u := range updates {
+			pendingBytes += int64(len(u.data))
+		}
 		room.pending = int64(len(updates))
+		room.pendingBytes = pendingBytes
 		room.loaded = true
 	}
 
@@ -537,6 +577,16 @@ func (s *Server) handleCollab(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	conn.enqueue(outMsg{websocket.MessageText, []byte(`{"synced":true}`)})
+	// A room that is already over the line asks as soon as somebody who may
+	// write joins, so the history shrinks without waiting for the next edit.
+	now := time.Now()
+	if room.shouldCompactLocked(now) && s.canWriteReq(r, pageID) {
+		room.compacting = true
+		room.compactConn = conn
+		room.compactAt = now
+		req, _ := json.Marshal(map[string]int64{"snapshotRequest": room.seq})
+		conn.enqueue(outMsg{websocket.MessageText, req})
+	}
 	room.mu.Unlock()
 
 	defer s.collab.leave(conn, room)
@@ -610,11 +660,14 @@ func (s *Server) persistUpdate(ctx context.Context, room *collabRoom, conn *coll
 		return
 	}
 	room.pending++
+	room.pendingBytes += int64(len(payload))
 	room.broadcastLocked(conn, outMsg{websocket.MessageBinary, data})
 
-	if room.pending >= compactThreshold && !room.compacting {
+	now := time.Now()
+	if room.shouldCompactLocked(now) {
 		room.compacting = true
 		room.compactConn = conn
+		room.compactAt = now
 		req, _ := json.Marshal(map[string]int64{"snapshotRequest": seq})
 		conn.enqueue(outMsg{websocket.MessageText, req})
 	}
@@ -634,6 +687,7 @@ func (s *Server) applySnapshot(room *collabRoom, conn *collabConn, data []byte) 
 	if upTo <= 0 || upTo > room.seq {
 		room.compacting = false
 		room.compactConn = nil
+		room.compactAt = time.Time{}
 		return
 	}
 	if _, err := s.db.Exec(`INSERT INTO yjs_state (page_id, snapshot, seq) VALUES (?, ?, ?)
@@ -641,15 +695,18 @@ func (s *Server) applySnapshot(room *collabRoom, conn *collabConn, data []byte) 
 		log.Printf("collab snapshot %s: %v", room.pageID, err)
 		room.compacting = false
 		room.compactConn = nil
+		room.compactAt = time.Time{}
 		return
 	}
 	s.db.Exec(`DELETE FROM yjs_updates WHERE page_id = ? AND seq <= ?`, room.pageID, upTo)
 	// Log rows added during the round-trip (seq > upTo) remain pending.
-	var remaining int64
-	s.db.QueryRow(`SELECT COUNT(*) FROM yjs_updates WHERE page_id = ?`, room.pageID).Scan(&remaining)
+	var remaining, remainingBytes int64
+	s.db.QueryRow(`SELECT COUNT(*), COALESCE(SUM(LENGTH(data)), 0) FROM yjs_updates WHERE page_id = ?`, room.pageID).Scan(&remaining, &remainingBytes)
 	room.pending = remaining
+	room.pendingBytes = remainingBytes
 	room.compacting = false
 	room.compactConn = nil
+	room.compactAt = time.Time{}
 }
 
 // collabRecheck is how often an open editor's right to the page is asked
