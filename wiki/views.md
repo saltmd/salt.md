@@ -109,9 +109,15 @@ would pick a card up instead. A floating copy follows the pointer, the target
 column lights up, and a column scrolls by itself when you hold a card near its
 top or bottom edge.
 
-**Undoing a move.** Press **Ctrl+Z** (**⌘Z** on Mac) to restore the previous
-value after dragging or choosing **Move to**. Repeated presses undo your moves
-in reverse order, including a move that is still saving. This history belongs
+To move a card to another collection in the same workspace, drop it onto that
+collection's highlighted name in the sidebar. The original page moves with
+its content and saved properties. The destination schema determines which
+properties and options appear.
+
+**Undoing a move.** Press **Ctrl+Z** (**⌘Z** also works on Mac) to restore the
+previous group or collection after dragging or choosing **Move to**.
+Repeated presses undo your moves in reverse order, including a move that is
+still saving. This history belongs
 to the current collection session and clears when you leave it or reload.
 Typing in a field or document keeps normal text undo. If the property's current
 value no longer matches your move, it is left alone and a message explains why.

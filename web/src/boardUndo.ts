@@ -1,12 +1,12 @@
 import { useEffect, useMemo } from 'react';
-import { api } from './api';
+import { api, ApiError } from './api';
 import { t } from './i18n';
-import { useShortcut } from './keys';
+import { normalize, useShortcut } from './keys';
 import { modalOpen } from './modal';
 import { toast } from './toast';
 
 type Session = {
-  ids: number[];
+  actions: (() => Promise<void>)[];
   pending: number;
   queue: Promise<void>;
   live: boolean;
@@ -18,7 +18,7 @@ let active: Session | null = null;
 
 export function useBoardUndo(collectionId: string, enabled: boolean, refresh: () => Promise<void>) {
   const session = useMemo<Session>(
-    () => ({ ids: [], pending: 0, queue: Promise.resolve(), live: true }),
+    () => ({ actions: [], pending: 0, queue: Promise.resolve(), live: true }),
     [collectionId],
   );
   useEffect(() => {
@@ -38,25 +38,27 @@ export function useBoardUndo(collectionId: string, enabled: boolean, refresh: ()
 
   useShortcut({
     id: 'board.undo',
-    keys: ['mod+z'],
+    keys: normalize('mod+z') === 'ctrl+z' ? ['mod+z'] : ['mod+z', 'ctrl+z'],
     scope: 'view',
     when: () => enabled && active === session && !modalOpen(),
     label: () => t('Undo board move'),
     group: () => t('Collection'),
     run: () => {
-      if (!session.ids.length && !session.pending) return false;
+      if (!session.actions.length && !session.pending) return false;
       enqueue(async () => {
-        const id = session.ids[session.ids.length - 1];
-        if (!id) return;
+        const undo = session.actions[session.actions.length - 1];
+        if (!undo) return;
         try {
-          const result = await api.revertChange(id);
-          session.ids.pop();
-          if (!result.reverted.length && session.live) {
-            toast(t('Nothing was taken back: every value has been changed since.'));
+          await undo();
+          session.actions.pop();
+        } catch (error) {
+          // A newer move has replaced this one. Let the next undo reach older moves.
+          if (error instanceof ApiError && error.code === 'collection_move_stale') {
+            session.actions.pop();
+            if (session.live) toast(error.message);
+          } else if (session.live) {
+            toast(t('That could not be taken back.'));
           }
-        } catch {
-          // Keep the id for a deliberate retry after a failed request.
-          if (session.live) toast(t('That could not be taken back.'));
         }
         if (session.live) await refresh().catch(() => {});
       });
@@ -65,12 +67,18 @@ export function useBoardUndo(collectionId: string, enabled: boolean, refresh: ()
 
   return {
     activate: () => { active = enabled ? session : null; },
-    move: (save: () => Promise<{ changeId?: number } | undefined>) => {
+    move: (save: () => Promise<(() => Promise<void>) | undefined>) => {
       active = session;
       enqueue(async () => {
-        const saved = await save();
-        if (saved?.changeId) session.ids.push(saved.changeId);
+        const undo = await save();
+        if (undo) session.actions.push(undo);
       });
+    },
+    undoProperties: (changeId: number) => async () => {
+      const result = await api.revertChange(changeId);
+      if (!result.reverted.length && session.live) {
+        toast(t('Nothing was taken back: every value has been changed since.'));
+      }
     },
   };
 }

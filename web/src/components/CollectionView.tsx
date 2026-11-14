@@ -509,6 +509,31 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
   };
 
   const boardUndo = useBoardUndo(collectionId, view?.type === 'board', loadRows);
+  const canDropOnCollection = (rowId: string, destinationId: string) => {
+    const target = pages.get(destinationId);
+    if (!workspaceId || target?.workspaceId !== workspaceId || destinationId === collectionId) return false;
+    for (let parent = target.parentId; parent; parent = pages.get(parent)?.parentId ?? null) {
+      if (parent === rowId) return false;
+    }
+    return true;
+  };
+
+  const moveToCollection = (rowId: string, destinationId: string) => {
+    boardUndo.move(async () => {
+      try {
+        const moved = await api.moveCollectionRow(collectionId, rowId, destinationId);
+        toast(t('Moved to “{name}”', { name: pages.get(destinationId)?.title || t('Untitled') }));
+        return async () => {
+          await api.moveCollectionRow(destinationId, rowId, collectionId, {
+            position: moved.fromPosition,
+            expectedPosition: moved.position,
+          });
+        };
+      } catch (err) {
+        toast((err as Error).message || t('Moving failed'));
+      }
+    });
+  };
   const setRowProp = async (rowId: string, propId: string, value: unknown) => {
     // A queued move still saves after navigation, but must not paint its old
     // collection into the new one or start an old row query after a failure.
@@ -554,7 +579,10 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
     const prop = schema.find((p) => p.id === propId);
     const multiple = prop?.type === 'multiselect' || prop?.type === 'relation';
     const value = multiple ? (optId === UNSET ? [] : [optId]) : (optId === UNSET ? '' : optId);
-    boardUndo.move(() => setRowProp(rowId, propId, value));
+    boardUndo.move(async () => {
+      const saved = await setRowProp(rowId, propId, value);
+      if (saved?.changeId) return boardUndo.undoProperties(saved.changeId);
+    });
   };
 
   if (!config || !view) return <div className="editor-loading" />;
@@ -915,6 +943,8 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
           onDrop={(rowId, groupBy, optId) => {
             void setGroupValue(rowId, groupBy, optId);
           }}
+          canDropOnCollection={canDropOnCollection}
+          onDropOnCollection={moveToCollection}
           onTrashRow={trashRow}
           onAddInColumn={(groupBy, optId) =>
             void addRow({ [groupBy]: groupValueFor(schema, groupBy, optId) })
@@ -2020,6 +2050,8 @@ function BoardView({
   onSetProp,
   onSetOptions,
   onDrop,
+  canDropOnCollection,
+  onDropOnCollection,
   onTrashRow,
   onAddInColumn,
 }: {
@@ -2039,6 +2071,8 @@ function BoardView({
   onSetProp: (rowId: string, propId: string, value: unknown) => void;
   onSetOptions: (propId: string, options: PropOption[]) => void;
   onDrop: (rowId: string, groupBy: string, optId: string) => void;
+  canDropOnCollection: (rowId: string, collectionId: string) => boolean;
+  onDropOnCollection: (rowId: string, collectionId: string) => void;
   onTrashRow: (id: string, title: string) => Promise<void>;
   onAddInColumn: (groupBy: string, optId: string) => void;
 }) {
@@ -2050,8 +2084,10 @@ function BoardView({
   // opened card is a glance, not a setting.
   const [openCards, setOpenCards] = useState<Set<string>>(new Set());
   // Dragging by pointer rather than the jerky native drag (see boardDrag).
-  const { drag, armedRow, startDrag, consumeClick } = useBoardDrag((rowId, toCol) =>
-    onDrop(rowId, groupBy, toCol),
+  const { drag, armedRow, startDrag, consumeClick } = useBoardDrag(
+    (rowId, toCol) => onDrop(rowId, groupBy, toCol),
+    canDropOnCollection,
+    onDropOnCollection,
   );
   // When grouping by a relation, the columns are the rows of the target
   // collection. Loaded through the same cache the relation cells use, so the

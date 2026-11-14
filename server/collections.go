@@ -680,6 +680,95 @@ func (s *Server) handleCollectionRows(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"rows": list, "total": total, "offset": offset, "limit": limit})
 }
 
+func (s *Server) handleMoveCollectionRow(w http.ResponseWriter, r *http.Request) {
+	sourceID := r.PathValue("id")
+	var move struct {
+		RowID        string `json:"rowId"`
+		CollectionID string `json:"collectionId"`
+		Restore      *struct {
+			Position         *float64 `json:"position"`
+			ExpectedPosition *float64 `json:"expectedPosition"`
+		} `json:"restore"`
+	}
+	if err := decodeJSON(w, r, &move); err != nil || move.RowID == "" || move.CollectionID == "" || move.CollectionID == sourceID ||
+		(move.Restore != nil && (move.Restore.Position == nil || move.Restore.ExpectedPosition == nil)) {
+		httpErrorCode(w, 400, "collection_move_invalid", "Choose a card and a different collection.")
+		return
+	}
+	if !s.canWriteReq(r, sourceID) || !s.canWriteReq(r, move.RowID) || !s.canWriteReq(r, move.CollectionID) {
+		httpErrorCode(w, 404, "collection_move_unavailable", "The card or collection is no longer available.")
+		return
+	}
+
+	tx, err := s.db.BeginTx(r.Context(), nil)
+	if err != nil {
+		httpErrorCode(w, 500, "collection_move_failed", "The card could not be moved.")
+		return
+	}
+	defer tx.Rollback()
+	var before, position float64
+	err = tx.QueryRow(`SELECT position FROM pages WHERE id = ? AND parent_id = ?`, move.RowID, sourceID).Scan(&before)
+	if err == sql.ErrNoRows && move.Restore != nil {
+		httpErrorCode(w, 409, "collection_move_stale", "The card moved again. This move could not be undone.")
+		return
+	}
+	if err == sql.ErrNoRows {
+		httpErrorCode(w, 404, "collection_move_unavailable", "The card or collection is no longer available.")
+		return
+	}
+	if err != nil {
+		httpErrorCode(w, 500, "collection_move_failed", "The card could not be moved.")
+		return
+	}
+	if move.Restore != nil {
+		if before != *move.Restore.ExpectedPosition {
+			httpErrorCode(w, 409, "collection_move_stale", "The card moved again. This move could not be undone.")
+			return
+		}
+		position = *move.Restore.Position
+	} else if err := tx.QueryRow(`SELECT COALESCE(MAX(position), 0) + 1 FROM pages WHERE parent_id = ? AND trashed_at IS NULL`,
+		move.CollectionID).Scan(&position); err != nil {
+		httpErrorCode(w, 500, "collection_move_failed", "The card could not be moved.")
+		return
+	}
+	within, err := isWithinSubtree(tx, move.RowID, move.CollectionID)
+	if err != nil {
+		httpErrorCode(w, 500, "collection_move_failed", "The card could not be moved.")
+		return
+	}
+	if within {
+		httpErrorCode(w, 400, "collection_move_cycle", "A card cannot be moved into a collection inside it.")
+		return
+	}
+	// Keep the original page and its stored properties. Check its current
+	// parent in the update so a stale drag cannot move a card a second time.
+	res, err := tx.Exec(`UPDATE pages AS row SET parent_id = ?, updated_at = ?, position = ?
+		WHERE row.id = ? AND row.parent_id = ? AND row.type = 'doc'
+		AND row.trashed_at IS NULL AND row.is_template = 0 AND EXISTS (
+			SELECT 1 FROM pages AS src JOIN pages AS dst ON dst.id = ?
+			WHERE src.id = row.parent_id AND src.workspace_id = row.workspace_id AND dst.workspace_id = row.workspace_id
+			AND src.type = 'collection' AND dst.type = 'collection'
+			AND src.trashed_at IS NULL AND dst.trashed_at IS NULL AND src.is_template = 0 AND dst.is_template = 0
+		)`, move.CollectionID, now(), position, move.RowID, sourceID, move.CollectionID)
+	if err != nil {
+		httpErrorCode(w, 500, "collection_move_failed", "The card could not be moved.")
+		return
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		httpErrorCode(w, 404, "collection_move_unavailable", "The card or collection is no longer available.")
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		httpErrorCode(w, 500, "collection_move_failed", "The card could not be moved.")
+		return
+	}
+	s.pagesChanged()
+	s.rowsChanged(sourceID)
+	s.rowsChanged(move.CollectionID)
+	s.fireWebhook("page.updated", move.RowID)
+	writeJSON(w, map[string]any{"ok": true, "fromPosition": before, "position": position})
+}
+
 // createDefaultCollection initializes a fresh database page.
 func (s *Server) createDefaultCollection(pageID string) error {
 	_, err := s.db.Exec(`INSERT INTO collections (page_id, schema, views) VALUES (?, ?, ?)

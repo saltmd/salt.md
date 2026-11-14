@@ -448,6 +448,16 @@ export const api = {
       limit: number;
     }>(`/api/collections/${pageId}/rows?${p.toString()}`);
   },
+  moveCollectionRow: (
+    sourceId: string,
+    rowId: string,
+    collectionId: string,
+    restore?: { position: number; expectedPosition: number },
+  ) =>
+    req<{ ok: boolean; fromPosition: number; position: number }>(`/api/collections/${sourceId}/rows/move`, {
+      method: 'POST',
+      body: JSON.stringify({ rowId, collectionId, restore }),
+    }),
   // Either half alone is fine; the server keeps the other as stored.
   putCollection: (pageId: string, config: Partial<CollectionConfig>) =>
     req<CollectionConfig>(`/api/collections/${pageId}`, {
