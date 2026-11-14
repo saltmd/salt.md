@@ -1,12 +1,12 @@
 package server
 
 import (
-	"strings"
-	"fmt"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -46,9 +46,21 @@ func propsDiff(before, patch map[string]json.RawMessage) map[string]propChange {
 // before, a log can say that something was changed and never what it was — so
 // the only way back is to remember, and nobody remembers 40 rows.
 func (s *Server) auditChanges(actorType, actorID, actorName, action, pageID, workspaceID, detail, changes string) {
-	s.db.Exec(`INSERT INTO audit_log (created_at, actor_type, actor_id, actor_name, action, page_id, workspace_id, detail, changes)
+	insertAudit(s.db, actorType, actorID, actorName, action, pageID, workspaceID, detail, changes)
+}
+
+// Both the ordinary log writer and a property save's transaction use the same
+// insert. The returned id identifies this exact change, never "the latest" one.
+func insertAudit(db interface {
+	Exec(string, ...any) (sql.Result, error)
+}, actorType, actorID, actorName, action, pageID, workspaceID, detail, changes string) (int64, error) {
+	res, err := db.Exec(`INSERT INTO audit_log (created_at, actor_type, actor_id, actor_name, action, page_id, workspace_id, detail, changes)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		now(), actorType, actorID, actorName, action, nullIfEmpty(pageID), nullIfEmpty(workspaceID), detail, changes)
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
 }
 
 // propChange is one property's before and after, as raw JSON so a value keeps
@@ -338,9 +350,17 @@ func (s *Server) handleAuditRevert(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var current string
-	if err := s.db.QueryRow(`SELECT COALESCE(props,'{}') FROM pages WHERE id = ? AND trashed_at IS NULL`, pageID).
-		Scan(&current); err == sql.ErrNoRows {
+	// Hold the connection through comparison and restoration: a separate read
+	// and write can overwrite a property another request edits between them.
+	tx, err := s.db.Begin()
+	if err != nil {
+		httpError(w, 500, err.Error())
+		return
+	}
+	defer tx.Rollback()
+	var current, title, workspaceID string
+	if err := tx.QueryRow(`SELECT COALESCE(props,'{}'), title, workspace_id FROM pages WHERE id = ? AND trashed_at IS NULL`, pageID).
+		Scan(&current, &title, &workspaceID); err == sql.ErrNoRows {
 		httpErrorCode(w, 404, "page_gone", "That page is no longer there.")
 		return
 	} else if err != nil {
@@ -357,8 +377,7 @@ func (s *Server) handleAuditRevert(w http.ResponseWriter, r *http.Request) {
 		if has {
 			nowStr = string(now)
 		}
-		// Byte comparison of the stored JSON. Both sides were written by the
-		// same marshaller, so a value that has not been touched is byte-identical.
+		// Compare JSON values, preserving the stored type and ignoring whitespace.
 		if !jsonEqual(nowStr, string(ch.To)) {
 			skipped = append(skipped, key)
 			continue
@@ -377,15 +396,27 @@ func (s *Server) handleAuditRevert(w http.ResponseWriter, r *http.Request) {
 			httpError(w, 500, err.Error())
 			return
 		}
-		if _, err := s.db.Exec(`UPDATE pages SET props = ?, updated_at = ? WHERE id = ?`, string(blob), now(), pageID); err != nil {
+		if _, err := tx.Exec(`UPDATE pages SET props = ?, updated_at = ? WHERE id = ?`, string(blob), now(), pageID); err != nil {
 			httpError(w, 500, err.Error())
 			return
 		}
+		if title == "" {
+			title = "Untitled"
+		}
+		if _, err := insertAudit(tx, "human", u.ID, u.Name, "revert_change", pageID, workspaceID,
+			fmt.Sprintf("%s: %s", title, strings.Join(reverted, ", ")), ""); err != nil {
+			httpError(w, 500, err.Error())
+			return
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		httpError(w, 500, err.Error())
+		return
+	}
+	if len(reverted) > 0 {
 		s.reindexPage(pageID)
 		s.pagesChanged()
 		s.rowChanged(pageID)
-		s.audit("human", u.ID, u.Name, "revert_change", pageID, s.pageWorkspace(pageID),
-			fmt.Sprintf("%s: %s", s.pageTitle(pageID), strings.Join(reverted, ", ")))
 	}
 	writeJSON(w, map[string]any{"reverted": reverted, "skipped": skipped})
 }

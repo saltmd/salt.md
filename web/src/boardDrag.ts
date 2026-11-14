@@ -35,7 +35,11 @@ const TOUCH_HOLD_MS = 320;
 // a swipe, and the drag is never armed in the first place.
 const TOUCH_HOLD_SLOP = 10;
 
-export function useBoardDrag(onMove: (rowId: string, toCol: string) => void) {
+export function useBoardDrag(
+  onMove: (rowId: string, toCol: string) => void,
+  canDropOnCollection: (rowId: string, collectionId: string) => boolean,
+  onDropOnCollection: (rowId: string, collectionId: string) => void,
+) {
   const [drag, setDrag] = useState<DragState | null>(null);
   // Which card is armed after the hold but has not moved yet. On the iPhone
   // there is no navigator.vibrate — without a visible signal nothing at all
@@ -55,7 +59,7 @@ export function useBoardDrag(onMove: (rowId: string, toCol: string) => void) {
     startX: number;
     startY: number;
     started: boolean;
-    over: string | null;
+    board: Element | null;
     touch: boolean;
     // armed: on a finger only true after TOUCH_HOLD_MS. Before that every
     // movement belongs to scrolling.
@@ -66,15 +70,28 @@ export function useBoardDrag(onMove: (rowId: string, toCol: string) => void) {
   // (move). A ref, because the pointerup handler needs it straight away.
   const draggedRef = useRef(false);
 
-  const colUnder = (x: number, y: number): string | null => {
-    for (const el of document.elementsFromPoint(x, y)) {
-      const col = (el as HTMLElement).closest?.('[data-col]');
-      if (col) return col.getAttribute('data-col');
-    }
-    return null;
-  };
+  const callbacks = useRef({ onMove, canDropOnCollection, onDropOnCollection });
+  callbacks.current = { onMove, canDropOnCollection, onDropOnCollection };
 
   useEffect(() => {
+    // Sidebar targets live outside this board's React subtree.
+    let highlighted: HTMLElement | null = null;
+    const highlight = (target: HTMLElement | null) => {
+      if (target === highlighted) return;
+      highlighted?.removeAttribute('data-board-drop-active');
+      target?.setAttribute('data-board-drop-active', '');
+      highlighted = target;
+    };
+    const targetsAt = (e: PointerEvent, drag: NonNullable<typeof live.current>) => {
+      const hit = document.elementFromPoint(e.clientX, e.clientY);
+      const inBoard = hit && drag.board && hit.closest('.board') === drag.board;
+      const col = inBoard ? hit.closest('[data-col]')?.getAttribute('data-col') ?? null : null;
+      const cards = inBoard ? hit.closest<HTMLElement>('.board-cards') : null;
+      const target = hit?.closest<HTMLElement>('[data-board-drop-collection]');
+      const id = target?.dataset.boardDropCollection;
+      const collection = id && callbacks.current.canDropOnCollection(drag.rowId, id) ? target ?? null : null;
+      return { col, cards, collection };
+    };
     const onPointerMove = (e: PointerEvent) => {
       const l = live.current;
       if (!l) return;
@@ -94,7 +111,8 @@ export function useBoardDrag(onMove: (rowId: string, toCol: string) => void) {
         l.started = true;
         draggedRef.current = true;
       }
-      l.over = colUnder(e.clientX, e.clientY);
+      const { col, cards, collection } = targetsAt(e, l);
+      highlight(collection);
       setDrag({
         rowId: l.rowId,
         fromCol: l.fromCol,
@@ -104,14 +122,11 @@ export function useBoardDrag(onMove: (rowId: string, toCol: string) => void) {
         y: e.clientY,
         dx: l.dx,
         dy: l.dy,
-        over: l.over,
+        over: col,
       });
 
       // Scroll along at the top and bottom edge of a column, so cards can be
       // dragged into long lists without letting go.
-      const cards = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement)?.closest?.(
-        '.board-cards',
-      ) as HTMLElement | null;
       if (cards) {
         const r = cards.getBoundingClientRect();
         if (e.clientY - r.top < 40) cards.scrollTop -= 12;
@@ -119,14 +134,18 @@ export function useBoardDrag(onMove: (rowId: string, toCol: string) => void) {
       }
     };
 
-    const onPointerUp = () => {
+    const onPointerUp = (e: PointerEvent) => {
       const l = live.current;
       if (l?.holdTimer) clearTimeout(l.holdTimer);
       live.current = null;
+      highlight(null);
       setDrag(null);
       setArmedRow(null);
-      if (l && l.started && l.over && l.over !== l.fromCol) {
-        onMove(l.rowId, l.over);
+      if (e.type !== 'pointercancel' && l?.started) {
+        const { col, collection } = targetsAt(e, l);
+        const id = collection?.dataset.boardDropCollection;
+        if (id) callbacks.current.onDropOnCollection(l.rowId, id);
+        else if (col && col !== l.fromCol) callbacks.current.onMove(l.rowId, col);
       }
       // draggedRef stays set until the next click, so the card's click
       // handler can suppress navigation.
@@ -145,12 +164,14 @@ export function useBoardDrag(onMove: (rowId: string, toCol: string) => void) {
     window.addEventListener('pointercancel', onPointerUp);
     window.addEventListener('touchmove', onTouchMove, { passive: false });
     return () => {
+      if (live.current?.holdTimer) clearTimeout(live.current.holdTimer);
+      highlight(null);
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', onPointerUp);
       window.removeEventListener('pointercancel', onPointerUp);
       window.removeEventListener('touchmove', onTouchMove);
     };
-  }, [onMove]);
+  }, []);
 
   const startDrag = useCallback(
     (e: React.PointerEvent, rowId: string, fromCol: string, title: string) => {
@@ -171,7 +192,7 @@ export function useBoardDrag(onMove: (rowId: string, toCol: string) => void) {
         startX: e.clientX,
         startY: e.clientY,
         started: false,
-        over: fromCol,
+        board: e.currentTarget.closest('.board'),
         touch,
         armed: !touch, // mouse: armed at once. Finger: only after the hold.
         holdTimer: null,

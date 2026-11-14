@@ -25,6 +25,7 @@
   "6-digit code": "Código de 6 dígitos",
   "30 days ago": "Hace 30 días",
   "A calendar date never moves, whatever the time zone says.": "Una fecha de calendario nunca cambia, sin importar la zona horaria.",
+  "A card cannot be moved into a collection inside it.": "No se puede mover una tarjeta a una colección que está dentro de ella.",
   "A collection appears here once it has a date property.": "Una colección aparece aquí en cuanto tiene una propiedad de fecha.",
   "7 days ago": "Hace 7 días",
   "A collection stays under its document. Good for documentation.": "Una colección permanece bajo su documento. Ideal para documentación.",
@@ -121,6 +122,7 @@
   "Checkbox": "Casilla",
   "Checked": "Marcado",
   "Checklist": "Lista de verificación",
+  "Choose a card and a different collection.": "Elige una tarjeta y una colección distinta.",
   "Choose a picture…": "Elegir una imagen…",
   "Choose…": "Elegir…",
   "Clean up now": "Limpiar ahora",
@@ -807,6 +809,9 @@
   "That is this person’s personal space. They cannot be removed from it.": "Ese es el espacio personal de esta persona. No puede ser eliminada de él.",
   "That name was chosen by whoever set up the connection. Only continue if you started this yourself.": "Ese nombre fue elegido por quien configuró la conexión. Continúa solo si lo iniciaste tú mismo.",
   "That point here via": "Que apuntan aquí mediante",
+  "The card could not be moved.": "No se pudo mover la tarjeta.",
+  "The card moved again. This move could not be undone.": "La tarjeta se volvió a mover. No se pudo deshacer este movimiento.",
+  "The card or collection is no longer available.": "La tarjeta o la colección ya no está disponible.",
   "The Microsoft tenant must be a directory (tenant) ID or a verified domain name, such as contoso.onmicrosoft.com.": "El inquilino de Microsoft debe ser un Id. de directorio (inquilino) o un nombre de dominio verificado, como contoso.onmicrosoft.com.",
   "The address has to be an alias of the connected mailbox (Gmail: verify it under “Send mail as” in the Gmail settings; Microsoft: alias or send-as permission). Want a different mailbox entirely? “Disconnect”, then pick the account you want in the sign-in dialog when reconnecting.": "La dirección debe ser un alias del buzón conectado (Gmail: verifícala en «Enviar correo como» en los ajustes de Gmail; Microsoft: permiso de alias o envío como). ¿Prefieres un buzón totalmente diferente? «Desconectar», y luego selecciona la cuenta que desees en el diálogo de inicio de sesión al volver a conectar.",
   "The comments, after the document": "Los comentarios, tras el documento",
@@ -1190,5 +1195,6 @@
   "Some uploaded files could not be read, so the backup would be incomplete. The server log names them.": "Algunos archivos subidos no se pudieron leer, así que la copia de seguridad quedaría incompleta. El registro del servidor los nombra.",
   "Written by an agent through this account": "Escrito por un agente a través de esta cuenta",
   "Agent": "Agente",
-  "Copy of {title}": "Copia de {title}"
+  "Copy of {title}": "Copia de {title}",
+  "Undo board move": "Deshacer movimiento de tarjeta"
 }

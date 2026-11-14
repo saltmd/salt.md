@@ -5,6 +5,8 @@ import { filterIsArmed, filterValues, matchesFilter } from '../collectionFilters
 import { onRefresh } from '../pwa';
 import Portal from './Portal';
 import { useBoardDrag } from '../boardDrag';
+import { useBoardUndo } from '../boardUndo';
+import { isTypingTarget } from '../keys';
 import { tagColorClass } from '../tags';
 import { compare, firstWeekday, formatDay, formatMonth, isReadableDay, resolveSmartDate, toDayString, today, weekdayNames } from '../format';
 import { plural, t } from '../i18n';
@@ -184,6 +186,8 @@ function applyView(rows: Row[], view: ViewDef, schema: PropDef[], currentUser: A
 export default function CollectionView({ collectionId, pages, tagColors, onNavigate, onOpenInNewTab, onPagesChanged, embed }: Props) {
   // Who "@me" is in a person filter, and who a new row made under one goes to.
   const currentUser = useCurrentUser();
+  const collectionRef = useRef(collectionId);
+  collectionRef.current = collectionId;
   const [config, setConfig] = useState<CollectionConfig | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
   // A full page remembers its view across tab switches and reloads (see
@@ -504,16 +508,47 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
     });
   };
 
+  const boardUndo = useBoardUndo(collectionId, view?.type === 'board', loadRows);
+  const canDropOnCollection = (rowId: string, destinationId: string) => {
+    const target = pages.get(destinationId);
+    if (!workspaceId || target?.workspaceId !== workspaceId || destinationId === collectionId) return false;
+    for (let parent = target.parentId; parent; parent = pages.get(parent)?.parentId ?? null) {
+      if (parent === rowId) return false;
+    }
+    return true;
+  };
+
+  const moveToCollection = (rowId: string, destinationId: string) => {
+    boardUndo.move(async () => {
+      try {
+        const moved = await api.moveCollectionRow(collectionId, rowId, destinationId);
+        toast(t('Moved to “{name}”', { name: pages.get(destinationId)?.title || t('Untitled') }));
+        return async () => {
+          await api.moveCollectionRow(destinationId, rowId, collectionId, {
+            position: moved.fromPosition,
+            expectedPosition: moved.position,
+          });
+        };
+      } catch (err) {
+        toast((err as Error).message || t('Moving failed'));
+      }
+    });
+  };
   const setRowProp = async (rowId: string, propId: string, value: unknown) => {
-    setRows((prev) =>
-      prev.map((r) => (r.id === rowId ? { ...r, props: { ...r.props, [propId]: value } } : r)),
-    );
+    // A queued move still saves after navigation, but must not paint its old
+    // collection into the new one or start an old row query after a failure.
+    if (collectionRef.current === collectionId) {
+      setRows((prev) =>
+        prev.map((r) => (r.id === rowId ? { ...r, props: { ...r.props, [propId]: value } } : r)),
+      );
+    }
     // Send only the changed key (field-level merge) so two devices editing
     // different properties of the same row don't overwrite each other.
     try {
-      await api.updatePage(rowId, { propsPatch: { [propId]: value } });
+      return await api.updatePage(rowId, { propsPatch: { [propId]: value } });
     } catch {
       toast(t('Change not saved'));
+      if (collectionRef.current === collectionId) await loadRows().catch(() => {});
     }
   };
 
@@ -540,13 +575,14 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
     }
   };
 
-  const setGroupValue = async (rowId: string, propId: string, optId: string) => {
+  const setGroupValue = (rowId: string, propId: string, optId: string) => {
     const prop = schema.find((p) => p.id === propId);
-    if (prop?.type === 'multiselect' || prop?.type === 'relation') {
-      await setRowProp(rowId, propId, optId === UNSET ? [] : [optId]);
-    } else {
-      await setRowProp(rowId, propId, optId === UNSET ? '' : optId);
-    }
+    const multiple = prop?.type === 'multiselect' || prop?.type === 'relation';
+    const value = multiple ? (optId === UNSET ? [] : [optId]) : (optId === UNSET ? '' : optId);
+    boardUndo.move(async () => {
+      const saved = await setRowProp(rowId, propId, value);
+      if (saved?.changeId) return boardUndo.undoProperties(saved.changeId);
+    });
   };
 
   if (!config || !view) return <div className="editor-loading" />;
@@ -874,6 +910,8 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
   return (
     <div
       ref={rootRef}
+      onPointerDownCapture={boardUndo.activate}
+      onFocusCapture={boardUndo.activate}
       className={
         'collection-scroll' +
         (view.type === 'board' ? ' is-board' : '') +
@@ -905,6 +943,8 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
           onDrop={(rowId, groupBy, optId) => {
             void setGroupValue(rowId, groupBy, optId);
           }}
+          canDropOnCollection={canDropOnCollection}
+          onDropOnCollection={moveToCollection}
           onTrashRow={trashRow}
           onAddInColumn={(groupBy, optId) =>
             void addRow({ [groupBy]: groupValueFor(schema, groupBy, optId) })
@@ -2010,6 +2050,8 @@ function BoardView({
   onSetProp,
   onSetOptions,
   onDrop,
+  canDropOnCollection,
+  onDropOnCollection,
   onTrashRow,
   onAddInColumn,
 }: {
@@ -2029,6 +2071,8 @@ function BoardView({
   onSetProp: (rowId: string, propId: string, value: unknown) => void;
   onSetOptions: (propId: string, options: PropOption[]) => void;
   onDrop: (rowId: string, groupBy: string, optId: string) => void;
+  canDropOnCollection: (rowId: string, collectionId: string) => boolean;
+  onDropOnCollection: (rowId: string, collectionId: string) => void;
   onTrashRow: (id: string, title: string) => Promise<void>;
   onAddInColumn: (groupBy: string, optId: string) => void;
 }) {
@@ -2040,8 +2084,10 @@ function BoardView({
   // opened card is a glance, not a setting.
   const [openCards, setOpenCards] = useState<Set<string>>(new Set());
   // Dragging by pointer rather than the jerky native drag (see boardDrag).
-  const { drag, armedRow, startDrag, consumeClick } = useBoardDrag((rowId, toCol) =>
-    onDrop(rowId, groupBy, toCol),
+  const { drag, armedRow, startDrag, consumeClick } = useBoardDrag(
+    (rowId, toCol) => onDrop(rowId, groupBy, toCol),
+    canDropOnCollection,
+    onDropOnCollection,
   );
   // When grouping by a relation, the columns are the rows of the target
   // collection. Loaded through the same cache the relation cells use, so the
@@ -2108,7 +2154,19 @@ function BoardView({
     });
 
   return (
-    <div className={'board' + (drag ? ' is-dragging' : '')}>
+    <div
+      className={'board' + (drag ? ' is-dragging' : '')}
+      tabIndex={-1}
+      onPointerDownCapture={(e) => {
+        // An embedded board lives inside an editor. Clicking its non-editable
+        // surface must move focus out of that editor so undo belongs here.
+        const target = e.target as Element;
+        if (!isTypingTarget(target) && !target.closest('button, a, input, select, textarea, label')) {
+          if (e.pointerType === 'mouse') e.preventDefault();
+          e.currentTarget.focus({ preventScroll: true });
+        }
+      }}
+    >
       {columns.map((col) => (
         <div
           key={col.id}

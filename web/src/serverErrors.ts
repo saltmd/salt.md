@@ -40,6 +40,17 @@ export function serverMessage(code: string, fallback: string, data?: ErrorData):
     case 'no_writable_workspace':
       return t('There is no workspace this account may create pages in.');
 
+    case 'collection_move_invalid':
+      return t('Choose a card and a different collection.');
+    case 'collection_move_unavailable':
+      return t('The card or collection is no longer available.');
+    case 'collection_move_stale':
+      return t('The card moved again. This move could not be undone.');
+    case 'collection_move_cycle':
+      return t('A card cannot be moved into a collection inside it.');
+    case 'collection_move_failed':
+      return t('The card could not be moved.');
+
     case 'comment_anchor_stale':
       return t('The page changed. Select the text again.');
 

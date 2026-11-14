@@ -273,7 +273,7 @@ button {
   color: inherit;
 }
 
-.tree-item.drop-inside {
+.tree-item.drop-inside, .tree-item[data-board-drop-active] {
   background-color: var(--accent-soft);
   box-shadow: inset 0 0 0 1.5px var(--accent);
 }

@@ -28,6 +28,7 @@
   "6-digit code": "6 位驗證碼",
   "7 days ago": "7 天前",
   "A calendar date never moves, whatever the time zone says.": "行事曆日期不受時區影響，始終不變。",
+  "A card cannot be moved into a collection inside it.": "無法將卡片移到其內部的集合中。",
   "A collection appears here once it has a date property.": "集合有了日期屬性後會顯示在這裡。",
   "A collection stays under its document. Good for documentation.": "集合保留在所屬文件下面，適合寫文件。",
   "A deactivated account cannot take over the instance.": "已停用的帳號不能接管實例。",
@@ -129,6 +130,7 @@
   "Checkbox": "核取方塊",
   "Checked": "已勾選",
   "Checklist": "任務清單",
+  "Choose a card and a different collection.": "請選擇一張卡片和另一個集合。",
   "Choose a picture…": "選擇圖片…",
   "Choose…": "選擇…",
   "Claude in the browser and in the desktop app calls from Anthropic’s addresses. Claude Code and other agents running on your own computer call from your address, so add that too if you use them.": "瀏覽器版和桌面應用程式中的 Claude 從 Anthropic 的位址發起呼叫。Claude Code 和其他在你自己電腦上執行的 Agent 從你的位址發起呼叫，如果你使用它們，也要新增你的位址。",
@@ -825,6 +827,9 @@
   "That is this person’s personal space. They cannot be removed from it.": "這是此人的個人空間，無法將其移出。",
   "That name was chosen by whoever set up the connection. Only continue if you started this yourself.": "此名稱由建立連線的人設定。僅當連線是你自己發起的時才繼續。",
   "That point here via": "通過以下屬性指向此處",
+  "The card could not be moved.": "無法移動該卡片。",
+  "The card moved again. This move could not be undone.": "該卡片已再次移動，無法復原這次操作。",
+  "The card or collection is no longer available.": "該卡片或集合已無法使用。",
   "The Microsoft tenant must be a directory (tenant) ID or a verified domain name, such as contoso.onmicrosoft.com.": "Microsoft 租戶必須是目錄（租戶）ID 或已驗證的網域名稱，如 contoso.onmicrosoft.com。",
   "The address has to be an alias of the connected mailbox (Gmail: verify it under “Send mail as” in the Gmail settings; Microsoft: alias or send-as permission). Want a different mailbox entirely? “Disconnect”, then pick the account you want in the sign-in dialog when reconnecting.": "該位址必須是已連線信箱的別名（Gmail：在 Gmail 設定的“用這個位址傳送郵件”中驗證；Microsoft：別名或“以…身份傳送”權限）。想換成完全不同的信箱？先“斷開連線”，重新連線時在登入對話方塊中選擇所需帳號。",
   "The comments, after the document": "評論，附在文件之後",
@@ -1178,5 +1183,6 @@
   "⚠ This is the URL of the running quick tunnel. It changes on every start. For OAuth that lasts, use a named tunnel or your own domain and enter it as the base URL.": "⚠ 這是目前執行的快速隧道的 URL，每次啟動都會變化。要讓 OAuth 長期可用，請使用命名隧道或你自己的網域名稱，並將其填為基礎 URL。",
   "✓ Resolved": "✓ 已解決",
   "＋ Link": "＋ 連結",
-  "＋ Person": "＋ 人員"
+  "＋ Person": "＋ 人員",
+  "Undo board move": "復原卡片移動"
 }

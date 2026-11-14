@@ -125,6 +125,7 @@ interface TreeCtx {
   onDuplicate: (id: string) => void;
   onToggleFavorite: (id: string) => void;
   workspaces: Workspace[];
+  dropCollectionId: (p: PageMeta) => string | undefined;
   onMoveToWorkspace: (pageId: string, wsId: string, wsName: string) => void;
   dragStart: (id: string, e: React.DragEvent) => void;
   dragOver: (p: PageMeta, e: React.DragEvent) => void;
@@ -363,6 +364,7 @@ function FlatRow({
   p,
   active,
   parentLabel,
+  dropCollectionId,
   onNavigate,
   onOpenInNewTab,
   action,
@@ -370,6 +372,7 @@ function FlatRow({
   p: PageMeta;
   active: boolean;
   parentLabel?: string;
+  dropCollectionId?: string;
   onNavigate: (id: string) => void;
   onOpenInNewTab?: (id: string) => void;
   action?: React.ReactNode;
@@ -377,6 +380,7 @@ function FlatRow({
   return (
     <div
       className={'tree-item sb-flat' + (active ? ' active' : '')}
+      data-board-drop-collection={dropCollectionId}
       onClick={(e) => openPage(e, p.id, { onNavigate, onOpenInNewTab })}
       onAuxClick={(e) => openPageAux(e, p.id, { onNavigate, onOpenInNewTab })}
     >
@@ -660,6 +664,7 @@ function TreeItem({
         // sidebar's sections are not that chain. Claiming the role without the
         // structure describes the tree wrongly, which is worse than not at all.
         data-expanded={hasExpand ? (isExpanded ? 'true' : 'false') : undefined}
+        data-board-drop-collection={ctx.dropCollectionId(p)}
         draggable
         onDragStart={(e) => ctx.dragStart(p.id, e)}
         onDragOver={(e) => ctx.dragOver(p, e)}
@@ -1053,6 +1058,10 @@ export default function Sidebar({
     },
   });
 
+  const dropCollectionId = (p: PageMeta) =>
+    p.type === 'collection' && !p.isTemplate && workspaces.some((w) => w.id === p.workspaceId && w.role !== 'viewer')
+      ? p.id : undefined;
+
   const ctx: TreeCtx = {
     childrenMap,
     mixed,
@@ -1084,6 +1093,7 @@ export default function Sidebar({
     onDuplicate,
     onToggleFavorite,
     workspaces,
+    dropCollectionId,
     onMoveToWorkspace: (pageId, wsId, wsName) => {
       // The move takes the whole subtree along and puts the page at the top
       // level in the target — the previous parent stays behind.
@@ -1389,6 +1399,7 @@ export default function Sidebar({
                 key={p.id}
                 p={p}
                 active={p.id === currentId}
+                dropCollectionId={dropCollectionId(p)}
                 onNavigate={onNavigate}
                 onOpenInNewTab={onOpenInNewTab}
                 action={
@@ -1442,6 +1453,7 @@ export default function Sidebar({
               className={'tree-item' + (p.id === currentId ? ' active' : '')}
               style={{ paddingLeft: 6 }}
               {...navItem(p.id)}
+              data-board-drop-collection={dropCollectionId(p)}
               onClick={(e) => openPage(e, p.id, { onNavigate, onOpenInNewTab })}
               onAuxClick={(e) => openPageAux(e, p.id, { onNavigate, onOpenInNewTab })}
             >

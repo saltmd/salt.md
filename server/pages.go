@@ -742,15 +742,25 @@ func (s *Server) handleUpdatePage(w http.ResponseWriter, r *http.Request) {
 		httpError(w, 404, "page not found")
 		return
 	}
+	// Save the undo entry with the property change. A failed log insert must
+	// not leave a saved move with no way to identify what it overwrote.
+	var changeID int64
+	if auditProps != "" {
+		u := requestUser(r)
+		var workspaceID string
+		if err := tx.QueryRow(`SELECT workspace_id FROM pages WHERE id = ?`, id).Scan(&workspaceID); err != nil {
+			httpError(w, 500, err.Error())
+			return
+		}
+		changeID, err = insertAudit(tx, "human", u.ID, u.Name, "set_properties", id, workspaceID, "", auditProps)
+		if err != nil {
+			httpError(w, 500, err.Error())
+			return
+		}
+	}
 	if err := tx.Commit(); err != nil {
 		httpError(w, 500, err.Error())
 		return
-	}
-	// After the commit, never inside it: the server holds ONE database
-	// connection, and a write issued while the transaction is open deadlocks it.
-	if auditProps != "" {
-		u := requestUser(r)
-		s.auditChanges("human", u.ID, u.Name, "set_properties", id, s.pageWorkspace(id), "", auditProps)
 	}
 	if body.Title != nil || len(body.Content) > 0 || len(body.Props) > 0 {
 		if err := s.reindexPage(id); err != nil {
@@ -785,7 +795,10 @@ func (s *Server) handleUpdatePage(w http.ResponseWriter, r *http.Request) {
 		httpError(w, 500, err.Error())
 		return
 	}
-	writeJSON(w, p)
+	writeJSON(w, struct {
+		*page
+		ChangeID int64 `json:"changeId,omitempty"`
+	}{p, changeID})
 }
 
 // handleReindexSiblings renumbers a parent's children to 1,2,3,… so the
