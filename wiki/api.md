@@ -360,10 +360,38 @@ thing under two names.
 | `GET /api/collections/{id}` | the schema (its properties) and its saved views |
 | `PUT /api/collections/{id}` | replace `schema`, `views` or both; a half left out stays as stored |
 | `GET /api/collections/{id}/rows` | rows, filtered, sorted and paginated |
+| `POST /api/collections/{id}/rows/move` | move a row to another collection in the same workspace |
+| `GET /api/collections/{id}/rows/move` | what that move would leave unshown, without moving anything |
 
 `PUT` takes `schema`, `views` or both. The half you leave out stays as it is
 stored, so changing a view never puts back an older copy of the schema, and the
 other way round. An empty body is a `400`. The answer is the stored pair.
+
+To move a row, send `{"rowId":"…","collectionId":"…"}` to the move route
+on its source collection. The call requires write access to the row and both
+collections. It appends the original page to the destination's stored order
+and keeps its saved property values. The answer is a receipt: `fromPosition`,
+`position`, and `fromPlacement` and `placement`, a counter that every change of
+the card's parent or position advances, through any route. Board undo sends
+them back as a `restore` object (`position`, `expectedPosition`,
+`expectedPlacement`, `placement` set to `fromPlacement`); the card is restored
+only while nothing has moved it since, otherwise the answer is `409` with
+`collection_move_stale`. Restoring puts the counter back as well, so the
+receipts of earlier moves of the same card stay valid. Both a
+move and its undo are written to the activity log, which names a private
+collection only as "a private collection".
+
+A move may carry `check`, the answer of the `GET` below that the reader
+confirmed. If what the move affects has changed since, up to the moment it is
+written, it is refused with `409` and `collection_move_changed`, and nothing
+moves.
+
+`GET` on the same route with `?rowId=…&collectionId=…` changes nothing and asks
+for the same access. It answers `hidden`, the names of properties holding a
+value the destination will not show (it lacks the property, has it with another
+type, or does not offer the option), and `relations`, each relation in a
+collection you can read, in any workspace, that targets the source and still
+points at the row, as `collection`, `property` and the number of `rows`.
 
 Rows are filtered in the database rather than in your script, so a table with
 50 000 rows costs one page of results:

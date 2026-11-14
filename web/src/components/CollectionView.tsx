@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { api } from '../api';
+import { ApiError, api } from '../api';
 import { collectionDefaults } from '../collectionDefaults';
 import { filterIsArmed, filterValues, matchesFilter } from '../collectionFilters';
 import { onRefresh } from '../pwa';
@@ -513,6 +513,63 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
   const loadRowsRef = useRef(loadRows);
   loadRowsRef.current = loadRows;
   const boardUndo = useBoardUndo(collectionId, view?.type === 'board', () => loadRowsRef.current());
+  const canDropOnCollection = (rowId: string, destinationId: string) => {
+    const target = pages.get(destinationId);
+    if (!workspaceId || target?.workspaceId !== workspaceId || destinationId === collectionId) return false;
+    for (let parent = target.parentId; parent; parent = pages.get(parent)?.parentId ?? null) {
+      if (parent === rowId) return false;
+    }
+    return true;
+  };
+
+  const moveToCollection = (rowId: string, destinationId: string) => {
+    const name = pages.get(destinationId)?.title || t('Untitled');
+    // The check runs inside the undo queue, so an undo pressed before it
+    // answers belongs to this move rather than reverting the one before it.
+    boardUndo.move(async () => {
+      try {
+        // Ask first only when the destination would not show something the
+        // card holds now; a move that carries everything over goes straight on.
+        // The server refuses a move whose effects changed after the reader
+        // confirmed them, and then the reader is asked again.
+        for (let attempt = 0; ; attempt++) {
+          const check = await api.checkCollectionMove(collectionId, rowId, destinationId);
+          if (check.hidden.length || check.relations.length) {
+            const parts: string[] = [];
+            if (check.hidden.length) {
+              parts.push(t('“{name}” will not show these values of the card:', { name }) + '\n' + check.hidden.join(', '));
+            }
+            if (check.relations.length) {
+              parts.push(
+                t('These relations keep pointing at the card but can no longer pick it:') + '\n' +
+                check.relations.map((r) => `${r.collection || t('Untitled')} › ${r.property}`).join('\n'),
+              );
+            }
+            parts.push(t('Nothing is lost: moving the card back shows everything again.'));
+            if (!(await confirm(parts.join('\n\n'), { confirmText: t('Move anyway') }))) return;
+          }
+          let moved;
+          try {
+            moved = await api.moveCollectionRow(collectionId, rowId, destinationId, { check });
+          } catch (err) {
+            if (err instanceof ApiError && err.code === 'collection_move_changed' && attempt < 2) continue;
+            throw err;
+          }
+          toast(t('Moved to “{name}”', { name }));
+          // The live stream normally removes the card; without it the board
+          // would keep showing a card that has left.
+          if (collectionRef.current === collectionId) void loadRowsRef.current().catch(() => {});
+          return async () => {
+            await api.moveCollectionRow(destinationId, rowId, collectionId, {
+              restore: { position: moved.fromPosition, expectedPosition: moved.position, expectedPlacement: moved.placement, placement: moved.fromPlacement },
+            });
+          };
+        }
+      } catch (err) {
+        toast((err as Error).message || t('Moving failed'));
+      }
+    });
+  };
   const setRowProp = async (rowId: string, propId: string, value: unknown) => {
     // A queued move still saves after navigation, but must not paint its old
     // collection into the new one or start an old row query after a failure.
@@ -558,7 +615,10 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
     const prop = schema.find((p) => p.id === propId);
     const multiple = prop?.type === 'multiselect' || prop?.type === 'relation';
     const value = multiple ? (optId === UNSET ? [] : [optId]) : (optId === UNSET ? '' : optId);
-    boardUndo.move(() => setRowProp(rowId, propId, value));
+    boardUndo.move(async () => {
+      const saved = await setRowProp(rowId, propId, value);
+      if (saved?.changeId) return boardUndo.undoProperties(saved.changeId);
+    });
   };
 
   if (!config || !view) return <div className="editor-loading" />;
@@ -920,6 +980,8 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
           onDrop={(rowId, groupBy, optId) => {
             void setGroupValue(rowId, groupBy, optId);
           }}
+          canDropOnCollection={canDropOnCollection}
+          onDropOnCollection={moveToCollection}
           onTrashRow={trashRow}
           onAddInColumn={(groupBy, optId) =>
             void addRow({ [groupBy]: groupValueFor(schema, groupBy, optId) })
@@ -2025,6 +2087,8 @@ function BoardView({
   onSetProp,
   onSetOptions,
   onDrop,
+  canDropOnCollection,
+  onDropOnCollection,
   onTrashRow,
   onAddInColumn,
   inEditor,
@@ -2045,6 +2109,8 @@ function BoardView({
   onSetProp: (rowId: string, propId: string, value: unknown) => void;
   onSetOptions: (propId: string, options: PropOption[]) => void;
   onDrop: (rowId: string, groupBy: string, optId: string) => void;
+  canDropOnCollection: (rowId: string, collectionId: string) => boolean;
+  onDropOnCollection: (rowId: string, collectionId: string) => void;
   /** Embedded in a document, where the editor would otherwise keep the focus. */
   inEditor: boolean;
   onTrashRow: (id: string, title: string) => Promise<void>;
@@ -2058,8 +2124,10 @@ function BoardView({
   // opened card is a glance, not a setting.
   const [openCards, setOpenCards] = useState<Set<string>>(new Set());
   // Dragging by pointer rather than the jerky native drag (see boardDrag).
-  const { drag, armedRow, startDrag, consumeClick } = useBoardDrag((rowId, toCol) =>
-    onDrop(rowId, groupBy, toCol),
+  const { drag, armedRow, startDrag, consumeClick } = useBoardDrag(
+    (rowId, toCol) => onDrop(rowId, groupBy, toCol),
+    canDropOnCollection,
+    onDropOnCollection,
   );
   // When grouping by a relation, the columns are the rows of the target
   // collection. Loaded through the same cache the relation cells use, so the

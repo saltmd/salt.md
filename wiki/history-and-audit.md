@@ -185,6 +185,7 @@ tail. An instance where nothing has happened says *Nothing has happened yet.*
 | changed | a page's title, icon, cover, description, visibility or tags was changed over MCP (`update_page`) |
 | uploaded a file to | a file was attached over MCP |
 | moved to trash / permanently deleted | a page was trashed or deleted for good from the browser or the API |
+| moved to another collection: | a board card was moved to another collection, or that move undone; the detail names both collections, a private one only as "a private collection" |
 | started working on: / finished working on: | an agent checked in or out of a page, with its own note as the detail |
 | deactivated the account: / reactivated the account: / deleted the account: | account administration |
 | deleted the workspace: / took over the workspace: / adopted the ownerless workspace: | workspace lifecycle |

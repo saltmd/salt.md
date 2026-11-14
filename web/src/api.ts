@@ -22,6 +22,8 @@ import { normalizeCollectionConfig } from './types';
 import { formatBytes } from './format';
 import { serverMessage } from './serverErrors';
 
+export type CollectionMoveCheck = { hidden: string[]; relations: { collection: string; property: string; rows: number }[] };
+
 /** An error carrying an HTTP status and a machine-readable reason, so callers
  *  can branch on those rather than on the message text — the text changes with
  *  every rewording, and a branch on it breaks silently. */
@@ -448,6 +450,24 @@ export const api = {
       limit: number;
     }>(`/api/collections/${pageId}/rows?${p.toString()}`);
   },
+  /** What a move would leave unshown: values the destination has no place
+   *  for, and relations elsewhere that keep pointing at the card. */
+  checkCollectionMove: (sourceId: string, rowId: string, collectionId: string) =>
+    req<CollectionMoveCheck>(
+      `/api/collections/${sourceId}/rows/move?${new URLSearchParams({ rowId, collectionId })}`,
+    ),
+  // check: what the reader confirmed; the server refuses the move with
+  // collection_move_changed if that no longer holds.
+  moveCollectionRow: (
+    sourceId: string,
+    rowId: string,
+    collectionId: string,
+    opts: { restore?: { position: number; expectedPosition: number; expectedPlacement: number; placement: number }; check?: CollectionMoveCheck } = {},
+  ) =>
+    req<{ ok: boolean; fromPosition: number; position: number; fromPlacement: number; placement: number }>(`/api/collections/${sourceId}/rows/move`, {
+      method: 'POST',
+      body: JSON.stringify({ rowId, collectionId, ...opts }),
+    }),
   // Either half alone is fine; the server keeps the other as stored.
   putCollection: (pageId: string, config: Partial<CollectionConfig>) =>
     req<CollectionConfig>(`/api/collections/${pageId}`, {

@@ -398,6 +398,7 @@ export function ActivityModal({ onClose, pageId, pageTitle }: { onClose: () => v
     update_page: t('changed'),
     append_markdown: t('added to'),
     trash_page: t('moved to trash'),
+    move_to_collection: t('moved to another collection:'),
     delete_page: t('permanently deleted'),
     upload_file: t('uploaded a file to'),
     disable_user: t('deactivated the account:'),
