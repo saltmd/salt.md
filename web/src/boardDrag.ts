@@ -157,10 +157,12 @@ export function useBoardDrag(onMove: (rowId: string, toCol: string) => void) {
       // Left mouse button or finger only, and not on a control of the card
       // (the ⋯ menu, a select chip) — there you want to click, not drag.
       if (e.button !== 0) return;
-      if ((e.target as Element).closest?.('.card-move, .card-prop-edit, a, button')) return;
+      if ((e.target as Element).closest?.('.card-move, .card-prop-edit, a, button, input')) return;
       const card = (e.currentTarget as HTMLElement).getBoundingClientRect();
       draggedRef.current = false;
       const touch = e.pointerType === 'touch' || e.pointerType === 'pen';
+      // The browser can start selecting text before the drag threshold is met.
+      if (!touch) e.preventDefault();
       live.current = {
         rowId,
         fromCol,

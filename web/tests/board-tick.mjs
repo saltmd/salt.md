@@ -27,6 +27,28 @@ await withFixture(async ({ page, api, base, path }) => {
   await box.waitFor();
   const board = page.url();
 
+  // A drag starting on a card title must not select text above the board.
+  const title = await card.locator('.board-card-title').boundingBox();
+  const boardBounds = await page.locator('.board').boundingBox();
+  assert(title && boardBounds);
+  await page.mouse.move(title.x + 12, title.y + title.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(title.x + 40, boardBounds.y - 70, { steps: 16 });
+  await page.locator('.board-drag-ghost').waitFor();
+  assert.equal(await page.evaluate(() => window.getSelection()?.toString()), '');
+  await page.mouse.up();
+  assert.equal(await page.evaluate(() => window.getSelection()?.toString()), '');
+  assert.equal(page.url(), board);
+
+  const pageTitle = page.locator('textarea.page-title');
+  const heading = await pageTitle.boundingBox();
+  assert(heading);
+  await page.mouse.move(heading.x + 3, heading.y + heading.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(heading.x + 100, heading.y + heading.height / 2, { steps: 10 });
+  await page.mouse.up();
+  assert(await pageTitle.evaluate((input) => input.selectionEnd > input.selectionStart));
+
   await box.click();
   await eventually(async () => (await approved()) === false);
   assert.equal(writes.length, 1, `one write per tick, saw ${writes.length}`);
@@ -37,5 +59,5 @@ await withFixture(async ({ page, api, base, path }) => {
   await card.getByText('First row', { exact: true }).click();
   await eventually(async () => page.url() !== board);
 
-  console.log('Board tick: a box on a card ticks in one write and leaves the card closed.');
+  console.log('Board interactions: dragging, text selection, ticking and opening passed.');
 });
