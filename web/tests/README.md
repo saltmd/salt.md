@@ -21,6 +21,17 @@ of downloading Chromium, skip the browser installation and set
 The browser dependency is isolated in this test package; the application has no
 additional runtime dependencies. Tests do not upload fixtures or screenshots.
 
+Automatic-subpages coverage includes document/task parents, direct children,
+live rename/order/move/trash updates, keyboard navigation, nested manual-list
+deduplication, unchanged stored content and narrow layouts. Run it alone with
+`GO_BINARY=/path/to/go PLAYWRIGHT_CHANNEL=chrome node web/tests/subpages.mjs`.
+
+The maintainer capture recipe is `wiki/automatic-subpages.recipe.json`. It uses
+the invented Team handbook and its children from
+`web/scripts/seed-wiki-instance.mjs` on a throwaway instance. Keep it outside the
+active screenshot manifest until the images are taken; existing screenshot
+fingerprints are unchanged.
+
 Inline comments cover selection creation, saved anchors after reload,
 resolve/reopen, narrow light/dark navigation, localized stale-anchor errors in
 German, Spanish and Chinese, draft retention, detachment and deletion.

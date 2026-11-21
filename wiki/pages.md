@@ -164,6 +164,14 @@ editor. See [Collections](collections.md).
 
 Any page can hold pages. Nesting is unlimited, and the sidebar tree shows it.
 
+Documents and collection rows also show their direct sub-pages automatically
+as individual page entries below the text, each with its icon and title. These
+entries update as children are added, renamed, moved, reordered or trashed,
+and show only pages you may read. With no children, nothing is added to the
+body. An existing **Sub-pages** block keeps the list at the position you chose
+instead of showing it twice. Collections keep their rows in
+the existing table or other collection view.
+
 **How the tree is shaped is a workspace setting**, not a personal one. Open the
 workspace menu at the top of the sidebar, choose **Workspace settings**, and
 under **Layout** → **How the sidebar is arranged** pick one:
