@@ -2188,7 +2188,7 @@ function BlockContent({
           {t('Drop to add to this page')}
         </div>
       )}
-      <div className="editor-inner" onClickCapture={onFileClick}>
+      <div className="editor-inner" onClickCapture={onFileClick} onKeyDown={keepTabInText}>
         {/* The database block renders inside the editor and would otherwise
             not reach the page list, the tag colours or navigation. */}
         <BlockContext.Provider value={{ pagesById, tagColors, onNavigate, onOpenInNewTab, onPagesChanged, pageId: provider.pageId }}>
@@ -2215,6 +2215,24 @@ function BlockContent({
       )}
     </div>
   );
+}
+
+/** Tab indents a block and Shift+Tab lifts it. Where neither is possible (the
+ *  first block has nothing to go under, a top-level block nothing to leave)
+ *  BlockNote lets the key through, although its own comment says it means to
+ *  keep it, and the browser moved the focus out of the text: on the first line
+ *  Tab landed in whatever came next on the page (#144). This runs after the
+ *  editor has had its turn, so a handled Tab arrives here already prevented.
+ *  With text selected the key is left alone, because then it leads into the
+ *  formatting toolbar; in a field inside a block (a diagram's source) it keeps
+ *  its ordinary meaning. */
+function keepTabInText(e: React.KeyboardEvent) {
+  if (e.key !== 'Tab' || e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
+  const target = e.target as HTMLElement;
+  if (!target.isContentEditable || target.closest('input, textarea, select')) return;
+  const selection = window.getSelection();
+  if (selection && !selection.isCollapsed) return;
+  e.preventDefault();
 }
 
 // "Linked references" — other pages that @-mention this one.

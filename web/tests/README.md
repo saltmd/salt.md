@@ -38,7 +38,9 @@ German, Spanish and Chinese, draft retention, detachment and deletion.
 
 Editor undo covers Ctrl+Z and Ctrl+Shift+Z in a page, once as a Linux machine
 (where nothing of the browser can stand in for the editor's own history) and
-once with this machine's real keys (#145).
+once with this machine's real keys (#145). Editor Tab covers indenting and
+lifting a block, and that Tab on the first line and Shift+Tab on a top-level
+block leave the focus in the text instead of moving it elsewhere (#144).
 
 Slash-menu coverage includes unique group headings and `/page` creation from
 documents and collection rows, keyboard/mouse selection, inherited workspace,
