@@ -172,6 +172,8 @@ body. An existing **Sub-pages** block keeps the list at the position you chose
 instead of showing it twice. Collections keep their rows in
 the existing table or other collection view.
 
+![A page's direct sub-pages listed below its text, without a block to insert.](img/automatic-subpages.png)
+
 **How the tree is shaped is a workspace setting**, not a personal one. Open the
 workspace menu at the top of the sidebar, choose **Workspace settings**, and
 under **Layout** → **How the sidebar is arranged** pick one:

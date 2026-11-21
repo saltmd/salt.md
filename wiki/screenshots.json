@@ -80,7 +80,7 @@
       ],
       "takenAt": {
         "web/src/components/Sidebar.tsx": "d2dba3370c99",
-        "web/src/components/Editor.tsx": "ba938de5322a",
+        "web/src/components/Editor.tsx": "12d0e15283d0",
         "web/src/App.tsx": "5f18773ed53b",
         "web/src/theme.css": "6a5de72d7e2c"
       }
@@ -141,7 +141,7 @@
         }
       ],
       "takenAt": {
-        "web/src/components/Editor.tsx": "ba938de5322a",
+        "web/src/components/Editor.tsx": "12d0e15283d0",
         "web/src/theme.css": "6a5de72d7e2c"
       }
     },
@@ -172,6 +172,40 @@
       ],
       "takenAt": {
         "web/src/components/StructurePanel.tsx": "47774ec631a4",
+        "web/src/theme.css": "6a5de72d7e2c"
+      }
+    },
+    {
+      "id": "automatic-subpages",
+      "page": "pages.md",
+      "caption": "A page's direct sub-pages listed below its text, without a block to insert.",
+      "shows": [
+        "web/src/blocks.tsx",
+        "web/src/components/Editor.tsx",
+        "web/src/styles.css",
+        "web/src/theme.css"
+      ],
+      "steps": [
+        {
+          "goto": "/"
+        },
+        {
+          "waitFor": ".sidebar"
+        },
+        {
+          "click": ".sidebar >> text=Team handbook"
+        },
+        {
+          "waitFor": ".child-pages"
+        },
+        {
+          "wait": 400
+        }
+      ],
+      "takenAt": {
+        "web/src/blocks.tsx": "24e5bb4899aa",
+        "web/src/components/Editor.tsx": "12d0e15283d0",
+        "web/src/styles.css": "a8566907cdbc",
         "web/src/theme.css": "6a5de72d7e2c"
       }
     },
@@ -245,9 +279,9 @@
         }
       ],
       "takenAt": {
-        "web/src/components/Editor.tsx": "ba938de5322a",
+        "web/src/components/Editor.tsx": "12d0e15283d0",
         "web/src/components/CommentsPanel.tsx": "1d138c776ef5",
-        "web/src/components/InlineComments.tsx": "8e4c5276df4f",
+        "web/src/components/InlineComments.tsx": "c5e988f8e659",
         "web/src/theme.css": "6a5de72d7e2c"
       }
     },
@@ -505,7 +539,7 @@
       ],
       "takenAt": {
         "server/public.go": "62d933047cbe",
-        "web/src/components/Editor.tsx": "ba938de5322a",
+        "web/src/components/Editor.tsx": "12d0e15283d0",
         "web/src/theme.css": "6a5de72d7e2c"
       }
     },
@@ -535,7 +569,7 @@
         }
       ],
       "takenAt": {
-        "web/src/components/UserMenu.tsx": "e96ef3cfb2c1",
+        "web/src/components/UserMenu.tsx": "4ba4d341b446",
         "web/src/theme.css": "6a5de72d7e2c"
       },
       "element": ".dialog"
@@ -567,8 +601,8 @@
         }
       ],
       "takenAt": {
-        "server/users.go": "2fa3d9b82071",
-        "web/src/components/UserMenu.tsx": "e96ef3cfb2c1",
+        "server/users.go": "b8b8faf5176d",
+        "web/src/components/UserMenu.tsx": "4ba4d341b446",
         "web/src/theme.css": "6a5de72d7e2c"
       },
       "element": ".dialog"
@@ -634,7 +668,7 @@
       ],
       "takenAt": {
         "web/src/components/AgentConnect.tsx": "dd2865c640de",
-        "server/mcp.go": "7d728b1b6f6f",
+        "server/mcp.go": "6205e90d7f47",
         "web/src/theme.css": "6a5de72d7e2c"
       },
       "element": ".dialog"
@@ -665,7 +699,7 @@
         }
       ],
       "takenAt": {
-        "server/users.go": "2fa3d9b82071",
+        "server/users.go": "b8b8faf5176d",
         "web/src/theme.css": "6a5de72d7e2c"
       },
       "element": ".dialog"
@@ -973,7 +1007,7 @@
       "takenAt": {
         "web/src/components/AdminSettings.tsx": "6713e2be48ac",
         "server/admin.go": "f54e70b1eea7",
-        "server/lifecycle_account.go": "e48cfee737ac",
+        "server/lifecycle_account.go": "131f7e3f91c2",
         "web/src/theme.css": "6a5de72d7e2c"
       },
       "element": ".dialog"
