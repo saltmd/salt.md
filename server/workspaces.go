@@ -214,6 +214,13 @@ func (s *Server) canReadReq(r *http.Request, pageID string) bool {
 }
 
 func (s *Server) canWriteReq(r *http.Request, pageID string) bool {
+	// A credential that may only read writes nowhere. auth refuses it every
+	// mutating METHOD, which left out writes that arrive any other way: the
+	// editor's live connection opens with a GET, and a read-only key and a
+	// read-only sign-in could change any page their human may edit through it.
+	if requestUser(r).TokenScope == "read" {
+		return false
+	}
 	if !s.canWrite(requestUser(r).ID, pageID) {
 		return false
 	}
