@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { createExtension } from '@blocknote/core';
 import { FormattingToolbar, getFormattingToolbarItems, useComponentsContext, useEditorState } from '@blocknote/react';
 import { MessageSquarePlus } from 'lucide-react';
 import { Plugin, PluginKey } from 'prosemirror-state';
@@ -12,7 +13,7 @@ import { t } from '../i18n';
 
 const key = new PluginKey('salt-inline-comments');
 
-function locate(editor: SaltEditor, provider: SaltProvider, anchor: CommentAnchor, state = editor.prosemirrorState) {
+function locate(provider: SaltProvider, anchor: CommentAnchor, state: SaltEditor['prosemirrorState']) {
   if (anchor.gen !== provider.gen) return null;
   const binding = ySyncPluginKey.getState(state)?.binding;
   if (!binding) return null;
@@ -70,50 +71,66 @@ export function InlineCommentToolbar({ editor, provider, onSelect }: {
   );
 }
 
-export function useInlineComments(editor: SaltEditor, provider: SaltProvider, comments: Comment[], onOpen: (id: string) => void, onStatuses: (statuses: Record<string, boolean>) => void) {
+/** What the highlighting reads while the editor runs: the editor is created
+ *  with the plugin already in it, so newer values arrive here instead of
+ *  through a new plugin. */
+export type InlineCommentsLive = {
+  provider: SaltProvider;
+  comments: Comment[];
+  onOpen: (id: string) => void;
+};
+
+/** The highlighting, as part of the editor from the moment it is created.
+ *  It used to be added afterwards with registerPlugin, and every change to the
+ *  editor's plugin list tears down and rebuilds the views of ALL plugins. The
+ *  undo plugin's teardown destroys its history, and the rebuilt view keeps
+ *  the destroyed one, so from then on nothing was recorded and Ctrl+Z did
+ *  nothing (#145). A Mac hid it: there the browser's own undo stepped in. */
+export function inlineCommentsExtension(live: InlineCommentsLive) {
+  const plugin = new Plugin({
+    key,
+    props: {
+      decorations(state) {
+        const decorations = live.comments.flatMap((comment) => {
+          if (!comment.anchor || comment.resolvedAt) return [];
+          const range = locate(live.provider, comment.anchor, state);
+          return range ? [Decoration.inline(range.from, range.to, { class: 'salt-comment-highlight', 'data-comment-id': comment.id })] : [];
+        });
+        return DecorationSet.create(state.doc, decorations);
+      },
+      handleClick(_view, _pos, event) {
+        const element = event.target as HTMLElement;
+        const id = element.closest<HTMLElement>('[data-comment-id]')?.dataset.commentId;
+        if (!id) return false;
+        live.onOpen(id);
+        return true;
+      },
+    },
+  });
+  return createExtension({ key: 'saltInlineComments', prosemirrorPlugins: [plugin] });
+}
+
+export function useInlineComments(editor: SaltEditor, live: InlineCommentsLive, provider: SaltProvider, comments: Comment[], onOpen: (id: string) => void, onStatuses: (statuses: Record<string, boolean>) => void) {
   const commentsRef = useRef(comments);
-  const onOpenRef = useRef(onOpen);
   const onStatusesRef = useRef(onStatuses);
   commentsRef.current = comments;
-  onOpenRef.current = onOpen;
   onStatusesRef.current = onStatuses;
+  live.provider = provider;
+  live.comments = comments;
+  live.onOpen = onOpen;
 
   useEffect(() => {
-    const plugin = new Plugin({
-      key,
-      props: {
-        decorations(state) {
-          const decorations = commentsRef.current.flatMap((comment) => {
-            if (!comment.anchor || comment.resolvedAt) return [];
-            const range = locate(editor, provider, comment.anchor, state);
-            return range ? [Decoration.inline(range.from, range.to, { class: 'salt-comment-highlight', 'data-comment-id': comment.id })] : [];
-          });
-          return DecorationSet.create(state.doc, decorations);
-        },
-        handleClick(_view, _pos, event) {
-          const element = event.target as HTMLElement;
-          const id = element.closest<HTMLElement>('[data-comment-id]')?.dataset.commentId;
-          if (!id) return false;
-          onOpenRef.current(id);
-          return true;
-        },
-      },
-    });
-    editor._tiptapEditor.registerPlugin(plugin);
     const jump = (event: Event) => {
       const id = (event as CustomEvent<string>).detail;
       const comment = commentsRef.current.find((item) => item.id === id);
-      const range = comment?.anchor && locate(editor, provider, comment.anchor);
+      const range = comment?.anchor && locate(provider, comment.anchor, editor.prosemirrorState);
       if (!range) return;
       const { node } = editor.prosemirrorView.domAtPos(range.from);
       const element = node instanceof HTMLElement ? node : node.parentElement;
       element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     };
     window.addEventListener('salt:comment-jump', jump);
-    return () => {
-      window.removeEventListener('salt:comment-jump', jump);
-      editor._tiptapEditor.unregisterPlugin(key);
-    };
+    return () => window.removeEventListener('salt:comment-jump', jump);
   }, [editor, provider]);
 
   useEffect(() => {
@@ -126,7 +143,7 @@ export function useInlineComments(editor: SaltEditor, provider: SaltProvider, co
         editor.prosemirrorView.dispatch(editor.prosemirrorState.tr.setMeta(key, true));
         const statuses: Record<string, boolean> = {};
         for (const comment of commentsRef.current) {
-          if (comment.anchor) statuses[comment.id] = !!locate(editor, provider, comment.anchor);
+          if (comment.anchor) statuses[comment.id] = !!locate(provider, comment.anchor, editor.prosemirrorState);
         }
         onStatusesRef.current(statuses);
       });

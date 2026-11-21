@@ -25,6 +25,10 @@ Inline comments cover selection creation, saved anchors after reload,
 resolve/reopen, narrow light/dark navigation, localized stale-anchor errors in
 German, Spanish and Chinese, draft retention, detachment and deletion.
 
+Editor undo covers Ctrl+Z and Ctrl+Shift+Z in a page, once as a Linux machine
+(where nothing of the browser can stand in for the editor's own history) and
+once with this machine's real keys (#145).
+
 Callout coverage: all seven preset icons, immediate background changes when
 cycling icons, existing saved blocks, light/dark appearance, dark-mode text
 contrast, and persistence after reload without changing the callout text.

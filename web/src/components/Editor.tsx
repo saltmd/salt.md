@@ -39,7 +39,7 @@ import { collectTags, suggestTags } from '../tagSuggest';
 import { modalOpen, useMenuDismiss } from '../modal';
 import { Menu, Copy, Star, Lock, LockOpen, Globe, MessageSquare, History, MoreHorizontal, Printer, FileCode, FileText, Upload, AlignLeft, Check, Image as ImageIcon , Smile, PanelRight, Link2, Trash2, FilePlus2, Columns2, Workflow} from 'lucide-react';
 import { blockTypeFor, carriesExternalFiles } from '../dropFiles';
-import { InlineCommentToolbar, useInlineComments } from './InlineComments';
+import { InlineCommentToolbar, inlineCommentsExtension, useInlineComments, type InlineCommentsLive } from './InlineComments';
 
 // The dictionaries BlockNote ships for the languages the interface has.
 const blockNoteDictionaries: Record<string, typeof coreEn> = {
@@ -1714,8 +1714,13 @@ function BlockContent({
   onCommentOpen: (id: string) => void;
   onAnchorStatuses: (statuses: Record<string, boolean>) => void;
 }) {
+  // Read by the comment highlighting, which has to be in the editor from the
+  // start: added later, it switched off undo (#145).
+  const [commentsLive] = useState<InlineCommentsLive>(() => ({ provider, comments, onOpen: onCommentOpen }));
+  const [commentsExtension] = useState(() => inlineCommentsExtension(commentsLive));
   const editor = useCreateBlockNote({
     schema: saltSchema,
+    extensions: [commentsExtension],
     collaboration: {
       provider,
       fragment: provider.doc.getXmlFragment('blocknote'),
@@ -1734,7 +1739,7 @@ function BlockContent({
     // BlockNote does not ship falls back to English, as t() does.
     dictionary: blockNoteDictionaries[getLocale()] ?? coreEn,
   });
-  useInlineComments(editor, provider, comments, onCommentOpen, onAnchorStatuses);
+  useInlineComments(editor, commentsLive, provider, comments, onCommentOpen, onAnchorStatuses);
 
   // Ctrl+Enter, kept literal (not `mod`) on every platform — ⌘↩ already means
   // something to plenty of hands from other editors, and borrowing it here

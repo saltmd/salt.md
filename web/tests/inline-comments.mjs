@@ -41,13 +41,16 @@ await withFixture(async ({ page, api, base, workspace }) => {
   await page.locator('.salt-comment-highlight').waitFor();
 
   // The same editor binding must work in both themes and in the narrow drawer.
-  for (const colorScheme of ['light', 'dark']) {
+  for (const [pass, colorScheme] of ['light', 'dark'].entries()) {
     await page.emulateMedia({ colorScheme });
     await page.setViewportSize({ width: 390, height: 844 });
     await page.locator('.cp-quote').click();
     await eventually(async () => (await page.locator('.cp-compose').count()) === 0);
     const highlight = page.locator('.salt-comment-highlight');
-    await highlight.click();
+    // A different spot each pass: two clicks within 500 ms and 10 px of each
+    // other are a double click to ProseMirror, which then selects a word
+    // instead of opening the comment. The second pass often came that fast.
+    await highlight.click({ position: { x: 12 + pass * 60, y: 8 } });
     await page.locator('.cp-quote').waitFor();
     assert.equal(await page.locator('.cp-quote span').textContent(), text);
   }
