@@ -310,6 +310,9 @@ func (s *Server) handleSetUserDisabled(w http.ResponseWriter, r *http.Request) {
 		// already signed in. Sessions and tokens end at once.
 		s.db.Exec(`DELETE FROM sessions WHERE user_id = ?`, id)
 		s.db.Exec(`DELETE FROM api_tokens WHERE user_id = ?`, id)
+		// Signed-in connections as well. auth refuses them while the account is
+		// off, but they came back to life the day it was switched on again.
+		s.endSignIns(id)
 		// The calendar subscription link does not live in api_tokens but as an
 		// app_settings row — otherwise it would have gone on serving every date
 		// and database in those workspaces indefinitely, with no sign-in.

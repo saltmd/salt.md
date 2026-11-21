@@ -801,6 +801,37 @@ func (s *Server) handleListGrants(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, out)
 }
 
+// endSignIns ends every signed-in connection of an account at once: its
+// grants, the access tokens minted from them, and the answers a recent
+// renewal is still holding for its five minutes. A changed password and a
+// deactivated account end the sessions and the keys; a sign-in is the same
+// kind of credential and went on working after both.
+func (s *Server) endSignIns(userID string) {
+	rows, err := s.db.Query(`SELECT id FROM oauth_grants WHERE user_id = ?`, userID)
+	if err != nil {
+		return
+	}
+	ended := map[string]bool{}
+	for rows.Next() {
+		var id string
+		if rows.Scan(&id) == nil {
+			ended[id] = true
+		}
+	}
+	rows.Close()
+	for id := range ended {
+		s.db.Exec(`DELETE FROM oauth_access WHERE grant_id = ?`, id)
+		s.db.Exec(`DELETE FROM oauth_grants WHERE id = ?`, id)
+	}
+	s.renewMu.Lock()
+	defer s.renewMu.Unlock()
+	for hash, rn := range s.renewals {
+		if ended[rn.grantID] {
+			delete(s.renewals, hash)
+		}
+	}
+}
+
 // handleDeleteGrant is "disconnect", and it means it: the grant and every
 // access token minted from it go at once.
 func (s *Server) handleDeleteGrant(w http.ResponseWriter, r *http.Request) {

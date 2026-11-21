@@ -729,9 +729,13 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	if body.Password != nil {
 		s.db.Exec(`UPDATE users SET password_hash = ? WHERE id = ?`, hashPassword(*body.Password), id)
-		// Changing the password invalidates all of the account's sessions and tokens.
+		// Changing the password invalidates all of the account's sessions and
+		// tokens: the signed-in connections and the calendar link too, which
+		// are keys as much as the others are.
 		s.db.Exec(`DELETE FROM sessions WHERE user_id = ?`, id)
 		s.db.Exec(`DELETE FROM api_tokens WHERE user_id = ?`, id)
+		s.endSignIns(id)
+		s.db.Exec(`DELETE FROM app_settings WHERE key = ?`, "ics_token_"+id)
 		if me.ID == id {
 			if token, err := s.createSession(id); err == nil {
 				setSessionCookie(w, r, token, s.sessionDays()*24*3600)
