@@ -361,7 +361,7 @@ var mcpTools = []map[string]any{
 	{
 		"name":        "delete_comment",
 		"annotations": removes,
-		"description": "Delete a comment permanently.",
+		"description": "Delete a comment permanently. Only its author or an admin of the page's workspace may.",
 		"inputSchema": map[string]any{"type": "object",
 			"properties": map[string]any{"comment_id": map[string]any{"type": "string"}},
 			"required":   []string{"comment_id"}},
@@ -1113,6 +1113,14 @@ func (s *Server) mcpCall(u *user, name string, rawArgs json.RawMessage, publicBa
 			pid, ok := s.commentPage(args.CommentID)
 			if !ok || !s.canWrite(userID, pid) || !s.credentialMayEnter(u, s.pageWorkspace(pid)) {
 				return "", fmt.Errorf("comment %q not found", args.CommentID)
+			}
+			// The rule the browser has always applied: the author, or an admin of
+			// the workspace. Being able to edit the page was enough here, so any
+			// member's agent could delete everybody else's comments.
+			var author string
+			s.db.QueryRow(`SELECT author_id FROM comments WHERE id = ?`, args.CommentID).Scan(&author)
+			if author != userID && !s.isWorkspaceAdmin(userID, s.pageWorkspace(pid)) {
+				return "", fmt.Errorf("only the comment's author or an admin of the workspace may delete comment %q", args.CommentID)
 			}
 			return s.mcpDeleteComment(args.CommentID)
 		case "whoami":
