@@ -1538,8 +1538,8 @@ function CoverMenu({
       if (t.closest?.('.cover-trigger, .cover-btn')) return;
       if (ref.current && !ref.current.contains(t)) onClose();
     };
-    document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
+    document.addEventListener('pointerdown', onDown);
+    return () => document.removeEventListener('pointerdown', onDown);
   }, [onClose]);
   return (
     <div className="cover-menu" ref={ref}>
