@@ -2558,6 +2558,14 @@ body:has(.icon-picker) .bn-side-menu {
   max-width: 100%;
 }
 
+/* The wrapper too, or the two rules below resolve their 100% against a box
+   that is already as wide as the longest title, and nothing ever clips: a
+   long chip ran across the border into the next column (#146). */
+.db-table td .relation-value {
+  display: block;
+  max-width: 100%;
+}
+
 .db-table td .relation-open {
   display: block;
   max-width: 100%;
