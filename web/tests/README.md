@@ -29,6 +29,14 @@ Editor undo covers Ctrl+Z and Ctrl+Shift+Z in a page, once as a Linux machine
 (where nothing of the browser can stand in for the editor's own history) and
 once with this machine's real keys (#145).
 
+Slash-menu coverage includes unique group headings and `/page` creation from
+documents and collection rows, keyboard/mouse selection, inherited workspace,
+title focus, reload persistence, the existing Sub-pages list, preserved parent
+text and visible creation refusal. Run it alone with
+`GO_BINARY=/path/to/go PLAYWRIGHT_CHANNEL=chrome node web/tests/slash-menu.mjs`.
+The Page action and its menu group are also checked in German, Spanish,
+Simplified Chinese and Traditional Chinese.
+
 Callout coverage: all seven preset icons, immediate background changes when
 cycling icons, existing saved blocks, light/dark appearance, dark-mode text
 contrast, and persistence after reload without changing the callout text.

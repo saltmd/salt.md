@@ -1,0 +1,24 @@
+{
+  "id": "page-command",
+  "page": "editor-blocks.md",
+  "caption": "Page in the slash menu creates a child document under the current page.",
+  "shows": [
+    "web/src/components/Editor.tsx",
+    "web/src/styles.css",
+    "web/src/theme.css"
+  ],
+  "steps": [
+    { "goto": "/" },
+    { "waitFor": ".sidebar" },
+    { "click": ".sidebar >> text=Team handbook" },
+    { "waitFor": ".bn-editor" },
+    { "click": ".bn-editor .bn-inline-content" },
+    { "press": "/" },
+    { "press": "p" },
+    { "press": "a" },
+    { "press": "g" },
+    { "press": "e" },
+    { "waitFor": ".bn-suggestion-menu" },
+    { "wait": 400 }
+  ]
+}
