@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"database/sql"
 	"encoding/binary"
 	"encoding/json"
 	"log"
@@ -97,6 +98,11 @@ type collabConn struct {
 	// account would notice none of that: its sessions and tokens are gone while
 	// this socket kept running. The id is what lets us close it deliberately.
 	userID string
+	req    *http.Request
+	// synced is set under room.mu right after {"synced":true} is enqueued,
+	// marking connections that have received the initial replay and can
+	// safely be asked to produce a snapshot.
+	synced bool
 
 	// Awareness bookkeeping, guarded by the room's mu. The server never
 	// interprets CRDT data, but presence must not depend on the client saying
@@ -106,6 +112,15 @@ type collabConn struct {
 	// see who is already here without waiting for the next 15s re-announce.
 	aware     map[uint64]uint64
 	lastAware []byte
+}
+
+func (c *collabConn) isClosed() bool {
+	select {
+	case <-c.done:
+		return true
+	default:
+		return false
+	}
 }
 
 // enqueue queues a frame for the writer goroutine. Non-blocking: a client
@@ -279,6 +294,7 @@ type collabRoom struct {
 	pendingBytes int64
 	compacting   bool
 	compactConn  *collabConn
+	compactSeq   int64
 	compactAt    time.Time
 	epoch        int64
 	seeded       bool
@@ -302,6 +318,25 @@ func (r *collabRoom) shouldCompactLocked(now time.Time) bool {
 		return false
 	}
 	return !r.compacting || now.Sub(r.compactAt) > compactTimeout
+}
+
+// clearCompactLocked resets all in-flight compaction state. Caller holds r.mu.
+func (r *collabRoom) clearCompactLocked() {
+	r.compacting = false
+	r.compactConn = nil
+	r.compactSeq = 0
+	r.compactAt = time.Time{}
+}
+
+// requestCompactLocked records the active snapshot request and enqueues it on
+// target. Caller holds r.mu.
+func (r *collabRoom) requestCompactLocked(target *collabConn, seq int64, now time.Time) {
+	r.compacting = true
+	r.compactConn = target
+	r.compactSeq = seq
+	r.compactAt = now
+	req, _ := json.Marshal(map[string]int64{"snapshotRequest": seq})
+	target.enqueue(outMsg{websocket.MessageText, req})
 }
 
 // broadcast enqueues a frame to every connection except `from`. Caller holds room.mu.
@@ -356,9 +391,7 @@ func (h *collabHub) leave(r *collabConn, room *collabRoom) {
 		room.seedConn = nil // hand the seed role to the next joiner
 	}
 	if room.compactConn == r {
-		room.compacting = false
-		room.compactConn = nil
-		room.compactAt = time.Time{}
+		room.clearCompactLocked()
 	}
 	empty := len(room.conns) == 0
 	room.mu.Unlock()
@@ -388,9 +421,7 @@ func (s *Server) resetYjsDoc(pageID string) {
 	room.seq = -1
 	room.pending = 0
 	room.pendingBytes = 0
-	room.compacting = false
-	room.compactConn = nil
-	room.compactAt = time.Time{}
+	room.clearCompactLocked()
 	room.seeded = false
 	room.seedConn = nil
 	conns := make([]*collabConn, 0, len(room.conns))
@@ -489,7 +520,7 @@ func (s *Server) handleCollab(w http.ResponseWriter, r *http.Request) {
 	// and the honest editor that would have compacted it never got in.
 	var stored int
 	s.db.QueryRow(`SELECT COUNT(*) FROM yjs_updates WHERE page_id = ?`, pageID).Scan(&stored)
-	conn := &collabConn{ws: ws, out: make(chan outMsg, outBuffer+stored), done: make(chan struct{}), aware: map[uint64]uint64{}, userID: requestUser(r).ID}
+	conn := &collabConn{ws: ws, out: make(chan outMsg, outBuffer+stored), done: make(chan struct{}), aware: map[uint64]uint64{}, userID: requestUser(r).ID, req: r}
 	go conn.writeLoop(ctx)
 	go conn.pingLoop(ctx)
 	go s.recheckCollabAccess(ctx, r, conn, pageID)
@@ -577,15 +608,12 @@ func (s *Server) handleCollab(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	conn.enqueue(outMsg{websocket.MessageText, []byte(`{"synced":true}`)})
+	conn.synced = true
 	// A room that is already over the line asks as soon as somebody who may
 	// write joins, so the history shrinks without waiting for the next edit.
 	now := time.Now()
 	if room.shouldCompactLocked(now) && s.canWriteReq(r, pageID) {
-		room.compacting = true
-		room.compactConn = conn
-		room.compactAt = now
-		req, _ := json.Marshal(map[string]int64{"snapshotRequest": room.seq})
-		conn.enqueue(outMsg{websocket.MessageText, req})
+		room.requestCompactLocked(conn, room.seq, now)
 	}
 	room.mu.Unlock()
 
@@ -665,11 +693,22 @@ func (s *Server) persistUpdate(ctx context.Context, room *collabRoom, conn *coll
 
 	now := time.Now()
 	if room.shouldCompactLocked(now) {
-		room.compacting = true
-		room.compactConn = conn
-		room.compactAt = now
-		req, _ := json.Marshal(map[string]int64{"snapshotRequest": seq})
-		conn.enqueue(outMsg{websocket.MessageText, req})
+		target := conn
+		// After a missed deadline, ask a different synced writer if one is
+		// available so a slow or stalled connection does not keep absorbing
+		// new snapshot requests.
+		if room.compacting && conn == room.compactConn {
+			for other := range room.conns {
+				if other == conn || !other.synced || other.isClosed() {
+					continue
+				}
+				if other.req != nil && s.canWriteReq(other.req, room.pageID) {
+					target = other
+					break
+				}
+			}
+		}
+		room.requestCompactLocked(target, seq, now)
 	}
 }
 
@@ -681,21 +720,34 @@ func (s *Server) applySnapshot(room *collabRoom, conn *collabConn, data []byte) 
 	snap := data[9:]
 	room.mu.Lock()
 	defer room.mu.Unlock()
-	if conn != room.compactConn || !room.compacting {
-		return // unsolicited or superseded (e.g. after a reset)
+	if !room.compacting || conn != room.compactConn || upTo != room.compactSeq {
+		return // unsolicited, superseded, or answer to an expired request
 	}
 	if upTo <= 0 || upTo > room.seq {
-		room.compacting = false
-		room.compactConn = nil
-		room.compactAt = time.Time{}
+		room.clearCompactLocked()
 		return
 	}
-	if _, err := s.db.Exec(`INSERT INTO yjs_state (page_id, snapshot, seq) VALUES (?, ?, ?)
-		ON CONFLICT(page_id) DO UPDATE SET snapshot = excluded.snapshot, seq = excluded.seq`, room.pageID, snap, upTo); err != nil {
+	// Never let yjs_state move backwards: refuse an upTo at or below what is
+	// already stored without clearing compacting for the newer request.
+	var storedSeq int64
+	err := s.db.QueryRow(`SELECT seq FROM yjs_state WHERE page_id = ?`, room.pageID).Scan(&storedSeq)
+	if err != nil && err != sql.ErrNoRows {
 		log.Printf("collab snapshot %s: %v", room.pageID, err)
-		room.compacting = false
-		room.compactConn = nil
-		room.compactAt = time.Time{}
+		room.clearCompactLocked()
+		return
+	}
+	if err == nil && upTo <= storedSeq {
+		return
+	}
+	res, err := s.db.Exec(`INSERT INTO yjs_state (page_id, snapshot, seq) VALUES (?, ?, ?)
+		ON CONFLICT(page_id) DO UPDATE SET snapshot = excluded.snapshot, seq = excluded.seq
+		WHERE excluded.seq > yjs_state.seq`, room.pageID, snap, upTo)
+	if err != nil {
+		log.Printf("collab snapshot %s: %v", room.pageID, err)
+		room.clearCompactLocked()
+		return
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
 		return
 	}
 	s.db.Exec(`DELETE FROM yjs_updates WHERE page_id = ? AND seq <= ?`, room.pageID, upTo)
@@ -704,9 +756,7 @@ func (s *Server) applySnapshot(room *collabRoom, conn *collabConn, data []byte) 
 	s.db.QueryRow(`SELECT COUNT(*), COALESCE(SUM(LENGTH(data)), 0) FROM yjs_updates WHERE page_id = ?`, room.pageID).Scan(&remaining, &remainingBytes)
 	room.pending = remaining
 	room.pendingBytes = remainingBytes
-	room.compacting = false
-	room.compactConn = nil
-	room.compactAt = time.Time{}
+	room.clearCompactLocked()
 }
 
 // collabRecheck is how often an open editor's right to the page is asked
