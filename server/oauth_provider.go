@@ -627,16 +627,18 @@ func (s *Server) userForAccessToken(tok, ip string) *user {
 		s.db.Exec(`DELETE FROM oauth_access WHERE token_hash = ?`, tokenHash(tok))
 		return nil
 	}
-	var userID, scope, workspaces string
-	if s.db.QueryRow(`SELECT user_id, scope, workspaces FROM oauth_grants WHERE id = ?`, grantID).
-		Scan(&userID, &scope, &workspaces) != nil {
+	var userID, scope, workspaces, prevAt, prevIP string
+	if s.db.QueryRow(`SELECT user_id, scope, workspaces, COALESCE(last_used_at, ''), COALESCE(last_used_ip, '') FROM oauth_grants WHERE id = ?`, grantID).
+		Scan(&userID, &scope, &workspaces, &prevAt, &prevIP) != nil {
 		return nil
 	}
 	u := s.userByID(userID)
 	if u == nil {
 		return nil
 	}
-	s.db.Exec(`UPDATE oauth_grants SET last_used_at = ?, last_used_ip = ? WHERE id = ?`, now(), ip, grantID)
+	if shouldTouchToken(prevAt, prevIP, ip, time.Now().UTC()) {
+		s.db.Exec(`UPDATE oauth_grants SET last_used_at = ?, last_used_ip = ? WHERE id = ?`, now(), ip, grantID)
+	}
 	// The very same fields an API token sets. A grant is not a second permission
 	// model, it is another way to arrive at the one that exists — TokenScope
 	// being non-empty is what every existing gate already reads.

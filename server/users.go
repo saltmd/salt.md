@@ -180,15 +180,17 @@ func (s *Server) currentUser(r *http.Request) *user {
 		if u := s.userForAccessToken(tok, s.clientIP(r)); u != nil {
 			return u
 		}
-		var userID, id, scope, wsScope string
-		err := s.db.QueryRow(`SELECT id, user_id, scope, workspace_scope FROM api_tokens WHERE token_hash = ?`, tokenHash(tok)).Scan(&id, &userID, &scope, &wsScope)
+		var userID, id, scope, wsScope, prevAt, prevIP string
+		err := s.db.QueryRow(`SELECT id, user_id, scope, workspace_scope, COALESCE(last_used_at, ''), COALESCE(last_used_ip, '') FROM api_tokens WHERE token_hash = ?`, tokenHash(tok)).
+			Scan(&id, &userID, &scope, &wsScope, &prevAt, &prevIP)
 		if err == nil {
 			// WHERE it was used from, not just when. A token that travels in a URL
 			// (/mcp/{token}) cannot be kept secret — it sits in the connector's
 			// config, in Cloudflare's logs and in whatever proxy is between. What
 			// CAN be done is make a stranger using it obvious, and rotating cheap.
-			s.db.Exec(`UPDATE api_tokens SET last_used_at = ?, last_used_ip = ? WHERE id = ?`,
-				now(), s.clientIP(r), id)
+			// The previous values come from the row we just read, so the debounce
+			// costs no second query.
+			s.touchAPIToken(id, s.clientIP(r), prevAt, prevIP)
 			u := s.userByID(userID)
 			if u != nil {
 				if scope != "read" {
@@ -227,6 +229,33 @@ func (s *Server) currentUser(r *http.Request) *user {
 		return nil
 	}
 	return s.userByID(userID)
+}
+
+// apiTokenTouchInterval is how often a bearer credential's last_used_*
+// columns are rewritten for the same client address.
+const apiTokenTouchInterval = 60 * time.Second
+
+// shouldTouchToken reports whether a bearer credential use is worth a write.
+// Same address inside the interval: skip. First use or a new address: write
+// immediately.
+func shouldTouchToken(prevAt, prevIP, ip string, now time.Time) bool {
+	if prevIP != ip || prevAt == "" {
+		return true
+	}
+	seen, err := time.Parse(time.RFC3339Nano, prevAt)
+	if err != nil {
+		return true
+	}
+	return now.Sub(seen) >= apiTokenTouchInterval
+}
+
+// touchAPIToken records when and where an API token was last used, skipping
+// repeated writes from the same address inside apiTokenTouchInterval.
+func (s *Server) touchAPIToken(id, ip, prevAt, prevIP string) {
+	if !shouldTouchToken(prevAt, prevIP, ip, time.Now().UTC()) {
+		return
+	}
+	s.db.Exec(`UPDATE api_tokens SET last_used_at = ?, last_used_ip = ? WHERE id = ?`, now(), ip, id)
 }
 
 func (s *Server) auth(next http.HandlerFunc) http.HandlerFunc {
