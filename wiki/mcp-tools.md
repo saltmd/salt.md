@@ -960,6 +960,7 @@ Errors: `unknown action "x" — use list (the default), get or restore`;
 | `body` | string | `add` only |
 | `block_id` | string | `add` only |
 | `comment_id` | string | `resolve` and `reopen` |
+| `reply_to_id` | string | no, `add` only |
 | `agent` | string | no, `add` only |
 | `label` | string | no, `add` only |
 
@@ -967,8 +968,15 @@ Errors: `unknown action "x" — use list (the default), get or restore`;
 original passage in `quote`, even when that passage is no longer available;
 editor anchors and Yjs positions are omitted. Page comments have no `quote`.
 `add` posts one; give `block_id` to attach it to a single block instead of the
-page. `resolve` ticks one off,
-`reopen` un-ticks it.
+page, or `reply_to_id` to answer a comment on this page (a resolved thread has
+to be reopened first). `resolve` ticks off the whole thread the named comment
+belongs to, `reopen` un-ticks it. Retries use `idempotency_key`, as on every
+writing tool.
+
+Comments form threads. In `list`, a thread's first comment has an empty
+`threadId`; each reply carries that comment's id as `threadId` and the comment
+it answers as `replyToId`. A `deletedAt` with an empty body is a deleted
+comment kept only so the replies under it stay in place.
 
 A comment added here carries the agent that wrote it, the way a note does:
 `agent` is one of the known agent keys (anything else becomes `generic`, and so
@@ -998,9 +1006,14 @@ workspace.
 | --- | --- | --- |
 | `comment_id` | string | yes |
 
-Deletes a comment permanently. Its own tool on purpose: destroying should be a
-choice of tool, not an enum value. Errors: `comment "…" not found`, which is
-also the answer for a comment on a page you may not write to.
+Deletes a comment. Its own tool on purpose: destroying should be a choice of
+tool, not an enum value. Only the comment's author or an admin of the page's
+workspace may, through a credential that may write to the page. A comment with
+replies under it is not removed outright: its text goes and it stays as an
+empty placeholder (`deletedAt` set) until the last reply under it is deleted
+too. Errors: `comment "…" not found`, which is also the answer for a comment on
+a page you may not write to; `only the comment's author or an admin of the
+workspace may delete comment "…"`.
 
 ### note
 

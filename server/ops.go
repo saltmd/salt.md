@@ -138,6 +138,7 @@ func (s *Server) runCleanup() {
 	// auditRetentionDays) and wrong for an instance that has to promise its
 	// people a limit. Off unless an admin sets a period.
 	s.pruneAuditLog()
+	s.pruneReadNotifications()
 }
 
 // handleHealth is a readiness probe: it pings the DB so orchestration can tell a

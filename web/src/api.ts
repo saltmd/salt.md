@@ -479,11 +479,17 @@ export const api = {
   // handleCommentCounts).
   commentCounts: (workspaceId: string) =>
     req<Record<string, number>>(`/api/comment-counts?workspaceId=${encodeURIComponent(workspaceId)}`),
-  createComment: (pageId: string, body: string, blockId = '', anchor?: import('./types').CommentAnchor) =>
+  createComment: (pageId: string, body: string, blockId = '', options: { anchor?: import('./types').CommentAnchor; replyToId?: string; requestId?: string } = {}) =>
     req<{ id: string }>(`/api/pages/${pageId}/comments`, {
       method: 'POST',
-      body: JSON.stringify({ body, blockId, anchor }),
+      body: JSON.stringify({ body, blockId, ...options }),
     }),
+  inbox: (unread = false, before = 0) => req<import('./types').InboxPage>(`/api/notifications?unread=${unread ? 1 : 0}&before=${before}`),
+  inboxSummary: () => req<{ unreadCount: number; through: number }>('/api/notifications?summary=1'),
+  // commentId: the comment a link opened; the server marks the notification
+  // only if it is about that comment.
+  readNotification: (id: number, read: boolean, commentId?: string) => req<{ ok: boolean }>('/api/notifications/read', { method: 'POST', body: JSON.stringify({ id, read, commentId }) }),
+  readAllNotifications: (through: number) => req<{ ok: boolean }>('/api/notifications/read', { method: 'POST', body: JSON.stringify({ through, read: true }) }),
   resolveComment: (id: string, resolved: boolean) =>
     req<{ ok: boolean }>(`/api/comments/${id}/resolve`, {
       method: 'POST',

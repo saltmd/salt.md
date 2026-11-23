@@ -424,6 +424,9 @@ body:not(.opt-ws) .cover-ws{display:none}
 .doc-comment .who{font-weight:600}
 .doc-comment .when{color:#8a8a85;font-size:.85em;margin-left:.4em}
 .doc-comment .quote{display:block;margin:.15em 0;padding-left:.7em;border-left:2px solid #e3e2df;color:#5b5b57}
+.doc-reply{margin-left:1.6em}
+.doc-thread{margin:0 0 1em}
+.doc-thread+.doc-thread{border-top:1px solid #f0efec;padding-top:.6em}
 
 /* A sheet is a real sheet of paper: fixed size, its own margins, its own foot.
    The document is cut into these by the script below rather than left to the
@@ -522,25 +525,35 @@ func (srv *Server) pageHTML(p *page, printMode bool, o printOptions) string {
 		b.WriteString(`<p class="doc-desc">` + esc(d) + "</p>")
 	}
 	b.WriteString(blocksToHTML(p.Content))
-	if len(o.CommentL) > 0 {
+	if threads := printedThreads(o.CommentL); len(threads) > 0 {
 		b.WriteString(`<section class="doc-comments"><h2>Comments</h2>`)
-		for _, c := range o.CommentL {
-			who := c.AuthorName
-			if c.Agent != "" && c.AgentLabel != "" {
-				who += " via " + c.AgentLabel
+		for _, thread := range threads {
+			// One group per thread, also when its first comment was deleted,
+			// so surviving replies never read as part of the thread before.
+			b.WriteString(`<div class="doc-thread">`)
+			for _, c := range thread {
+				who := c.AuthorName
+				if c.Agent != "" && c.AgentLabel != "" {
+					who += " via " + c.AgentLabel
+				}
+				class := "doc-comment"
+				if c.ThreadID != "" {
+					class += " doc-reply"
+				}
+				b.WriteString(`<p class="` + class + `"><span class="who">` + esc(who) + `</span>`)
+				if len(c.CreatedAt) >= 10 {
+					b.WriteString(`<span class="when">` + esc(c.CreatedAt[:10]) + `</span>`)
+				}
+				// Paper has no highlight, so the passage has to say itself what the
+				// comment is about.
+				sep := "<br>"
+				if q := commentQuote(c.Anchor); q != "" {
+					b.WriteString(`<span class="quote">` + esc(q) + `</span>`)
+					sep = ""
+				}
+				b.WriteString(sep + esc(c.Body) + "</p>")
 			}
-			b.WriteString(`<p class="doc-comment"><span class="who">` + esc(who) + `</span>`)
-			if len(c.CreatedAt) >= 10 {
-				b.WriteString(`<span class="when">` + esc(c.CreatedAt[:10]) + `</span>`)
-			}
-			// Paper has no highlight, so the passage has to say itself what the
-			// comment is about.
-			sep := "<br>"
-			if q := commentQuote(c.Anchor); q != "" {
-				b.WriteString(`<span class="quote">` + esc(q) + `</span>`)
-				sep = ""
-			}
-			b.WriteString(sep + esc(c.Body) + "</p>")
+			b.WriteString(`</div>`)
 		}
 		b.WriteString("</section>")
 	}
@@ -1002,4 +1015,36 @@ func docCSP(w http.ResponseWriter, o *printOptions) {
 	rand.Read(b)
 	o.Nonce = base64.RawURLEncoding.EncodeToString(b)
 	w.Header().Set("Content-Security-Policy", "script-src 'nonce-"+o.Nonce+"'; object-src 'none'; base-uri 'none'")
+}
+
+// printedThreads groups each thread's comments, first comment then replies
+// in the order written, and leaves out deleted entries: on paper a deleted
+// comment is only an empty name and date, and replies in plain time order
+// lose the conversation they answer. A thread with nothing left is skipped.
+func printedThreads(list []commentJSON) [][]commentJSON {
+	replies := map[string][]commentJSON{}
+	for _, c := range list {
+		if c.ThreadID != "" {
+			replies[c.ThreadID] = append(replies[c.ThreadID], c)
+		}
+	}
+	threads := [][]commentJSON{}
+	for _, c := range list {
+		if c.ThreadID != "" {
+			continue
+		}
+		thread := []commentJSON{}
+		if c.DeletedAt == nil {
+			thread = append(thread, c)
+		}
+		for _, r := range replies[c.ID] {
+			if r.DeletedAt == nil {
+				thread = append(thread, r)
+			}
+		}
+		if len(thread) > 0 {
+			threads = append(threads, thread)
+		}
+	}
+	return threads
 }

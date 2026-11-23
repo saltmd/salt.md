@@ -131,34 +131,19 @@ func (s *Server) mcpRestoreRevision(u *user, pageID, revID string) (string, erro
 // write them, but not resolve one — so it could never finish a comment
 // thread.
 func (s *Server) mcpResolveComment(commentID string, resolved bool) (string, error) {
-	var val any
-	verb := "Resolved"
+	if err := s.setThreadResolved(commentID, resolved); err != nil {
+		return "", err
+	}
 	if resolved {
-		val = now()
-	} else {
-		val = nil
-		verb = "Reopened"
+		return "Resolved comment " + commentID, nil
 	}
-	res, err := s.db.Exec(`UPDATE comments SET resolved_at = ? WHERE id = ?`, val, commentID)
-	if err != nil {
-		return "", err
-	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return "", fmt.Errorf("comment %q not found", commentID)
-	}
-	return fmt.Sprintf("%s comment %s", verb, commentID), nil
+	return "Reopened comment " + commentID, nil
 }
-
-// mcpDeleteComment removes a comment for good.
 func (s *Server) mcpDeleteComment(commentID string) (string, error) {
-	res, err := s.db.Exec(`DELETE FROM comments WHERE id = ?`, commentID)
-	if err != nil {
+	if err := s.deleteThreadComment(commentID); err != nil {
 		return "", err
 	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return "", fmt.Errorf("comment %q not found", commentID)
-	}
-	return fmt.Sprintf("Deleted comment %s", commentID), nil
+	return "Deleted comment " + commentID, nil
 }
 
 // commentPage works out which page a comment belongs to, so the permission

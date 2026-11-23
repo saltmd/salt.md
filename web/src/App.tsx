@@ -103,6 +103,15 @@ export default function App() {
   // you back into the first one — anybody who mostly works in a second had to
   // pick it again on every page load.
   const [currentWs, setCurrentWs] = useState<string>(() => localStorage.getItem('salt-ws') ?? '');
+  // The workspace each history entry was made in, so Back after opening a
+  // page in another workspace (from the inbox) returns the sidebar as well.
+  const currentWsRef = useRef(currentWs);
+  currentWsRef.current = currentWs;
+  const workspacesRef = useRef(workspaces);
+  workspacesRef.current = workspaces;
+  // Entries made before any navigation (the first load) carry no workspace;
+  // for those Back uses the workspace of the page it returns to.
+  const pageWorkspaceRef = useRef<(id: string) => string | undefined>(() => undefined);
   const [loadError, setLoadError] = useState(false);
   // Bear-style notes mode (middle notes column) — an explicit per-user setting
   // in the UserMenu, DEFAULT OFF so the first impression stays the classic
@@ -382,13 +391,18 @@ export default function App() {
     // (set by pushTabHistory). Falls back to the URL id for entries with no
     // snapshot (e.g. the very first load), reopening a tab only then.
     const onPop = (e: PopStateEvent) => {
-      const st = e.state as { tabs?: string[]; active?: string | null } | null;
+      const st = e.state as { tabs?: string[]; active?: string | null; ws?: string } | null;
+      const restoreWs = (ws: string | undefined) => {
+        if (ws && workspacesRef.current.some((w) => w.id === ws)) setCurrentWs(ws);
+      };
       if (st && Array.isArray(st.tabs)) {
         setOpenTabs(st.tabs);
         setCurrentId(st.active ?? null);
+        restoreWs(st.ws ?? (st.active ? pageWorkspaceRef.current(st.active) : undefined));
         return;
       }
       const id = pageIdFromLocation();
+      if (id) restoreWs(pageWorkspaceRef.current(id));
       setCurrentId(id);
       if (id) setOpenTabs((prev) => (prev.includes(id) ? prev : [...prev, id]));
     };
@@ -649,6 +663,11 @@ export default function App() {
           warnedVersion = true;
           toast(t('A new version is available: reload the page'));
         }
+        // Page and workspace events can change what the inbox may show; the
+        // inbox coalesces these into one request (Inbox.tsx).
+        if (['notifications', 'hello', 'pages', 'workspaces'].includes(msg.type)) window.dispatchEvent(new Event('salt:notifications'));
+        if (msg.type === 'hello') window.dispatchEvent(new Event('salt:comments-refresh'));
+        if (msg.type === 'comments' && msg.id) window.dispatchEvent(new CustomEvent('salt:comments-live', { detail: msg.id }));
         if (msg.type === 'pages') {
           window.clearTimeout(reloadTimer.current);
           reloadTimer.current = window.setTimeout(() => void loadPages(), 250);
@@ -683,8 +702,17 @@ export default function App() {
     // was hidden and throttled. Coming back to the window is the moment a person
     // expects to see current state, so that is when it is fetched, regardless of
     // what the stream thinks.
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') void loadPages();
+    // Comments and the inbox follow the stream; they are fetched again only
+    // when the window comes back from being hidden or offline, once, not on
+    // every focus (a click back into the window fires focus alone).
+    const onVisible = (e: Event) => {
+      if (document.visibilityState === 'visible') {
+        void loadPages();
+        if (e.type !== 'focus') {
+          window.dispatchEvent(new Event('salt:comments-refresh'));
+          window.dispatchEvent(new Event('salt:notifications'));
+        }
+      }
     };
     document.addEventListener('visibilitychange', onVisible);
     window.addEventListener('focus', onVisible);
@@ -723,7 +751,7 @@ export default function App() {
   // being re-appended as a phantom tab (which happens with in-place navigation).
   const pushTabHistory = (tabs: string[], id: string | null, replace: boolean) => {
     const url = id ? `/p/${id}` : '/';
-    const state = { tabs, active: id };
+    const state = { tabs, active: id, ws: currentWsRef.current };
     if (replace) history.replaceState(state, '', url);
     else history.pushState(state, '', url);
   };
@@ -1083,6 +1111,7 @@ export default function App() {
     for (const [id, p] of extraPages) if (!m.has(id)) m.set(id, p);
     return m;
   }, [pages, extraPages]);
+  pageWorkspaceRef.current = (id) => pagesById.get(id)?.workspaceId;
 
   // A viewer (read-only workspace role) may not edit; the doc editor renders
   // read-only so a viewer isn't teased with an editable-looking page whose
@@ -1105,9 +1134,16 @@ export default function App() {
   // happens to live in the target workspace, leave it alone.
   const switchWorkspace = useCallback(
     (id: string) => {
+      currentWsRef.current = id;
       setCurrentWs(id);
       const cur = currentId ? pagesById.get(currentId) : undefined;
-      if (cur && cur.workspaceId === id) return;
+      if (cur && cur.workspaceId === id) {
+        // The page stays, so no new history entry; the current one now
+        // belongs to this workspace, which is where Back should return to.
+        const st = history.state as Record<string, unknown> | null;
+        if (st && Array.isArray(st.tabs)) history.replaceState({ ...st, ws: id }, '');
+        return;
+      }
       const inWs = (p: PageMeta) => !p.trashed && p.workspaceId === id;
       const first = pages?.find((p) => inWs(p) && !p.parentId) ?? pages?.find(inWs);
       navigate(first ? first.id : null);
@@ -1209,6 +1245,9 @@ export default function App() {
         currentWs={currentWs}
         tagColors={tagColors}
         onSwitchWorkspace={switchWorkspace}
+        // One history entry: switching first would land on the workspace's
+        // first page and push that before the page asked for.
+        onOpenInWorkspace={(id, ws) => { currentWsRef.current = ws; setCurrentWs(ws); navigate(id); }}
         onWorkspacesChanged={loadWorkspaces}
         user={me.user}
         currentId={currentId}
@@ -1235,6 +1274,7 @@ export default function App() {
         onSetTheme={setThemePref}
         onLogout={async () => {
           await api.logout();
+          window.dispatchEvent(new Event('salt:clear-comment-drafts'));
           // Inside the marketing site's demo frame, '/' is the marketing home
           // page — loaded into the frame, with no way back to the application.
           // There the session IS the in-memory store, so a reload is the
