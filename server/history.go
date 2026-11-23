@@ -128,6 +128,10 @@ func (s *Server) handleRestoreRevision(w http.ResponseWriter, r *http.Request) {
 // ---- Comments ----
 
 type commentJSON struct {
+	Anchor     json.RawMessage `json:"anchor,omitempty"`
+	ThreadID   string          `json:"threadId"`
+	ReplyToID  string          `json:"replyToId"`
+	DeletedAt  *string         `json:"deletedAt"`
 	ID         string          `json:"id"`
 	BlockID    string          `json:"blockId"`
 	AuthorID   string          `json:"authorId"`
@@ -135,7 +139,6 @@ type commentJSON struct {
 	Body       string          `json:"body"`
 	CreatedAt  string          `json:"createdAt"`
 	ResolvedAt *string         `json:"resolvedAt"`
-	Anchor     json.RawMessage `json:"anchor,omitempty"`
 	// The author's colour/picture, so the same person looks the same
 	// everywhere — the comment column used to roll a colour out of the name
 	// that had nothing to do with the real user colour.
@@ -149,7 +152,7 @@ type commentJSON struct {
 
 func (s *Server) pageComments(pageID string) ([]commentJSON, error) {
 	// LEFT JOIN: the author may be deleted — the comment stays.
-	rows, err := s.db.Query(`SELECT c.id, c.block_id, c.author_id, c.author_name, c.body, c.created_at, c.resolved_at, c.anchor,
+	rows, err := s.db.Query(`SELECT c.id, c.block_id, c.author_id, c.author_name, c.body, c.created_at, c.resolved_at,c.anchor,c.thread_id,c.reply_to_id,c.deleted_at,
 		COALESCE(u.color, ''), COALESCE(u.avatar, ''), c.agent, c.agent_label
 		FROM comments c LEFT JOIN users u ON u.id = c.author_id
 		WHERE c.page_id = ? ORDER BY c.created_at`, pageID)
@@ -162,7 +165,7 @@ func (s *Server) pageComments(pageID string) ([]commentJSON, error) {
 		var c commentJSON
 		var resolved sql.NullString
 		var anchor string
-		if err := rows.Scan(&c.ID, &c.BlockID, &c.AuthorID, &c.AuthorName, &c.Body, &c.CreatedAt, &resolved, &anchor, &c.AuthorColor, &c.AuthorAvatar, &c.Agent, &c.AgentLabel); err != nil {
+		if err := rows.Scan(&c.ID, &c.BlockID, &c.AuthorID, &c.AuthorName, &c.Body, &c.CreatedAt, &resolved, &anchor, &c.ThreadID, &c.ReplyToID, &c.DeletedAt, &c.AuthorColor, &c.AuthorAvatar, &c.Agent, &c.AgentLabel); err != nil {
 			return nil, err
 		}
 		if anchor != "" {
@@ -197,64 +200,22 @@ func (s *Server) handleCreateComment(w http.ResponseWriter, r *http.Request) {
 		httpError(w, 403, "forbidden")
 		return
 	}
-	var body struct {
-		Body    string          `json:"body"`
-		BlockID string          `json:"blockId"`
-		Agent   string          `json:"agent"`
-		Label   string          `json:"label"`
-		Anchor  json.RawMessage `json:"anchor"`
-	}
+	var body commentInput
 	if err := decodeJSON(w, r, &body); err != nil {
-		httpError(w, 400, "invalid JSON")
+		httpErrorCode(w, 400, "comment_invalid_json", "Invalid comment request")
 		return
 	}
-	if strings.TrimSpace(body.Body) == "" {
-		httpError(w, 400, "comment body is required")
-		return
-	}
-	if len([]rune(body.Body)) > maxCommentLen {
-		httpError(w, 400, "comment is too long")
-		return
-	}
-	anchor := ""
-	var gen *int64
-	if len(body.Anchor) > 0 && string(body.Anchor) != "null" {
-		var a struct {
-			Gen   *int64          `json:"gen"`
-			Quote string          `json:"quote"`
-			From  json.RawMessage `json:"from"`
-			To    json.RawMessage `json:"to"`
-		}
-		if len(body.Anchor) > 32000 || json.Unmarshal(body.Anchor, &a) != nil || a.Gen == nil || *a.Gen < 0 || *a.Gen > 1<<53-1 || strings.TrimSpace(a.Quote) == "" || len([]rune(a.Quote)) > 2000 || !validCommentPosition(a.From) || !validCommentPosition(a.To) {
-			httpError(w, 400, "invalid comment anchor")
-			return
-		}
-		gen = a.Gen
-		anchor = string(body.Anchor)
-	}
-	// A comment that arrives with an API token or a signed-in agent's key came
-	// through an agent, whether or not it says which: marked, so the panel
-	// does not present it as typed by the person. A browser session cannot
-	// claim to be an agent.
-	agent, label := "", ""
 	if u.TokenKind != "" {
-		agent, label = commentAgent(body.Agent, body.Label)
+		body.Agent, body.Label = commentAgent(body.Agent, body.Label)
+	} else {
+		body.Agent, body.Label = "", ""
 	}
-	id := newID()
-	result, err := s.db.Exec(`INSERT INTO comments (id, page_id, block_id, author_id, author_name, body, created_at, agent, agent_label, anchor)
-		SELECT ?, id, ?, ?, ?, ?, ?, ?, ?, ? FROM pages WHERE id = ? AND (? IS NULL OR doc_gen = ?)`,
-		id, body.BlockID, u.ID, u.Name, strings.TrimSpace(body.Body), now(), agent, label, anchor, pageID, gen, gen)
+	id, err := s.createThreadComment(u, pageID, body)
 	if err != nil {
-		httpError(w, 500, err.Error())
+		commentHTTPError(w, err)
 		return
 	}
-	if n, err := result.RowsAffected(); err != nil {
-		httpError(w, 500, err.Error())
-		return
-	} else if n == 0 {
-		httpErrorCode(w, 409, "comment_anchor_stale", "The page changed. Select the text again.")
-		return
-	}
+
 	writeJSON(w, map[string]string{"id": id})
 }
 
@@ -317,12 +278,15 @@ func (s *Server) handleResolveComment(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Resolved bool `json:"resolved"`
 	}
-	decodeJSON(w, r, &body)
-	var resolvedAt any
-	if body.Resolved {
-		resolvedAt = now()
+	if err := decodeJSON(w, r, &body); err != nil {
+		httpErrorCode(w, 400, "comment_invalid_json", "Invalid comment request")
+		return
 	}
-	s.db.Exec(`UPDATE comments SET resolved_at = ? WHERE id = ?`, resolvedAt, commentID)
+	if err := s.setThreadResolved(commentID, body.Resolved); err != nil {
+		commentHTTPError(w, err)
+		return
+	}
+
 	writeJSON(w, map[string]bool{"ok": true})
 }
 
@@ -331,6 +295,10 @@ func (s *Server) handleDeleteComment(w http.ResponseWriter, r *http.Request) {
 	var pageID, authorID string
 	if s.db.QueryRow(`SELECT page_id, author_id FROM comments WHERE id = ?`, commentID).Scan(&pageID, &authorID) != nil {
 		httpError(w, 404, "comment not found")
+		return
+	}
+	if !s.canReadReq(r, pageID) {
+		httpErrorCode(w, 404, "comment_not_found", "Comment not found")
 		return
 	}
 	// Author or a workspace admin may delete.
@@ -349,7 +317,10 @@ func (s *Server) handleDeleteComment(w http.ResponseWriter, r *http.Request) {
 		httpError(w, 403, "forbidden")
 		return
 	}
-	s.db.Exec(`DELETE FROM comments WHERE id = ?`, commentID)
+	if err := s.deleteThreadComment(commentID); err != nil {
+		commentHTTPError(w, err)
+		return
+	}
 	writeJSON(w, map[string]bool{"ok": true})
 }
 
@@ -371,7 +342,8 @@ func (s *Server) handleCommentCounts(w http.ResponseWriter, r *http.Request) {
 	}
 	rows, err := s.db.Query(`SELECT c.page_id, COUNT(*) FROM comments c
 		JOIN pages p ON p.id = c.page_id
-		WHERE p.workspace_id = ? AND p.trashed_at IS NULL AND c.resolved_at IS NULL
+		WHERE p.workspace_id = ? AND p.trashed_at IS NULL AND c.resolved_at IS NULL AND c.thread_id=''
+ AND (c.deleted_at IS NULL OR EXISTS(SELECT 1 FROM comments r WHERE r.thread_id=c.id AND r.deleted_at IS NULL))
 		GROUP BY c.page_id`, ws)
 	if err != nil {
 		httpError(w, 500, err.Error())

@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { usePageComments } from '../pageComments';
 import {
   useCreateBlockNote,
   SuggestionMenuController,
@@ -25,7 +26,11 @@ import { imeComposing, useShortcut } from '../keys';
 import CollectionView from './CollectionView';
 import { HistoryModal } from './PageHistory';
 import CommentsPanel, {
-  COMMENTS_CHANGED,
+  COMMENT_DRAFT_SENT,
+  commentDrafts,
+  newCommentDraft,
+  newCommentRequestId,
+  type CommentDraft,
   commentsPanelOpen,
   initials,
   setCommentsPanelOpen,
@@ -69,6 +74,9 @@ function consistentGroups(dict: typeof coreEn): typeof coreEn {
   return { ...dict, slash_menu: local as unknown as typeof dict.slash_menu };
 }
 
+// Account/page-scoped drafts survive visiting the inbox and other pages;
+// comment text is kept in memory rather than browser storage.
+
 export interface EditorProps {
   pageId: string;
   pagesById: Map<string, PageMeta>;
@@ -105,25 +113,30 @@ export default function Editor(props: EditorProps) {
   // his colleagues work in them all day and reported the old shape as awkward:
   // at the very bottom, and two lines to write in.
   const [commentsOpen, setCommentsOpen] = useState(commentsPanelOpen);
-  const [comments, setComments] = useState<Comment[]>([]);
-  const [pendingComment, setPendingComment] = useState<{ anchor: CommentAnchor; blockId: string } | null>(null);
-  const [commentDraft, setCommentDraft] = useState('');
-  const [activeComment, setActiveComment] = useState<string | null>(null);
+  const { comments } = usePageComments(props.pageId);
   const [anchorStatuses, setAnchorStatuses] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    let alive = true;
-    setComments([]);
-    setPendingComment(null);
-    setCommentDraft('');
     setActiveComment(null);
     setAnchorStatuses({});
-    const load = () => void api.listComments(props.pageId).then((items) => { if (alive) setComments(items); }).catch(() => {});
-    load();
-    window.addEventListener(COMMENTS_CHANGED, load);
-    window.addEventListener('focus', load);
-    return () => { alive = false; window.removeEventListener(COMMENTS_CHANGED, load); window.removeEventListener('focus', load); };
   }, [props.pageId]);
+
+  const draftKey = props.user.id + ':' + props.pageId;
+  const [commentDraft, setCommentDraft] = useState<CommentDraft>(() => commentDrafts.get(draftKey) ?? newCommentDraft());
+  const [activeComment, setActiveComment] = useState<string | null>(null);
+  const [commentOpenRequest, setCommentOpenRequest] = useState(0);
+  useEffect(() => {
+    if (commentDraft.body || commentDraft.anchor) commentDrafts.set(draftKey, commentDraft); else commentDrafts.delete(draftKey);
+  }, [draftKey, commentDraft]);
+  // Clears only the draft that was sent: a newer one has another request id.
+  useEffect(() => {
+    const sent = (e: Event) => {
+      const { key, requestId } = (e as CustomEvent<{ key: string; requestId: string }>).detail;
+      if (key === draftKey) setCommentDraft((d) => (d.requestId === requestId ? newCommentDraft() : d));
+    };
+    window.addEventListener(COMMENT_DRAFT_SENT, sent);
+    return () => window.removeEventListener(COMMENT_DRAFT_SENT, sent);
+  }, [draftKey]);
 
   // Both panels occupy the same strip on the right, so opening one closes the
   // other. Sharing the width would leave two columns too narrow to be either.
@@ -207,6 +220,17 @@ export default function Editor(props: EditorProps) {
     };
   }, [props.pageId, nonce]);
 
+  useEffect(() => {
+    if (!page) return;
+    const openLinkedComment = () => {
+      const id = new URLSearchParams(window.location.hash.slice(1)).get('comment');
+      if (id) { setActiveComment(id); setCommentOpenRequest((n) => n + 1); showComments(true); }
+    };
+    openLinkedComment();
+    window.addEventListener('hashchange', openLinkedComment);
+    return () => window.removeEventListener('hashchange', openLinkedComment);
+  }, [page?.id]);
+
   if (error) {
     return (
       <div className="editor-error">
@@ -272,7 +296,7 @@ export default function Editor(props: EditorProps) {
             onPagesChanged={props.onPagesChanged}
             onReset={() => setNonce((n) => n + 1)}
             comments={comments}
-            onCommentSelection={(anchor, blockId) => { setPendingComment({ anchor, blockId }); setActiveComment(null); showComments(true); }}
+            onCommentSelection={(anchor, blockId) => { setCommentDraft({ ...commentDraft, anchor, blockId, replyToId: '', requestId: newCommentRequestId() }); setActiveComment(null); showComments(true); }}
             onCommentOpen={(id) => { setActiveComment(id); showComments(true); }}
             onAnchorStatuses={(statuses) => setAnchorStatuses((previous) => JSON.stringify(previous) === JSON.stringify(statuses) ? previous : statuses)}
           />
@@ -282,13 +306,14 @@ export default function Editor(props: EditorProps) {
         <CommentsPanel
           pageId={page.id}
           myUserId={props.user.id}
+          canWrite={props.canEdit}
+          draft={commentDraft}
+          draftKey={draftKey}
+          onDraftChange={setCommentDraft}
+          activeComment={activeComment}
+          openRequest={commentOpenRequest}
           open
           onClose={() => showComments(false)}
-          pending={pendingComment}
-          draft={commentDraft}
-          onDraftChange={setCommentDraft}
-          onClearPending={() => setPendingComment(null)}
-          activeComment={activeComment}
           anchorStatuses={anchorStatuses}
           narrow={narrow}
         />
@@ -586,31 +611,14 @@ function PageHeader({
   useMenuDismiss(shareOpen, shareWrapRef, () => setShareOpen(false));
   useMenuDismiss(overflowOpen, overflowWrapRef, () => setOverflowOpen(false));
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [openComments, setOpenComments] = useState(0);
+  // The header's count reads the same copy as the panel and the highlights
+  // (pageComments.ts), so it is right whether the panel is open or not.
+  const { comments: pageComments } = usePageComments(pageId, page.type !== 'collection');
+  const openComments = pageComments.filter((c) => !c.threadId && !c.resolvedAt && (!c.deletedAt || pageComments.some((r) => r.threadId === c.id && !r.deletedAt))).length;
   // Same rule as in Editor, and it has to be asked here too: this is where the
   // button, the menu entries and the count live.
   const canComment = page.type !== 'collection';
   const peers = usePeers(pageId);
-  // The counter in the header should be right before anybody has scrolled
-  // down — you should SEE that comments exist without going to look.
-  useEffect(() => {
-    if (!canComment) return;
-    let alive = true;
-    const count = () =>
-      api
-        .listComments(pageId)
-        .then((l) => alive && setOpenComments(l.filter((c) => !c.resolvedAt).length))
-        .catch(() => {});
-    void count();
-    // The panel says when it changed something. An event rather than a prop:
-    // the count has to be right whether the panel is open or not, so the header
-    // owns its own fetch and the panel only nudges it.
-    window.addEventListener(COMMENTS_CHANGED, count);
-    return () => {
-      alive = false;
-      window.removeEventListener(COMMENTS_CHANGED, count);
-    };
-  }, [pageId, canComment]);
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const [coverMenuOpen, setCoverMenuOpen] = useState(false);
   const coverInput = useRef<HTMLInputElement>(null);

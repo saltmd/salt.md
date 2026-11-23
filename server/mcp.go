@@ -361,7 +361,7 @@ var mcpTools = []map[string]any{
 	{
 		"name":        "delete_comment",
 		"annotations": removes,
-		"description": "Delete a comment permanently. Only its author or an admin of the page's workspace may.",
+		"description": "Delete a comment permanently. Only its author or an admin of the page's workspace may. A comment that has replies under it is not removed outright: its text goes and it stays as an empty placeholder (deletedAt set) until the last reply under it is deleted too.",
 		"inputSchema": map[string]any{"type": "object",
 			"properties": map[string]any{"comment_id": map[string]any{"type": "string"}},
 			"required":   []string{"comment_id"}},
@@ -394,16 +394,17 @@ var mcpTools = []map[string]any{
 	{
 		"name":        "comments",
 		"annotations": adds,
-		"description": "Comments on a page. action: list (the default) | add | resolve | reopen. Deleting has its own tool, deliberately — it should be a choice, not an enum value you land on by mistake.",
+		"description": "Comments on a page. action: list (the default) | add | resolve | reopen. Deleting has its own tool, deliberately — it should be a choice, not an enum value you land on by mistake. Comments form threads: a thread starts with a comment whose threadId is empty, and every reply carries that comment's id as threadId and the comment it answers as replyToId. In list, deletedAt set and an empty body mean a deleted comment kept only so the replies under it stay in place. resolve and reopen act on the whole thread, whichever of its comments you name.",
 		"inputSchema": map[string]any{"type": "object",
 			"properties": map[string]any{
-				"page_id":    map[string]any{"type": "string"},
-				"action":     map[string]any{"type": "string", "description": "list (default) | add | resolve | reopen"},
-				"body":       map[string]any{"type": "string", "description": "add only: the comment text."},
-				"block_id":   map[string]any{"type": "string", "description": "add only: attach the comment to one block instead of the page."},
-				"comment_id": map[string]any{"type": "string", "description": "resolve and reopen only."},
-				"agent":      map[string]any{"type": "string", "description": "add only: which agent you are, one of " + knownAgentList() + ". Shown beside the comment with the account it came through, as on the note trail."},
-				"label":      map[string]any{"type": "string", "description": "add only: what you call yourself, when that is not the key above (e.g. \"Claude Code\"), same as in note and working_on."},
+				"page_id":     map[string]any{"type": "string"},
+				"action":      map[string]any{"type": "string", "description": "list (default) | add | resolve | reopen"},
+				"body":        map[string]any{"type": "string", "description": "add only: the comment text."},
+				"block_id":    map[string]any{"type": "string", "description": "add only: attach the comment to one block instead of the page."},
+				"comment_id":  map[string]any{"type": "string", "description": "resolve and reopen only: any comment of the thread; the whole thread is resolved or reopened."},
+				"reply_to_id": map[string]any{"type": "string", "description": "add only: the id of the comment you answer, on this page. The reply joins that comment's thread; its author and the thread's first author are notified. A resolved thread must be reopened first."},
+				"agent":       map[string]any{"type": "string", "description": "add only: which agent you are, one of " + knownAgentList() + ". Shown beside the comment with the account it came through, as on the note trail."},
+				"label":       map[string]any{"type": "string", "description": "add only: what you call yourself, when that is not the key above (e.g. \"Claude Code\"), same as in note and working_on."},
 			},
 			"required": []string{"page_id"}},
 	},
@@ -812,6 +813,7 @@ func (s *Server) mcpCall(u *user, name string, rawArgs json.RawMessage, publicBa
 		// Agent parity A3.
 		RevisionID string `json:"revision_id"`
 		CommentID  string `json:"comment_id"`
+		ReplyToID  string `json:"reply_to_id"`
 		Resolved   *bool  `json:"resolved"`
 		// Agent parity A4.
 		WorkspaceID   string `json:"workspace_id"`
@@ -1310,7 +1312,7 @@ func (s *Server) mcpCall(u *user, name string, rawArgs json.RawMessage, publicBa
 		case "revisions":
 			return s.mcpRevisions(u, args.PageID, args.Action, args.RevisionID, args.Limit)
 		case "comments":
-			return s.mcpComments(u, args.PageID, args.Action, args.Body, args.BlockID, args.CommentID, args.Agent, args.Label, args.Resolved)
+			return s.mcpComments(u, args.PageID, args.Action, args.Body, args.BlockID, args.CommentID, args.Agent, args.Label, args.Resolved, args.ReplyToID)
 		case "set_sharing":
 			return s.mcpSetSharing(requestBase{publicBase}, args.PageID, args.Public, args.ExpiresInDays, args.Password)
 		case "set_trashed":

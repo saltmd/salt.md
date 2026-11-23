@@ -358,7 +358,7 @@ See [Domain and proxy](domain.md) and [Administration](administration.md).
 - **Text as it is typed.** Live editing is relayed between browsers and never
   interpreted on the way through; what survives a session is the saved revision.
   See [Collaboration](collaboration.md).
-- **Deleted comments.** They are removed, not tombstoned.
+- **Deleted comments.** Their text is erased. A placeholder remains if replies depend on them.
 
 ## Who is here right now
 

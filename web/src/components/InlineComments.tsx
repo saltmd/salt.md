@@ -92,18 +92,22 @@ export function inlineCommentsExtension(live: InlineCommentsLive) {
     props: {
       decorations(state) {
         const decorations = live.comments.flatMap((comment) => {
-          if (!comment.anchor || comment.resolvedAt) return [];
+          if (!comment.anchor || comment.resolvedAt || comment.deletedAt) return [];
           const range = locate(live.provider, comment.anchor, state);
           return range ? [Decoration.inline(range.from, range.to, { class: 'salt-comment-highlight', 'data-comment-id': comment.id })] : [];
         });
         return DecorationSet.create(state.doc, decorations);
       },
-      handleClick(_view, _pos, event) {
-        const element = event.target as HTMLElement;
-        const id = element.closest<HTMLElement>('[data-comment-id]')?.dataset.commentId;
-        if (!id) return false;
-        live.onOpen(id);
-        return true;
+      // ProseMirror routes rapid second/third clicks away from handleClick.
+      // A passage should open its thread on every click, including on phones.
+      handleDOMEvents: {
+        click(_view, event) {
+          const element = event.target as HTMLElement;
+          const id = element.closest<HTMLElement>('[data-comment-id]')?.dataset.commentId;
+          if (!id) return false;
+          live.onOpen(id);
+          return true;
+        },
       },
     },
   });

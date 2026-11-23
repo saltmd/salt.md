@@ -30,6 +30,7 @@ import { AgentDot } from './AgentBadge';
 import { tagColorClass } from '../tags';
 import { childrenForSection, topLevelForDocs } from '../treeMode';
 import SyncButton from './SyncButton';
+import Inbox from './Inbox';
 import ThemeSwitch, { type ThemePref } from '../ThemeSwitch';
 
 interface Props {
@@ -39,6 +40,8 @@ interface Props {
   currentWs: string;
   tagColors: Record<string, string>;
   onSwitchWorkspace: (id: string) => void;
+  /** Open a page that may live in another workspace, as one navigation. */
+  onOpenInWorkspace: (pageId: string, workspaceId: string) => void;
   onWorkspacesChanged: () => void;
   user: User;
   onUserChanged?: (u: User) => void;
@@ -749,6 +752,7 @@ export default function Sidebar({
   currentWs,
   tagColors,
   onSwitchWorkspace,
+  onOpenInWorkspace,
   onWorkspacesChanged,
   user,
   onUserChanged,
@@ -1382,6 +1386,7 @@ export default function Sidebar({
             this can never say something the keyboard does not back up. */}
         <span className="kbd">{chordFor('search.open')}</span>
       </button>
+      <Inbox key={user.id} onNavigate={onOpenInWorkspace} />
       {favPages.length > 0 && (
         <SidebarSection id="fav" label={t('Favourites')} icon={<Star size={17} />} count={favPages.length}>
           {favPages.map((p) => (

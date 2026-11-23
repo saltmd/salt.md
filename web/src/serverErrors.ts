@@ -26,6 +26,23 @@ export function serverMessage(code: string, fallback: string, data?: ErrorData):
   const detail = typeof data?.detail === 'string' ? (data.detail as string) : '';
   const withDetail = (s: string) => (detail ? `${s} (${detail})` : s);
   switch (code) {
+    // Comment threads and the personal inbox.
+    case 'comment_save_failed': return t("Could not save the comment");
+    case 'comment_request_conflict': return t("This submission id already belongs to another comment");
+    case 'comment_forbidden': return t("You cannot write comments on this page.");
+    case 'comment_anchor_invalid': return t('Invalid comment anchor');
+    case 'comment_invalid_input': return t("Invalid comment body or request id");
+    case 'comment_reply_block': return t("Replies use the original comment's block.");
+    case 'comment_not_found': return t("Comment not found");
+    case 'comment_thread_resolved': return t("Reopen this thread before replying. Your draft is preserved.");
+    case 'comment_thread_changed': return t("The thread changed. Reopen it before replying.");
+    case 'comment_page_changed': return t("The page changed. Reload it before commenting.");
+    case 'comment_invalid_json': return t("Invalid comment request");
+    case 'inbox_load_failed': return t("Could not load the inbox");
+    case 'inbox_update_failed': return t("Could not update the inbox");
+    case 'notification_update_invalid': return t("Invalid notification update");
+    case 'notification_not_found': return t("Notification not found");
+
     // ---- registration and sign-in ----
     case 'signup_not_allowed':
       return t('This email address cannot register on its own. Ask for an invitation.');
