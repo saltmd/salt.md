@@ -373,6 +373,17 @@ func openDB(path string) (*sql.DB, error) {
 	if err := ensureColumn(db, "pages", "workspace_id", `workspace_id TEXT NOT NULL DEFAULT ''`); err != nil {
 		return nil, fmt.Errorf("migrate pages.workspace_id: %w", err)
 	}
+	// placement counts every change of a page's parent or position, whichever
+	// route makes it, so a board's undo can tell that a card was moved since
+	// (moving away and back restores the same parent and position).
+	if err := ensureColumn(db, "pages", "placement", `placement INTEGER NOT NULL DEFAULT 0`); err != nil {
+		return nil, fmt.Errorf("migrate pages.placement: %w", err)
+	}
+	if _, err := db.Exec(`CREATE TRIGGER IF NOT EXISTS pages_placement AFTER UPDATE OF parent_id, position ON pages
+		WHEN OLD.parent_id IS NOT NEW.parent_id OR OLD.position IS NOT NEW.position
+		BEGIN UPDATE pages SET placement = placement + 1 WHERE id = NEW.id; END`); err != nil {
+		return nil, fmt.Errorf("migrate pages placement trigger: %w", err)
+	}
 	if err := ensureColumn(db, "pages", "owner_id", `owner_id TEXT NOT NULL DEFAULT ''`); err != nil {
 		return nil, fmt.Errorf("migrate pages.owner_id: %w", err)
 	}

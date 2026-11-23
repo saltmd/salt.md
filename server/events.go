@@ -114,7 +114,20 @@ func (s *Server) rowsChanged(collectionID string) {
 	if err != nil {
 		return
 	}
-	s.events.broadcastTo(string(b), s.inWorkspace(ws))
+	allowed := s.inWorkspace(ws)
+	// A private collection's id reaches only those who may read it. The
+	// question is asked once here; per reader only then the full check.
+	var private int
+	s.db.QueryRow(`
+		WITH RECURSIVE anc(id, parent_id, visibility) AS (
+			SELECT id, parent_id, visibility FROM pages WHERE id = ?
+			UNION
+			SELECT p.id, p.parent_id, p.visibility FROM pages p JOIN anc ON p.id = anc.parent_id
+		) SELECT COUNT(*) FROM anc WHERE visibility = 'private'`, collectionID).Scan(&private)
+	if private > 0 {
+		allowed = func(u *user) bool { return s.canRead(u.ID, collectionID) && s.credentialMayEnter(u, ws) }
+	}
+	s.events.broadcastTo(string(b), allowed)
 }
 
 // inWorkspace is who an event addressed at a workspace may reach: its members,

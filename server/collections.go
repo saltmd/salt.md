@@ -3,6 +3,7 @@ package server
 import (
 	"database/sql"
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -678,6 +679,190 @@ func (s *Server) handleCollectionRows(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, map[string]any{"rows": list, "total": total, "offset": offset, "limit": limit})
+}
+
+func (s *Server) handleMoveCollectionRow(w http.ResponseWriter, r *http.Request) {
+	sourceID := r.PathValue("id")
+	var move struct {
+		RowID        string `json:"rowId"`
+		CollectionID string `json:"collectionId"`
+		Restore      *struct {
+			Position         *float64 `json:"position"`
+			ExpectedPosition *float64 `json:"expectedPosition"`
+			// The card's placement after the move being undone. Undo goes ahead
+			// only while nothing has moved the card since, by any route: a card
+			// moved away and back lands on the same position, and an older
+			// receipt must not move it again.
+			ExpectedPlacement *int64 `json:"expectedPlacement"`
+			// The placement before that move (the receipt's fromPlacement).
+			// Undo puts it back with the position, so an older receipt for
+			// the same card stays valid: undoing two moves in a row works.
+			Placement *int64 `json:"placement"`
+		} `json:"restore"`
+		// What the reader was shown before confirming (the GET on this route).
+		// When given, the move is refused if that has changed since.
+		Check *moveCheck `json:"check"`
+	}
+	if err := decodeJSON(w, r, &move); err != nil || move.RowID == "" || move.CollectionID == "" || move.CollectionID == sourceID ||
+		(move.Restore != nil && (move.Restore.Position == nil || move.Restore.ExpectedPosition == nil || move.Restore.ExpectedPlacement == nil ||
+			move.Restore.Placement == nil || *move.Restore.Placement >= *move.Restore.ExpectedPlacement)) {
+		httpErrorCode(w, 400, "collection_move_invalid", "Choose a card and a different collection.")
+		return
+	}
+	if !s.canWriteReq(r, sourceID) || !s.canWriteReq(r, move.RowID) || !s.canWriteReq(r, move.CollectionID) {
+		httpErrorCode(w, 404, "collection_move_unavailable", "The card or collection is no longer available.")
+		return
+	}
+
+	// A failure the reader cannot fix is logged with the card it concerns.
+	failed := func(err error) {
+		log.Printf("collection move %s from %s to %s: %v", move.RowID, sourceID, move.CollectionID, err)
+		httpErrorCode(w, 500, "collection_move_failed", "The card could not be moved.")
+	}
+	// What the confirmed check was computed from, read again inside the
+	// transaction: the check itself asks permission questions, which cannot
+	// run there, so the data it rests on is compared instead.
+	checkedFrom := ""
+	if move.Check != nil && move.Restore == nil {
+		var err error
+		if checkedFrom, err = moveCheckInputs(s.db, requestUser(r).ID, sourceID, move.RowID, move.CollectionID); err != nil {
+			failed(err)
+			return
+		}
+		current, status, err := s.moveCheckFor(r, sourceID, move.RowID, move.CollectionID)
+		if err != nil {
+			failed(err)
+			return
+		}
+		if status == 400 {
+			httpErrorCode(w, 400, "collection_move_cycle", "A card cannot be moved into a collection inside it.")
+			return
+		}
+		if status != 0 {
+			httpErrorCode(w, 404, "collection_move_unavailable", "The card or collection is no longer available.")
+			return
+		}
+		if !sameMoveCheck(*move.Check, current) {
+			httpErrorCode(w, 409, "collection_move_changed", "What this move affects has changed. Check it again.")
+			return
+		}
+	}
+	tx, err := s.db.BeginTx(r.Context(), nil)
+	if err != nil {
+		failed(err)
+		return
+	}
+	defer tx.Rollback()
+	if checkedFrom != "" {
+		latest, err := moveCheckInputs(tx, requestUser(r).ID, sourceID, move.RowID, move.CollectionID)
+		if err != nil {
+			failed(err)
+			return
+		}
+		if latest != checkedFrom {
+			httpErrorCode(w, 409, "collection_move_changed", "What this move affects has changed. Check it again.")
+			return
+		}
+	}
+	var before, position float64
+	var placement, fromPlacement int64
+	err = tx.QueryRow(`SELECT position, placement FROM pages WHERE id = ? AND parent_id = ?`, move.RowID, sourceID).Scan(&before, &placement)
+	fromPlacement = placement
+	if err == sql.ErrNoRows && move.Restore != nil {
+		httpErrorCode(w, 409, "collection_move_stale", "The card moved again. This move could not be undone.")
+		return
+	}
+	if err == sql.ErrNoRows {
+		httpErrorCode(w, 404, "collection_move_unavailable", "The card or collection is no longer available.")
+		return
+	}
+	if err != nil {
+		failed(err)
+		return
+	}
+	if move.Restore != nil {
+		if before != *move.Restore.ExpectedPosition || placement != *move.Restore.ExpectedPlacement {
+			httpErrorCode(w, 409, "collection_move_stale", "The card moved again. This move could not be undone.")
+			return
+		}
+		position = *move.Restore.Position
+	} else if err := tx.QueryRow(`SELECT COALESCE(MAX(position), 0) + 1 FROM pages WHERE parent_id = ? AND trashed_at IS NULL`,
+		move.CollectionID).Scan(&position); err != nil {
+		failed(err)
+		return
+	}
+	within, err := isWithinSubtree(tx, move.RowID, move.CollectionID)
+	if err != nil {
+		failed(err)
+		return
+	}
+	if within {
+		httpErrorCode(w, 400, "collection_move_cycle", "A card cannot be moved into a collection inside it.")
+		return
+	}
+	// Keep the original page and its stored properties. Check its current
+	// parent in the update so a stale drag cannot move a card a second time.
+	res, err := tx.Exec(`UPDATE pages AS row SET parent_id = ?, updated_at = ?, position = ?
+		WHERE row.id = ? AND row.parent_id = ? AND row.type = 'doc'
+		AND row.trashed_at IS NULL AND row.is_template = 0 AND EXISTS (
+			SELECT 1 FROM pages AS src JOIN pages AS dst ON dst.id = ?
+			WHERE src.id = row.parent_id AND src.workspace_id = row.workspace_id AND dst.workspace_id = row.workspace_id
+			AND src.type = 'collection' AND dst.type = 'collection'
+			AND src.trashed_at IS NULL AND dst.trashed_at IS NULL AND src.is_template = 0 AND dst.is_template = 0
+		)`, move.CollectionID, now(), position, move.RowID, sourceID, move.CollectionID)
+	if err != nil {
+		failed(err)
+		return
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		httpErrorCode(w, 404, "collection_move_unavailable", "The card or collection is no longer available.")
+		return
+	}
+	// Record who moved the card, a move and its undo alike, in the same
+	// transaction: the last-activity column names the newest entry's person.
+	var workspaceID string
+	if err := tx.QueryRow(`SELECT workspace_id FROM pages WHERE id = ?`, move.RowID).Scan(&workspaceID); err != nil {
+		failed(err)
+		return
+	}
+	// The entry is read by whoever may read the card, which can be more
+	// people than may read either collection: a private one is not named.
+	fromName, err := auditCollectionName(tx, sourceID)
+	if err != nil {
+		failed(err)
+		return
+	}
+	toName, err := auditCollectionName(tx, move.CollectionID)
+	if err != nil {
+		failed(err)
+		return
+	}
+	u := requestUser(r)
+	if _, err := insertAudit(tx, "human", u.ID, u.Name, "move_to_collection", move.RowID, workspaceID, fromName+" → "+toName, ""); err != nil {
+		failed(err)
+		return
+	}
+	if move.Restore != nil {
+		// Back to the state before the undone move, counter included.
+		if _, err := tx.Exec(`UPDATE pages SET placement = ? WHERE id = ?`, *move.Restore.Placement, move.RowID); err != nil {
+			failed(err)
+			return
+		}
+	}
+	if err := tx.QueryRow(`SELECT placement FROM pages WHERE id = ?`, move.RowID).Scan(&placement); err != nil {
+		failed(err)
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		failed(err)
+		return
+	}
+	s.pagesChanged()
+	s.rowsChanged(sourceID)
+	s.rowsChanged(move.CollectionID)
+	s.fireWebhook("page.updated", move.RowID)
+	writeJSON(w, map[string]any{"ok": true, "fromPosition": before, "position": position,
+		"fromPlacement": fromPlacement, "placement": placement})
 }
 
 // createDefaultCollection initializes a fresh database page.

@@ -52,9 +52,20 @@ export function DialogHost() {
   const [value, setValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // A request that arrives while another is open replaces it. The one
+  // replaced is answered as cancelled: left unanswered, whoever awaits it
+  // (a board's move queue, say) would wait for good.
+  const current = useRef<Req | null>(null);
+  current.current = req;
   useEffect(() => {
     const onReq = (e: Event) => {
       const detail = (e as CustomEvent<Req>).detail;
+      const shown = current.current;
+      if (shown && shown !== detail) {
+        if (shown.kind === 'confirm') shown.resolve(false);
+        else shown.resolve(null);
+      }
+      current.current = detail;
       setReq(detail);
       setValue(detail.kind === 'prompt' ? detail.defaultValue ?? '' : '');
     };
