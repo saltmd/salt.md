@@ -275,13 +275,23 @@ function dateUrgency(v: string): '' | ' is-overdue' | ' is-soon' {
 
 // Format a computed (rollup/formula) value for display. The server sends either
 // a number or a "⚠ <message>" error string.
-function formatComputed(value: unknown): { text: string; error: boolean } {
+/** A formula's date result: a day, or a day with a time. */
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/;
+
+/** A computed value as text: a number for the reader's region, a date as a
+ *  date, a checkbox as ✓ or ✗, a list joined, and a formula error as it came. */
+export function formatComputed(value: unknown): { text: string; error: boolean } {
   if (typeof value === 'string' && value.startsWith('⚠')) return { text: value, error: true };
   if (typeof value === 'number') {
     // Trim floating-point noise (13.000000001) without forcing decimals on ints.
     const rounded = Math.round(value * 1e6) / 1e6;
     return { text: formatNumber(rounded), error: false };
   }
+  if (typeof value === 'boolean') return { text: value ? '✓' : '✗', error: false };
+  if (Array.isArray(value)) {
+    return { text: value.map((v) => formatComputed(v).text).filter(Boolean).join(', '), error: false };
+  }
+  if (typeof value === 'string' && ISO_DAY.test(value)) return { text: fmtDate(value), error: false };
   return { text: value != null ? String(value) : '', error: false };
 }
 

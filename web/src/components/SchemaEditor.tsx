@@ -10,6 +10,8 @@ import { GripVertical, Check, Trash2 } from 'lucide-react';
 import { t } from '../i18n';
 import { imeComposing } from '../keys';
 import { loadMembers, type Member } from './PropertyValue';
+import FormulaEditor from './FormulaEditor';
+import { ALL_CALCULATIONS, calculationLabel } from '../calculations';
 
 // Functions, not constants: t() at module level resolves once at import and
 // keeps that language forever.
@@ -36,17 +38,18 @@ const propTypes = (): { value: PropType; label: string }[] => [
   { value: 'formula', label: t('Formula') },
 ];
 
+// count is how many related rows match; the calculations after it work on the
+// values of the chosen property, the same ones a table's footer offers.
 const rollupAggs = (): { value: NonNullable<PropDef['rollupAgg']>; label: string }[] => [
-  { value: 'sum', label: t('Sum') },
   { value: 'count', label: t('Count') },
-  { value: 'avg', label: t('Average') },
-  { value: 'min', label: t('Min') },
-  { value: 'max', label: t('Max') },
   // Percent is the share of the related rows that meet the condition. It exists
   // so a progress bar needs no formula: a formula would have to divide, and
   // 0 of 0 related rows is a division by zero — an error message in the column
   // of every newly created row.
   { value: 'percent', label: t('Percent') },
+  { value: 'show_original', label: t('Show original') },
+  { value: 'show_unique', label: t('Show unique values') },
+  ...ALL_CALCULATIONS.filter((c) => c !== 'count_all').map((c) => ({ value: c, label: calculationLabel(c) })),
 ];
 
 const OPTION_COLORS = OPTION_HEXES;
@@ -66,11 +69,13 @@ const slug = (name: string) =>
   name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || `p${++idCounter}`;
 
 export default function SchemaEditor({
+  collectionId,
   config,
   collections,
   onSave,
   onClose,
 }: {
+  collectionId: string;
   config: CollectionConfig;
   collections?: { id: string; title: string }[];
   onSave: (c: CollectionConfig) => Promise<void>;
@@ -365,7 +370,7 @@ export default function SchemaEditor({
           >
             <option value="">{rel ? t('Choose…') : t('(pick relation first)')}</option>
             {targetSchema
-              .filter((t) => t.type !== 'rollup' && t.type !== 'formula' && t.type !== 'relation')
+              .filter((t) => t.type !== 'relation')
               .map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name}
@@ -401,7 +406,6 @@ export default function SchemaEditor({
           >
             <option value="">{t('All rows')}</option>
             {targetSchema
-              .filter((t) => t.type !== 'rollup' && t.type !== 'formula')
               .map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name}
@@ -447,27 +451,12 @@ export default function SchemaEditor({
     if (p.type === 'formula') {
       return (
         <div className="schema-config formula-config">
-          <label>{t('Expression')}</label>
-          <input
-            className="prop-input formula-input"
-            placeholder={t('e.g. {price} * {qty} - {discount}')}
-            value={p.formula ?? ''}
-            onChange={(e) => updateProp(p.id, { formula: e.target.value })}
+          <FormulaEditor
+            collectionId={collectionId}
+            prop={p}
+            schema={schema}
+            onChange={(formula) => updateProp(p.id, { formula })}
           />
-          <div className="formula-hint">
-            <div>{t('Reference other properties with')} <code>{'{id}'}</code></div>
-            <div>
-              {t('Available:')}{' '}
-              {schema
-                .filter((o) => o.id !== p.id)
-                .map((o) => (
-                  <code key={o.id} className="formula-token" title={o.name}>
-                    {'{' + o.id + '}'}
-                  </code>
-                ))}
-            </div>
-            <div>{t('Supports')} <code>+ - * / ( )</code></div>
-          </div>
           {numberDisplayFields(p)}
         </div>
       );
