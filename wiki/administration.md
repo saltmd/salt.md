@@ -207,6 +207,11 @@ stored password shows as *•••••• (unchanged)* and an empty field kee
 including why mail is a convenience and never a dependency, are in
 [Sending email](mail.md).
 
+**Forgotten passwords** holds one checkbox, **Offer “Forgot your password?” on
+the sign-in page**, off by default. It takes effect only while mail can be
+sent. With it off, admins still send reset links from **Manage users**. See
+[Password links](mail.md#password-links).
+
 ### Domain & proxy
 
 Four routes to a public address, in the order the tab lists them:
@@ -415,11 +420,13 @@ happen to an account in its lifetime is on that right-hand pane.
 
 ### Creating an account directly
 
-**+ User** opens **Create a new user**, and the subtitle says what that means:
-*Creates the account straight away. No email is sent.* You supply **Name**,
-**Email** and an **Initial password (min. 8 characters)**, optionally tick
+**+ User** opens **Create a new user**. You supply **Name** and **Email**,
+leave **Send invitation email (they choose their own password)** ticked or
+untick it and type an **Initial password (min. 8 characters)**, optionally tick
 **Instance admin (may manage everything)**, and set a role per workspace under
-**Workspace access**. Then **Create user**.
+**Workspace access**. Then **Create user**. An invited account shows **invited**
+in the list until its person has chosen a password; without mail delivery its
+link appears in the dialog to copy. See [Password links](mail.md#password-links).
 
 Two things happen that the form does not show. The account gets its own personal
 space and any workspaces open to everybody, regardless of what you ticked. And
@@ -428,19 +435,20 @@ anywhere, an admin only where they are a workspace admin themselves. A row you
 are not entitled to grant is silently skipped rather than refused, so check the
 result if you were assigning outside your own workspaces.
 
-There is **no password-reset email** in salt.md, and no field in this dialog for
-setting somebody else's password. What an admin can change about another account
-is its **name, colour and picture**; the **password and the email address** are
-the owner's alone: *"Only the owner can change another account's password or
-email. As an admin you can send an invitation."* Both go through the API
-(`PATCH /api/users/{id}`); the dialog offers neither. For everyday cases the
-answer is an invitation or a new account.
+There is no field in this dialog for setting somebody else's password. What an
+admin can change about another account is its **name, colour and picture**; the
+**password and the email address** are the owner's alone: *"Only the owner can
+change another account's password or email. As an admin you can send an
+invitation."* Both go through the API (`PATCH /api/users/{id}`); the dialog
+offers neither. For everyday cases the answer is **Send password reset email**,
+which mails the person a link to choose a new one themselves.
 
 ### The actions on an account
 
 | Button | Who may press it | Effect |
 | --- | --- | --- |
 | **Make instance admin** / **Revoke admin rights** | admins | grants or removes instance administration |
+| **Send password reset email** / **Send invitation email again** | admins | mails the account a [password link](mail.md#password-links); not on your own row or a deactivated account |
 | **Deactivate account** / **Reactivate** | admins | see below |
 | **Delete user** | the owner | permanent, see below |
 | **Hand over the instance** | the owner | see below |

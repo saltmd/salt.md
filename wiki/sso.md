@@ -321,8 +321,8 @@ When the policy does allow it, the account is created immediately:
   else. ([Workspaces](workspaces.md))
 - **A confirmed address**, which is what lets the button work the second time.
 - **No usable password.** The account is created with a random one that nobody
-  knows, and salt.md has no password-reset flow. Until somebody sets one, the
-  provider button is the only way in.
+  knows. Until somebody sends it a [password reset](mail.md#password-links) or
+  sets one, the provider button is the only way in.
 
 Setting a password on such an account is possible in exactly one place, and it
 is not the interface: only the instance **owner** can do it, and only over the
@@ -436,9 +436,9 @@ and typing a new ID brings the old secret back into use, so replace the secret
 too if the point was to retire it.
 
 Accounts created through SSO keep existing, with all their pages. What they lose
-is their way in: no usable password, no reset. Before you switch a provider off,
-the owner has to give those people a password with `PATCH /api/users/{id}`;
-there is no field for it anywhere in the interface. The alternative is deleting
+is their way in: no usable password. Before you switch a provider off, send
+those people a **password reset email** from **Manage users**, or the owner
+gives them a password with `PATCH /api/users/{id}`. The alternative is deleting
 the account and creating it again with **+ User**, which takes the person's
 personal space with it.
 

@@ -107,6 +107,9 @@ member lists, and somebody else's timezone is nobody's business.
 | `POST /api/signup` | register yourself, when the policy allows it |
 | `POST /api/login` | `{"email":…,"password":…}`, plus `"code"` when two-factor is on |
 | `POST /api/logout` | delete this session and clear the cookie |
+| `POST /api/password-reset` | `{"email":…}`: mail a reset link, when an admin has switched this on; the same `{"ok":true}` for every address, 5 a minute per network address |
+| `GET /api/password-links/{token}` | the `email`, `name` and `purpose` (`invite` or `reset`) of a live password link; `404` with `password_link_invalid` when used or expired |
+| `POST /api/password-links/{token}` | `{"password":…}`: set the password once; ends every session and API token of the account, then sign in with `POST /api/login` |
 
 `POST /api/login` returns the user object and sets the cookie. Sign-in is
 throttled per address, and a deactivated account is refused only after the
@@ -612,6 +615,15 @@ share urls and connection strings from that, not from the host you happened to
 reach: a link built from an internal address is useless to anybody outside.
 
 ## Instance administration
+
+`POST /api/users/{id}/password-link` (admins) mails the account a single-use
+link to choose a password: an invitation (7 days) when it has never had one, a
+reset (24 hours) otherwise. It answers `purpose`, `emailed` and `expiresAt`;
+without mail it adds `link` and `mailError`, except for a reset requested by an
+admin who is not the owner, which fails with `password_reset_needs_mail`.
+`POST /api/users` takes `"sendInvite": true` in place of a `password` and
+answers the same object under `invite`. See
+[Password links](mail.md#password-links).
 
 Almost none of these accept a token. `/api/users`, `/api/invites`,
 `/api/webhooks`, `/api/2fa`, `/api/me/prefs`, `/api/tokens`,

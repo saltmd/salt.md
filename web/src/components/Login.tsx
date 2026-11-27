@@ -4,6 +4,7 @@ import type { User } from '../types';
 import Logo from '../Logo';
 import { t } from '../i18n';
 import { serverMessage } from '../serverErrors';
+import { PASSWORD_SET_PARAM } from './SetPassword';
 
 
 // Where to go after signing in, when somebody arrived with a destination.
@@ -28,14 +29,16 @@ function nextDestination(): string {
 }
 
 export default function Login({ onSuccess }: { onSuccess: (user: User) => void }) {
-  const [mode, setMode] = useState<'login' | 'signup'>('login');
+  const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>('login');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
   const [needCode, setNeedCode] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
   const [signupOpen, setSignupOpen] = useState(false);
   const [instanceName, setInstanceName] = useState('');
   const [oauth, setOauth] = useState<{ google: boolean; microsoft: boolean }>({ google: false, microsoft: false });
@@ -48,6 +51,7 @@ export default function Login({ onSuccess }: { onSuccess: (user: User) => void }
         setInstanceName(p.instanceName || '');
         if (p.instanceName) document.title = p.instanceName;
         setOauth({ google: p.oauthGoogle, microsoft: p.oauthMicrosoft });
+        setResetOpen(p.passwordReset);
       })
       .catch(() => {});
     // Surface an error handed back by an aborted OAuth redirect. The server
@@ -55,6 +59,12 @@ export default function Login({ onSuccess }: { onSuccess: (user: User) => void }
     // translated, the sentence is the fallback. `detail` is the provider's own
     // wording and stays as it came.
     const qs = new URLSearchParams(window.location.search);
+    const passwordSetFor = qs.get(PASSWORD_SET_PARAM);
+    if (passwordSetFor) {
+      setEmail(passwordSetFor);
+      setNotice(t('Password saved. Sign in with it.'));
+      window.history.replaceState({}, '', window.location.pathname);
+    }
     const code = qs.get('oauthError');
     if (code) {
       const text = qs.get('oauthErrorText') ?? code;
@@ -72,6 +82,12 @@ export default function Login({ onSuccess }: { onSuccess: (user: User) => void }
     setBusy(true);
     setError(null);
     try {
+      if (mode === 'forgot') {
+        await api.forgotPassword(email);
+        setNotice(t('If an account uses this address, an email with a link to choose a new password is on its way.'));
+        setMode('login');
+        return;
+      }
       if (mode === 'signup') {
         onSuccess(await api.signup(name, email, password));
         return;
@@ -108,7 +124,14 @@ export default function Login({ onSuccess }: { onSuccess: (user: User) => void }
             instance carries its own name that is the company's mark, and it
             stays exactly as they wrote it. */}
         <h1 className={instanceName ? undefined : 'wordmark'}>{instanceName || 'salt.md'}</h1>
-        <p>{mode === 'signup' ? t('Create an account.') : t('Sign in to your workspace.')}</p>
+        <p>
+          {mode === 'signup'
+            ? t('Create an account.')
+            : mode === 'forgot'
+              ? t('Enter your email address. If it has an account, a link to choose a new password is sent there.')
+              : t('Sign in to your workspace.')}
+        </p>
+        {notice && <p>{notice}</p>}
         {mode === 'signup' && (
           <input
             autoFocus
@@ -130,15 +153,17 @@ export default function Login({ onSuccess }: { onSuccess: (user: User) => void }
             setError(null);
           }}
         />
-        <input
-          type="password"
-          value={password}
-          placeholder={mode === 'signup' ? t('Password (min. 8 characters)') : t('Password')}
-          onChange={(e) => {
-            setPassword(e.target.value);
-            setError(null);
-          }}
-        />
+        {mode !== 'forgot' && (
+          <input
+            type="password"
+            value={password}
+            placeholder={mode === 'signup' ? t('Password (min. 8 characters)') : t('Password')}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              setError(null);
+            }}
+          />
+        )}
         {needCode && mode === 'login' && (
           <input
             inputMode="numeric"
@@ -153,9 +178,23 @@ export default function Login({ onSuccess }: { onSuccess: (user: User) => void }
         )}
         {error && <div className="login-error">{error}</div>}
         <button className="btn primary" type="submit" disabled={busy}>
-          {mode === 'signup' ? t('Create account') : t('Sign in')}
+          {mode === 'signup' ? t('Create account') : mode === 'forgot' ? t('Send link') : t('Sign in')}
         </button>
-        {(oauth.google || oauth.microsoft) && (
+        {resetOpen && mode !== 'signup' && (
+          <button
+            type="button"
+            className="login-switch"
+            onClick={() => {
+              setMode((m) => (m === 'forgot' ? 'login' : 'forgot'));
+              setError(null);
+              setNotice(null);
+              setNeedCode(false);
+            }}
+          >
+            {mode === 'forgot' ? t('Back to sign in') : t('Forgot your password?')}
+          </button>
+        )}
+        {mode !== 'forgot' && (oauth.google || oauth.microsoft) && (
           <>
             <div className="login-divider"><span>{t('or')}</span></div>
             {oauth.google && (
@@ -182,7 +221,7 @@ export default function Login({ onSuccess }: { onSuccess: (user: User) => void }
             )}
           </>
         )}
-        {signupOpen && (
+        {signupOpen && mode !== 'forgot' && (
           <button
             type="button"
             className="login-switch"

@@ -566,6 +566,18 @@ func openDB(path string) (*sql.DB, error) {
 			return nil, fmt.Errorf("migrate users.%s: %w", c[0], err)
 		}
 	}
+	// Single-use links to choose a password (password_links.go). Only the hash
+	// of the token is kept.
+	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS password_links (
+		token_hash TEXT PRIMARY KEY,
+		user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		purpose TEXT NOT NULL,
+		created_by TEXT NOT NULL DEFAULT '',
+		created_at TEXT NOT NULL,
+		expires_at TEXT NOT NULL
+	)`); err != nil {
+		return nil, fmt.Errorf("create password_links: %w", err)
+	}
 	// Record the schema/app version so an operator (and future migrations) can
 	// see what a data dir was last written by. Additive, idempotent.
 	db.Exec(`INSERT INTO schema_meta (key, value) VALUES ('version', ?)

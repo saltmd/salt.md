@@ -208,6 +208,15 @@ export function serverMessage(code: string, fallback: string, data?: ErrorData):
       return withDetail(t('The connection to the mailbox has expired. Connect it again.'));
     case 'mail_send_failed':
       return withDetail(t('The provider refused to send the message.'));
+    // ---- password links ----
+    case 'password_link_invalid':
+      return t('This link is not valid any more. It may have been used already or expired.');
+    case 'password_reset_off':
+      return t('This instance does not send password reset links on request. Ask an admin.');
+    case 'password_reset_needs_mail':
+      return withDetail(
+        t('The reset email could not be sent. Without mail delivery only the owner can be shown the link.'),
+      );
 
     case 'mail_oauth_no_refresh':
       return t(

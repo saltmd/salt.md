@@ -12,6 +12,7 @@ import NotesList from './components/NotesList';
 import Login from './components/Login';
 import Setup from './components/Setup';
 import InviteAccept from './components/InviteAccept';
+import SetPassword, { SET_PASSWORD_PATH } from './components/SetPassword';
 import PublicForm from './components/PublicForm';
 import OAuthConsent from './components/OAuthConsent';
 import { UploadBar, ImageLightbox } from './components/Overlays';
@@ -883,6 +884,7 @@ export default function App() {
     // Don't hijack the /invite/<token> route: an authenticated invitee must stay
     // on the invite screen long enough to accept, not get replaced with a page.
     if (/^\/invite\/[a-f0-9]+$/.test(window.location.pathname)) return;
+    if (SET_PASSWORD_PATH.test(window.location.pathname)) return;
     // Nor the consent screen. It renders only once `me` has loaded, and by then
     // this effect had already moved the browser to the last page you had open —
     // the agent's sign-in vanished into the app before anyone could answer it.
@@ -1153,6 +1155,10 @@ export default function App() {
   if (window.location.pathname === '/oauth/consent' && me?.authenticated) {
     return <OAuthConsent />;
   }
+
+  // Password link from an invitation or reset email, signed in or not.
+  const setPasswordMatch = window.location.pathname.match(SET_PASSWORD_PATH);
+  if (setPasswordMatch && me) return <SetPassword token={setPasswordMatch[1]} />;
 
   const inviteMatch = window.location.pathname.match(/^\/invite\/([a-f0-9]+)$/);
   if (inviteMatch && me) {

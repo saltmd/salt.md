@@ -47,6 +47,9 @@ type user struct {
 	// api | oauth — see the workspace-level rule in workspaces.go. Empty for a
 	// browser session, which that rule never limits.
 	TokenKind string `json:"-"`
+	// InvitePending: the account has no password yet. Filled in by the admin
+	// user list only.
+	InvitePending bool `json:"invitePending,omitempty"`
 	// TokenWorkspaces restricts a token to specific workspaces. nil means
 	// unrestricted (all the user's workspaces); non-nil is the allow-list.
 	// Cookie/session auth is always nil (unrestricted). Not serialized.
@@ -431,6 +434,13 @@ func (s *Server) handleSetup(w http.ResponseWriter, r *http.Request) {
 }
 
 func validateAccount(name, email, password string) string {
+	if msg := validateIdentity(name, email); msg != "" {
+		return msg
+	}
+	return validatePassword(password)
+}
+
+func validateIdentity(name, email string) string {
 	if strings.TrimSpace(name) == "" {
 		return "name is required"
 	}
@@ -438,6 +448,10 @@ func validateAccount(name, email, password string) string {
 	if email == "" || !strings.Contains(email, "@") {
 		return "a valid email is required"
 	}
+	return ""
+}
+
+func validatePassword(password string) string {
 	if len(password) < 8 {
 		return "password must be at least 8 characters"
 	}
@@ -515,7 +529,7 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleListUsers(w http.ResponseWriter, r *http.Request) {
-	rows, err := s.db.Query(`SELECT u.id, u.email, u.name, u.color, u.avatar, u.is_admin, u.disabled, COALESCE(m.role, '')
+	rows, err := s.db.Query(`SELECT u.id, u.email, u.name, u.color, u.avatar, u.is_admin, u.disabled, COALESCE(m.role, ''), u.password_hash = ''
 		FROM users u LEFT JOIN org_members m ON m.user_id = u.id ORDER BY u.created_at`)
 	if err != nil {
 		httpError(w, 500, err.Error())
@@ -526,7 +540,7 @@ func (s *Server) handleListUsers(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var u user
 		var isAdmin, disabled int
-		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.Color, &u.Avatar, &isAdmin, &disabled, &u.OrgRole); err != nil {
+		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.Color, &u.Avatar, &isAdmin, &disabled, &u.OrgRole, &u.InvitePending); err != nil {
 			httpError(w, 500, err.Error())
 			return
 		}
@@ -545,10 +559,12 @@ func (s *Server) handleListUsers(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		Name       string `json:"name"`
-		Email      string `json:"email"`
-		Password   string `json:"password"`
-		IsAdmin    bool   `json:"isAdmin"`
+		Name     string `json:"name"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
+		IsAdmin  bool   `json:"isAdmin"`
+		// SendInvite: no password; the person chooses one through an emailed link.
+		SendInvite bool `json:"sendInvite"`
 		Workspaces []struct {
 			ID   string `json:"id"`
 			Role string `json:"role"`
@@ -558,7 +574,11 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 		httpError(w, 400, "invalid JSON")
 		return
 	}
-	if msg := validateAccount(body.Name, body.Email, body.Password); msg != "" {
+	msg := validateIdentity(body.Name, body.Email)
+	if msg == "" && !body.SendInvite {
+		msg = validatePassword(body.Password)
+	}
+	if msg != "" {
 		httpError(w, 400, msg)
 		return
 	}
@@ -567,8 +587,12 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 	if body.IsAdmin {
 		admin = 1
 	}
+	passwordHash := ""
+	if !body.SendInvite {
+		passwordHash = hashPassword(body.Password)
+	}
 	_, err := s.db.Exec(`INSERT INTO users (id, email, name, color, password_hash, is_admin, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		id, strings.ToLower(strings.TrimSpace(body.Email)), strings.TrimSpace(body.Name), s.nextColor(), hashPassword(body.Password), admin, now())
+		id, strings.ToLower(strings.TrimSpace(body.Email)), strings.TrimSpace(body.Name), s.nextColor(), passwordHash, admin, now())
 	if err != nil {
 		httpError(w, 400, "email already in use")
 		return
@@ -603,7 +627,22 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 	// newcomer saw everything at once — which is the observation this whole wave
 	// started from.
 	s.onboardUser(id, body.Name)
-	writeJSON(w, s.userByID(id))
+	created := createdUser{user: s.userByID(id)}
+	if body.SendInvite {
+		res, err := s.sendPasswordLink(r, me, created.user)
+		if err != nil {
+			httpErrorFrom(w, 500, err)
+			return
+		}
+		created.Invite = &res
+	}
+	writeJSON(w, created)
+}
+
+// createdUser is the new account plus, for an invitation, how its link went out.
+type createdUser struct {
+	*user
+	Invite *passwordLinkResult `json:"invite,omitempty"`
 }
 
 func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
@@ -729,13 +768,7 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	if body.Password != nil {
 		s.db.Exec(`UPDATE users SET password_hash = ? WHERE id = ?`, hashPassword(*body.Password), id)
-		// Changing the password invalidates all of the account's sessions and
-		// tokens: the signed-in connections and the calendar link too, which
-		// are keys as much as the others are.
-		s.db.Exec(`DELETE FROM sessions WHERE user_id = ?`, id)
-		s.db.Exec(`DELETE FROM api_tokens WHERE user_id = ?`, id)
-		s.endSignIns(id)
-		s.db.Exec(`DELETE FROM app_settings WHERE key = ?`, "ics_token_"+id)
+		s.endPasswordKeys(id)
 		if me.ID == id {
 			if token, err := s.createSession(id); err == nil {
 				setSessionCookie(w, r, token, s.sessionDays()*24*3600)
@@ -743,6 +776,16 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	writeJSON(w, s.userByID(id))
+}
+
+// endPasswordKeys invalidates everything a new password replaces: password
+// links, sessions, API tokens, signed-in connections and the calendar link.
+func (s *Server) endPasswordKeys(userID string) {
+	s.dropPasswordLinks(userID)
+	s.db.Exec(`DELETE FROM sessions WHERE user_id = ?`, userID)
+	s.db.Exec(`DELETE FROM api_tokens WHERE user_id = ?`, userID)
+	s.endSignIns(userID)
+	s.db.Exec(`DELETE FROM app_settings WHERE key = ?`, "ics_token_"+userID)
 }
 
 func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {

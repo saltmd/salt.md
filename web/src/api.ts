@@ -8,6 +8,7 @@ import type {
   OAuthGrant,
   Page,
   PageMeta,
+  PasswordLinkResult,
   PublicFormConfig,
   SaltFile,
   SearchResult,
@@ -119,7 +120,19 @@ export const api = {
     req<User>('/api/signup', { method: 'POST', body: JSON.stringify({ name, email, password }) }),
   // No allowedDomains here: which sender domains an instance counts as its own
   // is nobody's business before they have signed in.
-  signupPolicy: () => req<{ mode: string; instanceName: string; oauthGoogle: boolean; oauthMicrosoft: boolean }>('/api/signup-policy'),
+  signupPolicy: () =>
+    req<{ mode: string; instanceName: string; oauthGoogle: boolean; oauthMicrosoft: boolean; passwordReset: boolean }>(
+      '/api/signup-policy',
+    ),
+  // Password links: the emailed token lets its holder choose a password once.
+  forgotPassword: (email: string) =>
+    req<{ ok: boolean }>('/api/password-reset', { method: 'POST', body: JSON.stringify({ email }) }),
+  passwordLinkInfo: (token: string) =>
+    req<{ email: string; name: string; purpose: 'invite' | 'reset' }>(`/api/password-links/${token}`),
+  usePasswordLink: (token: string, password: string) =>
+    req<{ email: string }>(`/api/password-links/${token}`, { method: 'POST', body: JSON.stringify({ password }) }),
+  sendPasswordLink: (userId: string) =>
+    req<PasswordLinkResult>(`/api/users/${userId}/password-link`, { method: 'POST' }),
 
   getSettings: () =>
     req<{
@@ -133,6 +146,7 @@ export const api = {
       smtpPassSet: boolean;
       publicBaseUrl: string;
       trustProxy: boolean;
+      passwordResetSelf: boolean;
       allowUserWorkspaces: boolean;
       createPersonalWorkspaces: boolean;
       agentAddressesOn: boolean;
@@ -269,8 +283,14 @@ export const api = {
     >(`/api/workspaces/${workspaceId}/break-glass`),
   revokeBreakGlass: (workspaceId: string, grantId: string) =>
     req<{ ok: boolean }>(`/api/workspaces/${workspaceId}/break-glass/${grantId}`, { method: 'DELETE' }),
-  createUser: (u: { name: string; email: string; password: string; isAdmin: boolean; workspaces?: { id: string; role: string }[] }) =>
-    req<User>('/api/users', { method: 'POST', body: JSON.stringify(u) }),
+  createUser: (u: {
+    name: string;
+    email: string;
+    password: string;
+    isAdmin: boolean;
+    sendInvite: boolean;
+    workspaces?: { id: string; role: string }[];
+  }) => req<User & { invite?: PasswordLinkResult }>('/api/users', { method: 'POST', body: JSON.stringify(u) }),
   updateUser: (id: string, patch: Partial<{ name: string; email: string; color: string; avatar: string; password: string; currentPassword: string; isAdmin: boolean }>) =>
     req<User>(`/api/users/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
   deleteUser: (id: string) => req<{ ok: boolean }>(`/api/users/${id}`, { method: 'DELETE' }),

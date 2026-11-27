@@ -52,6 +52,7 @@ export function AdminSettingsModal({ onClose }: { onClose: () => void }) {
   useExclusiveModal(onClose);
   const [s, setS] = useState<Record<string, string>>({});
   const [trustProxy, setTrustProxy] = useState(false);
+  const [passwordResetSelf, setPasswordResetSelf] = useState(false);
   // How documents from this instance print. Held as one object because the five
   // travel together everywhere: loaded together, saved together, and the print
   // view reads them as a set.
@@ -112,6 +113,7 @@ export function AdminSettingsModal({ onClose }: { onClose: () => void }) {
           msTenant: v.msTenant ?? '',
         });
         setTrustProxy(v.trustProxy);
+        setPasswordResetSelf(v.passwordResetSelf);
         setPdf({
           cover: v.pdfCover, icon: v.pdfIcon, footer: v.pdfFooter,
           workspace: v.pdfWorkspace, pageNums: v.pdfPageNums,
@@ -223,6 +225,7 @@ export function AdminSettingsModal({ onClose }: { onClose: () => void }) {
         smtpPass: s.smtpPass,
         publicBaseUrl: s.publicBaseUrl,
         trustProxy,
+        passwordResetSelf,
         pdfCover: pdf.cover,
         pdfIcon: pdf.icon,
         pdfFooter: pdf.footer,
@@ -586,6 +589,17 @@ ingress:
                     <input className="prop-input" type="password" placeholder={passSet ? t('•••••• (unchanged)') : t('not set')} value={s.smtpPass} onChange={(e) => set('smtpPass', e.target.value)} />
                     <label>{t('Sender (From)')}</label>
                     <input className="prop-input" placeholder="salt@example.com" value={s.smtpFrom} onChange={(e) => set('smtpFrom', e.target.value)} />
+
+                    <h3>{t('Forgotten passwords')}</h3>
+                    <label className="settings-check">
+                      <input type="checkbox" checked={passwordResetSelf} onChange={(e) => setPasswordResetSelf(e.target.checked)} />
+                      <span>{t('Offer “Forgot your password?” on the sign-in page')}</span>
+                    </label>
+                    <p className="dialog-hint settings-hint">
+                      {t(
+                        'Anyone who can read a person’s mailbox can then choose a new password for their account. Two-factor sign-in still applies. Without this, admins send reset links from Manage users.',
+                      )}
+                    </p>
                   </>
                 )}
 

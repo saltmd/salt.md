@@ -51,7 +51,7 @@
         }
       ],
       "takenAt": {
-        "web/src/components/Login.tsx": "bae6bf56b013",
+        "web/src/components/Login.tsx": "86f1e7c511f4",
         "web/src/theme.css": "6a5de72d7e2c"
       },
       "instance": "anon",
@@ -81,7 +81,7 @@
       "takenAt": {
         "web/src/components/Sidebar.tsx": "d2dba3370c99",
         "web/src/components/Editor.tsx": "12d0e15283d0",
-        "web/src/App.tsx": "5f18773ed53b",
+        "web/src/App.tsx": "9446e9c60437",
         "web/src/theme.css": "6a5de72d7e2c"
       }
     },
@@ -569,7 +569,7 @@
         }
       ],
       "takenAt": {
-        "web/src/components/UserMenu.tsx": "4ba4d341b446",
+        "web/src/components/UserMenu.tsx": "1c9e30165541",
         "web/src/theme.css": "6a5de72d7e2c"
       },
       "element": ".dialog"
@@ -601,8 +601,8 @@
         }
       ],
       "takenAt": {
-        "server/users.go": "b8b8faf5176d",
-        "web/src/components/UserMenu.tsx": "4ba4d341b446",
+        "server/users.go": "fb8db99ae073",
+        "web/src/components/UserMenu.tsx": "1c9e30165541",
         "web/src/theme.css": "6a5de72d7e2c"
       },
       "element": ".dialog"
@@ -699,7 +699,7 @@
         }
       ],
       "takenAt": {
-        "server/users.go": "b8b8faf5176d",
+        "server/users.go": "fb8db99ae073",
         "web/src/theme.css": "6a5de72d7e2c"
       },
       "element": ".dialog"
@@ -737,7 +737,7 @@
         }
       ],
       "takenAt": {
-        "web/src/components/AdminSettings.tsx": "6713e2be48ac",
+        "web/src/components/AdminSettings.tsx": "8470f0fbbc75",
         "server/instance.go": "c35df9908986",
         "web/src/theme.css": "6a5de72d7e2c"
       },
@@ -776,7 +776,7 @@
         }
       ],
       "takenAt": {
-        "web/src/components/AdminSettings.tsx": "6713e2be48ac",
+        "web/src/components/AdminSettings.tsx": "8470f0fbbc75",
         "server/oauth.go": "b780fe12f191",
         "web/src/theme.css": "6a5de72d7e2c"
       },
@@ -816,9 +816,9 @@
         }
       ],
       "takenAt": {
-        "web/src/components/AdminSettings.tsx": "6713e2be48ac",
+        "web/src/components/AdminSettings.tsx": "8470f0fbbc75",
         "server/mail_oauth.go": "0f9335f373b5",
-        "server/admin.go": "f54e70b1eea7",
+        "server/admin.go": "065995fe4a09",
         "web/src/theme.css": "6a5de72d7e2c"
       },
       "element": ".dialog"
@@ -855,7 +855,7 @@
         }
       ],
       "takenAt": {
-        "web/src/components/AdminSettings.tsx": "6713e2be48ac",
+        "web/src/components/AdminSettings.tsx": "8470f0fbbc75",
         "web/src/theme.css": "6a5de72d7e2c"
       },
       "element": ".dialog"
@@ -893,7 +893,7 @@
         }
       ],
       "takenAt": {
-        "web/src/components/AdminSettings.tsx": "6713e2be48ac",
+        "web/src/components/AdminSettings.tsx": "8470f0fbbc75",
         "server/webhooks.go": "49e796d4fa6b",
         "web/src/theme.css": "6a5de72d7e2c"
       },
@@ -933,7 +933,7 @@
       ],
       "element": ".dialog",
       "takenAt": {
-        "web/src/components/AdminSettings.tsx": "6713e2be48ac",
+        "web/src/components/AdminSettings.tsx": "8470f0fbbc75",
         "server/export_html.go": "c6d050d8e19d",
         "web/src/theme.css": "6a5de72d7e2c"
       }
@@ -971,7 +971,7 @@
         }
       ],
       "takenAt": {
-        "web/src/components/AdminSettings.tsx": "6713e2be48ac",
+        "web/src/components/AdminSettings.tsx": "8470f0fbbc75",
         "server/backup.go": "7a2fc9954d76",
         "web/src/theme.css": "6a5de72d7e2c"
       },
@@ -1005,8 +1005,8 @@
         }
       ],
       "takenAt": {
-        "web/src/components/AdminSettings.tsx": "6713e2be48ac",
-        "server/admin.go": "f54e70b1eea7",
+        "web/src/components/AdminSettings.tsx": "8470f0fbbc75",
+        "server/admin.go": "065995fe4a09",
         "server/lifecycle_account.go": "131f7e3f91c2",
         "web/src/theme.css": "6a5de72d7e2c"
       },
