@@ -664,24 +664,22 @@ export const api = {
     a.remove();
   },
 
-  // Max upload size — keep in sync with server/pages.go maxUploadSize (50 MiB).
-  uploadMaxBytes: 50 * 1024 * 1024,
+  // The instance's per-file cap (Administration → Max. file size per upload).
+  uploadLimit: () => req<{ maxBytes: number }>('/api/upload/limit').then((l) => l.maxBytes),
 
   // XHR-based so we can drive a global progress bar and give a precise
   // over-limit / server error message. Progress is broadcast on
   // "salt:upload-progress" (0-1) and "salt:upload-done".
-  upload: (file: File, pageId?: string): Promise<string> =>
-    new Promise((resolve, reject) => {
-      if (file.size > api.uploadMaxBytes) {
-        reject(
-          new ApiError(
-            t('File too large ({size}), 50 MB max.', { size: formatBytes(file.size) }),
-            413,
-            'file_too_large',
-          ),
-        );
-        return;
-      }
+  upload: async (file: File, pageId?: string): Promise<string> => {
+    const maxBytes = await api.uploadLimit();
+    if (file.size > maxBytes) {
+      throw new ApiError(
+        t('File too large ({size}), {max} max.', { size: formatBytes(file.size), max: formatBytes(maxBytes) }),
+        413,
+        'file_too_large',
+      );
+    }
+    return new Promise((resolve, reject) => {
       const fd = new FormData();
       fd.append('file', file);
       const xhr = new XMLHttpRequest();
@@ -725,5 +723,6 @@ export const api = {
         reject(new ApiError(t('Upload failed: no connection to the server.'), 0));
       };
       xhr.send(fd);
-    }),
+    });
+  },
 };

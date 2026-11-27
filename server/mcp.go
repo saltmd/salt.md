@@ -9,8 +9,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 )
@@ -254,14 +252,17 @@ var mcpTools = []map[string]any{
 	{
 		"name":        "upload_file",
 		"annotations": adds,
-		"description": "Upload a file (e.g. a PDF) from base64 data. If page_id is given, the file is attached to that page as a block; PDF text becomes searchable.",
+		"description": "Upload a file (e.g. a PDF). If page_id is given, the file is attached to that page as a block; PDF text becomes searchable. " +
+			"For anything but a tiny file, leave data_base64 out: the answer is then a one-time upload address, valid for 15 minutes, " +
+			"and you send the file's bytes to it from a shell with `curl -sS --fail-with-body -T <path> <address>` (no other headers needed). " +
+			"data_base64 carries the file inline and only suits a few kilobytes.",
 		"inputSchema": map[string]any{"type": "object",
 			"properties": map[string]any{
-				"file_name":   map[string]any{"type": "string"},
-				"data_base64": map[string]any{"type": "string"},
+				"file_name":   map[string]any{"type": "string", "description": "The name the file is shown under; its extension decides image or file block"},
+				"data_base64": map[string]any{"type": "string", "description": "Optional: the file's bytes, base64. Leave out to get an upload address for curl instead"},
 				"page_id":     map[string]any{"type": "string", "description": "Optional page to attach the file to"},
 			},
-			"required": []string{"file_name", "data_base64"}},
+			"required": []string{"file_name"}},
 	},
 	{
 		"name":        "query_rows",
@@ -638,7 +639,7 @@ func (s *Server) handleMCP(w http.ResponseWriter, r *http.Request) {
 	maxBody := s.maxUploadBytes()/3*4 + 1<<20
 	if r.ContentLength > maxBody {
 		rpcError(w, nil, -32600, fmt.Sprintf(
-			"request is %d MB. The limit is %d MB; for a file this size use the HTTP upload at /api/upload",
+			"request is %d MB. The limit is %d MB; for a file this size call upload_file without data_base64 and send the file to the upload address it returns",
 			r.ContentLength>>20, maxBody>>20))
 		return
 	}
@@ -651,7 +652,7 @@ func (s *Server) handleMCP(w http.ResponseWriter, r *http.Request) {
 		var tooLarge *http.MaxBytesError
 		if errors.As(err, &tooLarge) {
 			rpcError(w, nil, -32600, fmt.Sprintf(
-				"request body exceeds the %d MB limit; for a file this size use the HTTP upload at /api/upload", maxBody>>20))
+				"request body exceeds the %d MB limit; for a file this size call upload_file without data_base64 and send the file to the upload address it returns", maxBody>>20))
 			return
 		}
 		rpcError(w, nil, -32700, "parse error")
@@ -1194,60 +1195,30 @@ func (s *Server) mcpCall(u *user, name string, rawArgs json.RawMessage, publicBa
 		case "embed_database":
 			return s.mcpEmbedDatabase(u, args.PageID, args.DatabaseID)
 		case "upload_file":
-			// Judge the size from the ENCODED length, before decoding. Every
-			// 4 base64 characters are 3 bytes, so this is exact to within a
-			// byte or two — and it means an oversized upload never gets a
-			// second full-size copy made of it just to be measured and thrown
-			// away. Same reasoning as the Content-Length check above, one
-			// layer further in.
+			if args.FileName == "" {
+				return "", fmt.Errorf("file_name is required")
+			}
+			if args.DataBase64 == "" {
+				return s.mcpUploadTicket(u, args.FileName, args.PageID, publicBase), nil
+			}
+			// Judge the size from the ENCODED length, before decoding, so an
+			// oversized upload never gets a second full-size copy.
 			if size := int64(len(args.DataBase64)) / 4 * 3; size > s.maxUploadBytes() {
-				return "", fmt.Errorf("file is %d MB. The limit is %d MB; upload it through the browser (/api/upload) or raise max_upload_mb in the settings",
+				return "", fmt.Errorf("file is %d MB. The limit is %d MB; raise max_upload_mb in the settings",
 					size>>20, s.maxUploadBytes()>>20)
 			}
 			data, err := base64.StdEncoding.DecodeString(args.DataBase64)
 			if err != nil {
 				return "", fmt.Errorf("data_base64 is not valid base64")
 			}
-			ext := strings.ToLower(filepath.Ext(args.FileName))
-			clean := ""
-			for _, c := range ext {
-				if (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '.' {
-					clean += string(c)
-				}
+			out, err := s.storeUpload(bytes.NewReader(data), uploadRequest{FileName: args.FileName, PageID: args.PageID, Attach: args.PageID != ""})
+			if errors.Is(err, errUploadEmpty) {
+				return "", fmt.Errorf("no file content: pass the bytes as data_base64, or leave it out for an upload address")
 			}
-			// An empty upload is a mistake, not a file. It used to be written
-			// out as a 0-byte file with a block pointing at it, and the page
-			// then showed an error about content nobody ever sent — the wrong
-			// end of the problem entirely. Saying so here names the real cause.
-			if len(data) == 0 {
-				return "", fmt.Errorf("no file content: pass the bytes as data_base64")
-			}
-			name := newID() + clean
-			path := filepath.Join(s.dataDir, "files", name)
-			if err := os.WriteFile(path, data, 0o644); err != nil {
+			if err != nil {
 				return "", err
 			}
-			url := "/files/" + name
-			if args.PageID != "" {
-				blockType := "file"
-				switch clean {
-				case ".png", ".jpg", ".jpeg", ".gif", ".webp":
-					blockType = "image"
-				}
-				block := fmt.Sprintf(`{"type":%q,"props":{"url":%q,"name":%q}}`, blockType, url, args.FileName)
-				if err := s.appendBlockJSON(args.PageID, block); err != nil {
-					return "", err
-				}
-				if clean == ".pdf" {
-					s.indexFileText(name, args.PageID, extractPDFText(path))
-				}
-			}
-			// The file index (W125). This was missing here while the HTTP
-			// upload had it, so several hundred files uploaded by an agent
-			// were on disk, on their pages, and searchable — but absent from
-			// list_files, which reads the index and nothing else.
-			s.recordFile(name, args.PageID, filepath.Base(args.FileName))
-			return fmt.Sprintf("Uploaded %s → %s", args.FileName, url), nil
+			return out.summary(args.FileName), nil
 		case "query_rows":
 			filters := make([]rowFilter, 0, len(args.Filter))
 			for _, f := range args.Filter {
@@ -1345,7 +1316,10 @@ func (s *Server) mcpCall(u *user, name string, rawArgs json.RawMessage, publicBa
 		// property — the generic one here has no way to know what changed, and
 		// two entries for one call would make the log lie about how much
 		// happened.
-		if name != "working_on" && name != "note" && name != "set_properties" {
+		// upload_file without data only issued an address; the upload itself
+		// writes the entry (handlePutTicketUpload).
+		issuedTicket := name == "upload_file" && args.DataBase64 == ""
+		if name != "working_on" && name != "note" && name != "set_properties" && !issuedTicket {
 			ws := s.pageWorkspace(args.PageID)
 			if ws == "" {
 				ws = s.mcpAuditWorkspace(u, name, parentID, args.DatabaseID, args.TemplateID, args.WorkspaceID, result)

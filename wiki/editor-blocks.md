@@ -484,12 +484,12 @@ Insert an **Image**, **Video**, **Audio** or **File** block and use its
 
 A thin progress bar runs across the top of the screen while it goes up.
 
-The limit is **50 MB per file** and the editor refuses anything larger before
-sending it: *File too large (…), 50 MB max.* An administrator can raise the
-server's own cap in the instance settings, but that does not lift this one:
-uploads from a page stay capped at 50 MB either way. Lowering the server's cap
-below 50 MB does change what you see: the file goes up and comes back refused,
-as *The file is too large for this instance.*
+The limit is the instance's per-file cap, **100 MB** unless an administrator
+changed it, and the editor refuses anything larger before sending it: *File too
+large (120 MB), 100 MB max.* The editor asks the server for the cap before each
+upload, so raising or lowering it applies to the next file. A proxy in front
+with a smaller body limit refuses on its own, as *The file is too large for this
+instance.*
 
 Every file uploaded from a page is filed **against that page**: it appears in
 the workspace's file list and in the structure panel, and if it is a PDF its
@@ -571,8 +571,8 @@ Agents write into a page with the same Markdown converter, through
 
 | | |
 | --- | --- |
-| Upload from the editor, per file | 50 MB, fixed |
-| Upload accepted by the server | 50 MB by default, 1–2048 MB, set by the administrator |
+| Upload from the editor, per file | the server's cap |
+| Upload accepted by the server | 100 MB by default, 1–2048 MB, set by the administrator |
 | Page-link menu | 12 matches |
 | Collection picker in the embed block | 8 matches |
 | Heading levels | 1–6 in the editor, 1–3 after a Markdown import |

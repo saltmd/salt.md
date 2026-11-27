@@ -298,7 +298,7 @@
   "Favorites": "Favoritos",
   "Favourites": "Favoritos",
   "Fetch the latest changes": "Obtener los últimos cambios",
-  "File too large ({size}), 50 MB max.": "Archivo demasiado grande ({size}), máx. 50 MB.",
+  "File too large ({size}), {max} max.": "Archivo demasiado grande ({size}), máx. {max}.",
   "File upload": "Subida de archivo",
   "Files": "Archivos",
   "Files below “{name}”": "Archivos bajo «{name}»",

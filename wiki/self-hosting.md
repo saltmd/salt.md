@@ -273,7 +273,7 @@ Notes worth having before you hit them:
   and not an API setting: whoever runs the service makes that decision, and an
   agent cannot. Leave it unset on anything reachable from outside.
 - **Three limits are settings, not variables.** *Max. file size per upload (MB)*
-  (1 to 2048, default 50), *Sign-in session length (days)* (1 to 365, default
+  (1 to 2048, default 100), *Sign-in session length (days)* (1 to 365, default
   90) and *Public base URL (for links, mail, calendars)* all live in Instance
   settings → **General**. The public base URL is the one to fill in first: mail
   links, calendar subscriptions and share links are all built from it.
@@ -290,6 +290,7 @@ than an absolute path.
 | `salt.db` | the database: pages, workspaces, accounts, the search index |
 | `salt.db-wal`, `salt.db-shm` | SQLite's write-ahead log and its shared index |
 | `files/` | every upload, one file each under a generated id, served under `/files/` |
+| `files-incoming/` | uploads still arriving; emptied at every start, nothing to back up |
 | `bin/` | `cloudflared`, downloaded on demand when you start a tunnel |
 | `certs/` | Let's Encrypt cache, only when the built-in HTTPS is active |
 

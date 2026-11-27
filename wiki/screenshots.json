@@ -668,7 +668,7 @@
       ],
       "takenAt": {
         "web/src/components/AgentConnect.tsx": "dd2865c640de",
-        "server/mcp.go": "6205e90d7f47",
+        "server/mcp.go": "9e0b28110b75",
         "web/src/theme.css": "6a5de72d7e2c"
       },
       "element": ".dialog"
@@ -818,7 +818,7 @@
       "takenAt": {
         "web/src/components/AdminSettings.tsx": "6713e2be48ac",
         "server/mail_oauth.go": "0f9335f373b5",
-        "server/admin.go": "f54e70b1eea7",
+        "server/admin.go": "1d7a4ecfe902",
         "web/src/theme.css": "6a5de72d7e2c"
       },
       "element": ".dialog"
@@ -1006,7 +1006,7 @@
       ],
       "takenAt": {
         "web/src/components/AdminSettings.tsx": "6713e2be48ac",
-        "server/admin.go": "f54e70b1eea7",
+        "server/admin.go": "1d7a4ecfe902",
         "server/lifecycle_account.go": "131f7e3f91c2",
         "web/src/theme.css": "6a5de72d7e2c"
       },

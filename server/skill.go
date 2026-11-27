@@ -324,7 +324,7 @@ below. ` + "`whoami`" + ` always reports what this particular connection may do.
 | ` + "`set_properties`" + ` | Property values on a row. Relations are ALWAYS a list, even for one. |
 | ` + "`update_schema`" + ` | Add or change columns, including rollups and backrelations. |
 | ` + "`set_view`" + ` / ` + "`delete_view`" + ` | Table, board, calendar, gallery — filters, sorting, grouping. |
-| ` + "`upload_file`" + ` | A file onto a page. Large ones go over HTTP instead; the error says so. |
+| ` + "`upload_file`" + ` | A file onto a page. Leave ` + "`data_base64`" + ` out: the answer is a one-time address to send the file to with ` + "`curl -T`" + `. |
 | ` + "`set_trashed`" + ` | Trash and restore. Nothing is destroyed. |
 
 ## Saying what you are doing

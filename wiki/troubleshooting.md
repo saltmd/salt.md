@@ -220,8 +220,9 @@ and retry.
 An MCP request is refused before it is read, by its declared size. Base64
 inflates a file by a third, so the ceiling for a whole tool call is the
 instance's upload limit plus that overhead plus a megabyte for the JSON around
-it: with the default 50 MB upload limit, 67 MB. The message says what to do
-instead: use the HTTP upload at `/api/upload` for a file that big.
+it: with the default 100 MB upload limit, 134 MB. The message says what to do
+instead: call `upload_file` without `data_base64` and send the file to the
+upload address it returns, with `curl -T`.
 
 A file that fits inside the request but is still over the upload limit gets a
 different sentence from `upload_file` itself: *"file is … MB. The limit is …
@@ -341,23 +342,28 @@ skips one. [Search](search.md) has the table of limits.
 
 ## Uploads that fail
 
-### "File too large (…), 50 MB max."
+### "File too large (…), 100 MB max."
 
-This one comes from the browser, before anything is sent, and **the 50 MB in it
-is fixed**. The instance's own limit, **Max. file size per upload (MB)** on the
-**General** tab, can be set anywhere from 1 to 2048 MB, but raising it above 50
-does not raise what the browser will attempt. Files over 50 MB have to go
-through an agent or the API (`/api/upload`) instead.
+This one comes from the browser, before anything is sent. The figure is the
+instance's own limit, **Max. file size per upload (MB)** on the **General** tab,
+which can be set anywhere from 1 to 2048 MB; the browser asks for it before
+every upload.
 
 This is also the one message with a code the server never sends. The browser
-mints `file_too_large` itself for its own cap, so an agent or a `curl` user will
-never see that code come back; do not go looking for it in a response.
+mints `file_too_large` itself, so an agent or a `curl` user will never see that
+code come back; do not go looking for it in a response.
 
-### "file too large: max 50 MB"
+### "file too large: max 100 MB"
 
 The server's own refusal, a 413, naming the instance limit as it currently
 stands. The file was larger than **Max. file size per upload (MB)**. Raise the
 setting, or send a smaller file.
+
+### "upload address unknown, used or expired"
+
+An agent sent a file to the address `upload_file` gave it, and the address was
+spent: it works once, for 15 minutes, and a restart voids every open one. The
+agent should call `upload_file` again for a fresh address.
 
 ### "The file is too large for this instance."
 
@@ -370,6 +376,10 @@ The usual cause is a stale body limit. The nginx configuration salt.md generates
 writes `client_max_body_size` from the upload limit as it stood when you copied
 it. Raise the limit in salt.md later and the proxy still refuses at the old
 size, and salt.md never sees the request at all.
+
+Behind Cloudflare (proxied DNS or a tunnel) anything over 100 MB is refused by
+Cloudflare itself on the Free and Pro plans, whatever salt.md and your proxy
+allow. See [Files](files.md#size-limits).
 
 ### "Upload failed" or "…" was not uploaded
 

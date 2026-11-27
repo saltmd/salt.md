@@ -261,7 +261,7 @@ Codes you are likely to meet: `bad_credentials`, `2fa_required`, `2fa_invalid`,
 | Limit | Value |
 | --- | --- |
 | JSON request body | 8 MiB |
-| One uploaded file | 50 MB by default; an admin can set 1–2048 MB |
+| One uploaded file | 100 MB by default; an admin can set 1–2048 MB |
 | An imported archive | 100 MB, and at most 2000 pages out of one archive |
 | Page title | 2000 characters |
 | Comment | 10 000 characters |
@@ -417,6 +417,9 @@ values may contain.
 | --- | --- |
 | `GET /api/search?q=…` | full-text search across everything you can read |
 | `POST /api/upload?page={id}` | upload a file (multipart, field `file`) |
+| `PUT /api/pages/{id}/files/{name}` | upload the raw request body and attach it to the page as a block |
+| `PUT /api/upload/{ticket}` | the one-time address `upload_file` gives an agent; the address is the credential |
+| `GET /api/upload/limit` | the per-file cap, `{"maxBytes": …}` |
 | `GET /api/files` | the file index; `?workspace=` and `?under={id}` narrow it |
 | `GET /api/export/{id}` | one page as Markdown |
 | `GET /api/export` | a zip of Markdown files, one per page, in folders |
@@ -438,6 +441,19 @@ attributable once it knows which page it belongs to. A PDF uploaded with a page
 id has its text extracted and indexed under that page. The file itself is served
 from `/files/<name>` and needs the same credential as everything else; a
 directory listing is refused, so the random names cannot be enumerated.
+
+To attach a file to a page in one call, send it as the raw body. `curl -T` with
+a URL ending in `/` appends the file's name:
+
+```sh
+curl -sS --fail-with-body -T report.pdf \
+  -H "Authorization: Bearer $SALT_TOKEN" \
+  https://salt.example.com/api/pages/{id}/files/
+```
+
+The answer is `{"name":…,"url":…,"size":…,"page_id":…}`. Both upload endpoints
+write the body to disk as it arrives, so the file's size costs no memory; the
+cap and what a proxy in front adds to it are in [Files](files.md#size-limits).
 
 ### What to send to the import endpoints
 

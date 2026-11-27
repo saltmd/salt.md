@@ -311,7 +311,7 @@
   "Favorites": "收藏",
   "Favourites": "收藏",
   "Fetch the latest changes": "获取最新更改",
-  "File too large ({size}), 50 MB max.": "文件过大（{size}），上限为 50 MB。",
+  "File too large ({size}), {max} max.": "文件过大（{size}），上限为 {max}。",
   "File upload": "文件上传",
   "Files": "文件",
   "Files below “{name}”": "“{name}”下的文件",

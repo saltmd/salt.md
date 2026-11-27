@@ -86,12 +86,13 @@ opens the interface on a LAN address and copies a link out of it. With a
 Cloudflare tunnel or the built-in HTTPS domain running, links fall back to those
 and the field can stay empty. See [Reaching it from outside](domain.md).
 
-**The upload cap** is enforced per file, in the browser upload and over MCP
-alike, but the two say it differently. The browser refusal reads *"file too
-large: max 50 MB"*. An agent is told *"file is 84 MB. The limit is 50 MB;
-upload it through the browser (/api/upload) or raise max_upload_mb in the
-settings"*, worth knowing if somebody quotes a message at you. See
-[Files](files.md).
+**The upload cap** is enforced per file, in the browser upload, over the API
+and over MCP alike, and defaults to 100 MB. The server's refusal reads *"file
+too large: max 100 MB"*. An agent sending a file inline is told *"file is
+184 MB. The limit is 100 MB; raise max_upload_mb in the settings"*, worth
+knowing if somebody quotes a message at you. Uploads stream to disk, so raising
+the cap costs no memory; a proxy in front, or Cloudflare at 100 MB, may still
+refuse first. See [Files](files.md#size-limits).
 
 **The trash setting** is swept by a background pass every 30 minutes: pages
 trashed longer ago than the limit are deleted for good. `0` disables the sweep

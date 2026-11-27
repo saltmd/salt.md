@@ -135,7 +135,8 @@ nothing hands it back. Reading it means the browser, or `GET
 | --- | --- |
 | Calls per account | 240 a minute, burst 60 |
 | Request body | the upload limit plus a third for base64, plus 1 MB |
-| One upload | the instance's `max_upload_mb` (50 MB by default) |
+| One upload | the instance's `max_upload_mb` (100 MB by default) |
+| An upload address from `upload_file` | one upload, within 15 minutes |
 | Rows per `create_rows` call | 200 |
 | Rows per `query_rows` call | 500 |
 | Revisions per `revisions` call | 100 |
@@ -145,8 +146,9 @@ nothing hands it back. Reading it means the browser, or `GET
 
 Over the rate limit you get `rate limit exceeded: too many requests, slow
 down` as an ordinary tool error. Over the body limit the server refuses
-**before reading** (it checks Content-Length first) and tells you to use
-`/api/upload` instead.
+**before reading** (it checks Content-Length first) and tells you to call
+`upload_file` without `data_base64` and send the file to the address it
+returns.
 
 ### Retrying a write
 
@@ -587,8 +589,29 @@ for a page you may read but not write.
 | Parameter | Type | Required |
 | --- | --- | --- |
 | `file_name` | string | yes |
-| `data_base64` | string | yes |
+| `data_base64` | string | no |
 | `page_id` | string | no |
+
+**Leave `data_base64` out** for anything but a file of a few kilobytes. The
+answer is then a one-time upload address, valid for 15 minutes, and the command
+that sends the file to it:
+
+```
+Upload address for report.pdf, valid for 15 minutes and one upload:
+https://salt.example.com/api/upload/9f3c…
+
+Send the file's bytes as the request body, no other headers needed:
+curl -sS --fail-with-body -T '<path to report.pdf>' 'https://salt.example.com/api/upload/9f3c…'
+```
+
+Run it from a shell. The `PUT` answers with JSON,
+`{"name":…,"url":"/files/…","size":…,"page_id":…}`, and everything below
+(blocks, PDF text, the file index) happens then, exactly as for inline data.
+The address acts for the credential that asked for it: the page is checked
+again when the file arrives, and the activity log records the upload then, not
+the address. A used, expired or unknown address is answered `404` *"upload
+address unknown, used or expired: call upload_file again for a new one"*; a
+file over the limit `413` *"file too large: max N MB"*.
 
 With a `page_id` the file is appended to that page as a block: an image block
 for `.png`, `.jpg`, `.jpeg`, `.gif` and `.webp`, a file block for everything
@@ -602,14 +625,14 @@ the file belongs to no page and therefore to no workspace: nothing links to it,
 so `search` cannot find it either. It is reachable only by the address in the
 answer. Pass the page you mean it to live on unless you have a reason not to.
 
-The size is judged from the encoded length before anything is decoded, so an
-oversized upload is refused without a second copy being made of it. Returns
-`Uploaded <name> → /files/<stored-name>`.
+With `data_base64` the size is judged from the encoded length before anything
+is decoded, so an oversized upload is refused without a second copy being made
+of it. Returns `Uploaded <name> → /files/<stored-name>`.
 
-Errors: `file is N MB — the limit is M MB; upload it through the browser
-(/api/upload) or raise max_upload_mb in the settings`; `data_base64 is not valid
-base64`. For anything large, `/api/upload` is the better road (see
-[Files](files.md)).
+Errors: `file_name is required`; `file is N MB. The limit is M MB; raise
+max_upload_mb in the settings`; `data_base64 is not valid base64`. A script
+holding an API token can also skip MCP and `PUT` the file straight onto a page;
+see [Files](files.md#from-a-script).
 
 ### embed_database
 

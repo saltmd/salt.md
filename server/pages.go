@@ -4,14 +4,8 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
-	"errors"
-	"fmt"
-	"io"
 	"log"
-	"mime/multipart"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -1249,70 +1243,4 @@ func (s *Server) searchWholePages(userID, match string, ws []string, want int, s
 		offset += 60
 	}
 	return out
-}
-
-func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
-	// Admin-configurable per-file cap (default 50 MiB).
-	maxUploadSize := s.maxUploadBytes()
-	r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize+1<<20) // +1MiB for multipart overhead
-	if err := r.ParseMultipartForm(maxUploadSize); err != nil {
-		// Distinguish "too big" (413) from a malformed body (400) so the client
-		// can show a precise message.
-		var tooLarge *http.MaxBytesError
-		if errors.As(err, &tooLarge) || strings.Contains(err.Error(), "too large") {
-			httpError(w, http.StatusRequestEntityTooLarge, fmt.Sprintf("file too large: max %d MB", maxUploadSize>>20))
-		} else {
-			httpError(w, 400, "upload malformed")
-		}
-		return
-	}
-	// If attaching to a page, require write access to it.
-	if pageID := r.URL.Query().Get("page"); pageID != "" && !s.canWriteReq(r, pageID) {
-		httpError(w, 403, "forbidden")
-		return
-	}
-	file, header, err := r.FormFile("file")
-	if err != nil {
-		httpError(w, 400, "missing file field")
-		return
-	}
-	defer file.Close()
-
-	name := newID() + sanitizeExt(header)
-	path := filepath.Join(s.dataDir, "files", name)
-	dst, err := os.Create(path)
-	if err != nil {
-		httpError(w, 500, err.Error())
-		return
-	}
-	defer dst.Close()
-	if _, err := io.Copy(dst, file); err != nil {
-		httpError(w, 500, err.Error())
-		return
-	}
-	// PDFs attached to a page become searchable under that page.
-	if strings.HasSuffix(name, ".pdf") {
-		if pageID := r.URL.Query().Get("page"); pageID != "" {
-			s.indexFileText(name, pageID, extractPDFText(path))
-		}
-	}
-	// The file index (W125). header.Filename is the only place the human name
-	// survives — the stored name is an opaque id.
-	s.recordFile(name, r.URL.Query().Get("page"), filepath.Base(header.Filename))
-	writeJSON(w, map[string]string{"url": "/files/" + name})
-}
-
-func sanitizeExt(h *multipart.FileHeader) string {
-	ext := strings.ToLower(filepath.Ext(h.Filename))
-	clean := strings.Builder{}
-	for _, c := range ext {
-		if (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '.' {
-			clean.WriteRune(c)
-		}
-	}
-	e := clean.String()
-	if len(e) > 12 || e == "." {
-		return ""
-	}
-	return e
 }

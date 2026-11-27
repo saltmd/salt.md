@@ -12,11 +12,16 @@ Uploads go into the `files` folder of the server's data directory, next to the
 SQLite database. Each one is stored under a random id plus its extension:
 `4f2c…a1.pdf`, never `Offer Acme.pdf`.
 
-The extension is cleaned first: lower case, letters and digits only. An upload
-through the browser also drops the extension entirely when it is longer than
-twelve characters counting the dot, so a twelve-letter extension is thirteen
-characters and does not survive. An upload from an agent keeps whatever it is
-given, cleaned of everything but letters, digits and the dot.
+The extension is cleaned first: lower case, letters and digits only. It is
+dropped entirely when it is longer than twelve characters counting the dot, so a
+twelve-letter extension is thirteen characters and does not survive. The same
+rule applies to every way in: browser, agent and script.
+
+A file is written to disk as it arrives, never held in memory as a whole. It
+goes into a `files-incoming` folder beside `files` first and is moved into place
+only once it is complete and within the limit, so a refused or broken-off upload
+leaves nothing behind. Whatever is left in `files-incoming` after a crash is
+removed at the next start.
 
 The name a person recognises is kept separately (in the block on the page and
 in the file index), which is why a file can be downloaded under its real name
@@ -74,48 +79,97 @@ Uploading into a page requires write access to that page.
 
 ### From an agent
 
-Over MCP, `upload_file(file_name, data_base64, page_id)` uploads a file from
-base64 data. With a `page_id` the file is attached to that page as a block
-(an image block for `.png`, `.jpg`, `.jpeg`, `.gif` and `.webp`, a file block for
-everything else), and a PDF's text is extracted for search. Without a `page_id`
-the file is stored and given back as a URL, but it belongs to no page and
-appears in no file list.
+An agent cannot write a file's bytes into a tool call: anything past a few tens
+of kilobytes of base64 is more than it can produce. So over MCP the bytes travel
+separately:
 
-See [Agents](agents.md) for connecting one.
+1. The agent calls `upload_file(file_name, page_id)` **without** `data_base64`.
+2. The answer is a one-time upload address, valid for 15 minutes, plus the
+   command to use it:
+
+   ```sh
+   curl -sS --fail-with-body -T 'report.pdf' 'https://salt.example.com/api/upload/9f3c…'
+   ```
+
+3. The agent runs that command from its shell. The answer is JSON naming the
+   stored file: `{"name":"…pdf","url":"/files/…pdf","size":839680,"page_id":"…"}`.
+
+The address carries no account of its own and needs no header: it acts for the
+credential that asked for it, once. Sending to it again, or after 15 minutes, or
+after the server restarted, is answered *"upload address unknown, used or
+expired: call upload_file again for a new one"*. When the file arrives, the
+page is checked again: the account must still be able to write it, the
+credential must still be allowed into its workspace, and a deactivated account
+is refused.
+
+With a `page_id` the file is attached to that page as a block (an image block
+for `.png`, `.jpg`, `.jpeg`, `.gif` and `.webp`, a file block for everything
+else), and a PDF's text is extracted for search. Without a `page_id` the file is
+stored and given back as a URL, but it belongs to no page and appears in no file
+list.
+
+`upload_file` still accepts the bytes inline as `data_base64`, which suits a
+file of a few kilobytes and a script that can encode one. See
+[MCP tools](mcp-tools.md#upload_file), and [Agents](agents.md) for connecting
+one.
 
 ### From a script
 
-`POST /api/upload` takes an ordinary multipart form with one field named
-`file`. Add `?page=<page id>` to attach it; without that query parameter the
-upload is stored but belongs to no page, exactly as over MCP. The answer is
-JSON: `{"url":"/files/<stored name>"}`, which is the address to put in a block
-or a property. The request needs a session cookie or an API token like every
-other call; see [API](api.md).
+Two endpoints, both taking a session cookie or an API token like every other
+call ([API](api.md)), and both writing the body to disk as it arrives:
+
+- `PUT /api/pages/<page id>/files/<file name>` takes the file as the raw request
+  body and attaches it to the page as a block, exactly like `upload_file`.
+  With `curl -T`, a URL ending in `/` gets the file's own name appended:
+
+  ```sh
+  curl -sS --fail-with-body -T report.pdf \
+    -H "Authorization: Bearer $SALT_TOKEN" \
+    https://salt.example.com/api/pages/<page id>/files/
+  ```
+
+  The answer is `{"name":…,"url":…,"size":…,"page_id":…}`.
+- `POST /api/upload` takes an ordinary multipart form with one field named
+  `file` (`curl -F file=@report.pdf`). Add `?page=<page id>` to file it under a
+  page; it is not appended as a block, because the editor that uses this
+  endpoint places the block itself. Without that query parameter the upload is
+  stored but belongs to no page. The answer is JSON:
+  `{"url":"/files/<stored name>"}`, which is the address to put in a block or a
+  property.
+
+`GET /api/upload/limit` answers `{"maxBytes":…}`, the current per-file cap.
 
 ### Size limits
 
 | | |
 | --- | --- |
-| Default cap per file | 50 MB |
+| Default cap per file | 100 MB |
 | Range an admin can set | 1–2048 MB, under **Max. file size per upload (MB)** in [Administration](administration.md) |
-| What the browser refuses on its own | anything over 50 MB, before sending: *"File too large (…), 50 MB max."* |
-| What an agent may send in one MCP request | the file cap plus a third (base64 costs a third) plus 1 MB |
+| What the browser refuses on its own | anything over the instance's cap, before sending: *"File too large (120 MB), 100 MB max."* |
+| What an agent may send inline in one MCP request | the file cap plus a third (base64 costs a third) plus 1 MB |
 
-The cap is enforced on the whole request body with one megabyte of slack for
-the multipart wrapping around the file, so a file a few hundred kilobytes over
-the stated number is accepted rather than refused. The slack is for the
-envelope, not a second limit to plan around.
+The cap applies to the file itself, whichever way it comes in. A request that
+announces a larger body is refused before any of it is read; one that does not
+announce its size is cut off the moment it passes the cap. Either way the
+answer is a `413` with *"file too large: max 100 MB"*, naming the limit this
+instance is set to, and nothing is kept.
 
-The browser's own 50 MB check does not follow the admin setting. Raising the
-limit above 50 MB takes effect for agents and for direct calls to
-`/api/upload`, but the editor will still refuse a larger file before it sends
-one. Lowering the limit works everywhere: the server answers `413` and the
-editor shows the server's own message, *"file too large: max 10 MB"*, naming
-the limit this instance is set to.
+The editor asks the server for the cap before every upload, so a change in
+Administration applies to the next file without a reload. While a file goes up,
+a thin progress bar runs across the top of the window.
 
-If you run the instance yourself and put a reverse proxy in front of it, its own
-body limit has to be at least as large; the Administration dialog prints a
-matching `client_max_body_size` line for exactly that reason.
+Memory is not what limits the size: an upload streams to disk, so a 2 GB file
+costs the server no more memory than a small one. What does limit it is
+anything between the client and salt.md:
+
+- **A reverse proxy** has its own body limit, and it has to be at least as
+  large. The Administration dialog prints a matching `client_max_body_size`
+  line for nginx. Adding `proxy_request_buffering off;` to the same block
+  passes the file straight through instead of nginx writing its own copy first.
+- **Cloudflare** (proxied DNS or a Cloudflare Tunnel) refuses request bodies
+  over 100 MB on the Free and Pro plans, before they reach your server. Larger
+  files have to come in through an address that does not go through Cloudflare,
+  a LAN address for instance.
 
 ## Finding files again
 
@@ -346,12 +400,13 @@ See [Workspaces](workspaces.md) for import and export of a whole workspace, and
 
 | | |
 | --- | --- |
-| Per-file upload cap | 50 MB by default, 1–2048 MB configurable |
+| Per-file upload cap | 100 MB by default, 1–2048 MB configurable |
 | Slack on top of the cap, for the multipart envelope | 1 MB |
-| Editor's own refusal | 50 MB, not configurable |
+| Editor's own refusal | the instance's cap, asked for before each upload |
+| An agent's upload address | one upload, within 15 minutes |
 | PDF text extracted | up to 50 MB of file, 500,000 bytes of text |
 | Parallel PDF extractions | 1 to 3, by memory |
-| Extension length kept (browser upload) | 12 characters including the dot |
+| Extension length kept | 12 characters including the dot |
 | Depth of a "files in this subtree" walk | 20 levels |
 | Formats with a built-in preview | PDF |
 | Formats whose text is indexed | PDF |
