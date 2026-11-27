@@ -43,6 +43,7 @@ type Server struct {
 	tokenRate   *rateLimiter
 	formRate    *rateLimiter
 	sharePwRate *rateLimiter
+	resetRate   *rateLimiter
 	// Refresh tokens replaced a moment ago, by the hash of the old one; see
 	// oauthRefresh.
 	renewMu     sync.Mutex
@@ -127,6 +128,8 @@ func New(dataDir string, dist fs.FS) (*Server, error) {
 		// Passwords on shared pages, per link and address. A share password was
 		// checked as fast as anybody could send guesses.
 		sharePwRate: newRateLimiter(10, 5),
+		// Self-service password reset requests per address.
+		resetRate:   newRateLimiter(5, 3),
 		renewals:    map[string]oauthRenewal{},
 		stopCleanup: make(chan struct{}),
 	}
@@ -170,6 +173,10 @@ func New(dataDir string, dist fs.FS) (*Server, error) {
 	m.HandleFunc("POST /api/logout", s.handleLogout)
 	m.HandleFunc("POST /api/signup", s.handleSelfSignup)
 	m.HandleFunc("GET /api/signup-policy", s.handleSignupPolicy)
+	// Password links (password_links.go): the token is the credential.
+	m.HandleFunc("POST /api/password-reset", s.handleForgotPassword)
+	m.HandleFunc("GET /api/password-links/{token}", s.handlePasswordLinkInfo)
+	m.HandleFunc("POST /api/password-links/{token}", s.handleUsePasswordLink)
 	// salt.md AS an authorization server, so an agent can sign in instead of
 	// carrying a key that never dies (oauth_provider.go). Discovery is
 	// unauthenticated on purpose: it carries no data, only the addresses of the
@@ -238,6 +245,7 @@ func New(dataDir string, dist fs.FS) (*Server, error) {
 	// count of personal areas — things the access overview deliberately hides.
 	m.HandleFunc("GET /api/users/{id}/deletion-impact", s.ownerOnly(s.handleDeletionImpact))
 	m.HandleFunc("PUT /api/users/{id}/disabled", s.adminOnly(s.handleSetUserDisabled))
+	m.HandleFunc("POST /api/users/{id}/password-link", s.adminOnly(s.handleSendPasswordLink))
 	m.HandleFunc("POST /api/admin/transfer-owner", s.ownerOnly(s.handleTransferOwner))
 	m.HandleFunc("GET /api/admin/stranded-workspaces", s.ownerOnly(s.handleStrandedWorkspaces))
 	m.HandleFunc("POST /api/admin/stranded-workspaces/{id}/adopt", s.ownerOnly(s.handleAdoptWorkspace))

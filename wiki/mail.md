@@ -1,8 +1,7 @@
 # Sending email
 
-salt.md can send email, and it sends very little of it. There are exactly three
-messages, and every one of them is a notification about access, never about
-your content. This page is for whoever runs the instance: it covers what gets
+salt.md can send email, and it sends very little of it. There are exactly five
+messages, and every one of them is about access, never about your content. This page is for whoever runs the instance: it covers what gets
 sent, what those messages say, the two ways to configure sending, every field in
 the dialog, the test mail, and each error message you can meet.
 
@@ -15,6 +14,8 @@ copy links by hand.
 | Message | Subject | Goes to | Sent when |
 | --- | --- | --- | --- |
 | Invitation | `You have been invited to salt.md` | the address typed into the invite field | somebody is invited to a workspace |
+| Account invitation | `Your account on <instance name>` | the new account's address | an admin creates an account with **Send invitation email**, or presses **Send invitation email again** |
+| Password reset | `Reset your password on <instance name>` | the account's address | an admin presses **Send password reset email**, or the person asks on the sign-in page |
 | Emergency access notice | `Emergency access to <workspace name>` | every admin of that workspace | the instance owner takes time-limited read access |
 | Test message | `salt.md test message` | the admin who pressed the button | you press **Send test mail** |
 
@@ -23,19 +24,48 @@ no page-change digests, no form-submission emails, and no marketing of any kind.
 The body of a page, the contents of a collection and the files you upload never
 travel by mail.
 
-**The subjects are fixed.** Renaming the instance under *Instance settings →
-General* changes the sign-in page and the browser title, and does not touch
-them: an invitation says "salt.md" whatever your instance is called. Only the
-emergency notice carries a name of yours, and that is the workspace's.
+**The subjects are mostly fixed.** A workspace invitation says "salt.md"
+whatever your instance is called. The account invitation and the password reset
+carry the instance name from *Instance settings → General* (or "salt.md" when it
+is empty), and the emergency notice carries the workspace's name.
 
-There is also **no forgotten-password email**. Nothing in salt.md sends a reset
-link, so no mailbox is a route into an account. A password is changed in the
-account dialog by its owner, and only the instance owner can change somebody
-else's. An admin who cannot reach a colleague's account sends them a fresh
-invitation instead. See [Accounts](account.md) and
-[Permissions](permissions.md).
+### Password links
 
-### What the three messages say
+The account invitation and the password reset both carry a **password link**:
+`<public address>/set-password/<token>`. Opening it asks for a new password
+twice; **Save password** stores it and sends the person to the sign-in page,
+where they sign in with it (and with their code, if two-factor sign-in is on).
+
+- **Single use.** Using a link removes it, and every other link of the account.
+- **Expiring.** An invitation link is valid for **7 days**, a reset link for
+  **24 hours**. Which one an account gets depends on the account: one that has
+  never had a password gets an invitation, any other a reset.
+- **One at a time.** Sending a new link invalidates the previous one, and any
+  password change removes them all.
+- **Stored hashed.** The database keeps only a hash of the token. The
+  [activity log](history-and-audit.md) records who sent a link to whom and
+  whether it was emailed or shown, never the link itself.
+- **Reset ends sessions.** Choosing a password through a link signs the account
+  out everywhere and deletes its API tokens, like any password change.
+
+**Without mail delivery** an admin gets the link on screen to pass on: *No email
+was sent (…). Pass this link on yourself; it works once until …*. That holds for
+an account invitation, which any admin may send. A reset link for an account
+that already has a password is shown **only to the owner**: holding it means
+being able to sign in as that person, and setting somebody else's password is
+the owner's alone. An admin is told *The reset email could not be sent. Without
+mail delivery only the owner can be shown the link.*
+
+**"Forgot your password?" on the sign-in page** is off unless an admin switches
+it on under *Email → Forgotten passwords*, and it only shows while mail can be
+sent. With it on, anybody who can read a person's mailbox can choose a new
+password for their account; two-factor sign-in still applies. The request
+answers the same whether or not the address has an account, the mail leaves in
+the background so the timing tells nothing either, a second request for the same
+account within two minutes sends nothing, and each network address may ask 5
+times a minute.
+
+### What the messages say
 
 The wording is fixed and English (see [below](#why-invitations-go-out-in-english)
 for why). Worth knowing so you can recognise one in a spam folder, or tell
@@ -64,6 +94,26 @@ The emergency access notice, which goes to every admin of the workspace:
 >
 > The access ends automatically after 2 hours and is recorded in the activity
 > log.
+
+The account invitation:
+
+> An account on … has been created for you.
+>
+> Open this link to choose your password:
+> …
+>
+> The link works once and is valid for 7 days.
+> You sign in with this email address: …
+
+The password reset:
+
+> A password reset was requested for your account on … (…).
+>
+> Open this link to choose a new password:
+> …
+>
+> The link works once and is valid for 24 hours.
+> If you did not ask for this, ignore this message. Your password stays as it is.
 
 The test message is one line: *Sending mail works!*
 
@@ -362,7 +412,9 @@ calendars)** on the **General** tab to the address they can reach, for example
 [sign-in](sso.md) and for [reaching the instance from outside](domain.md).
 
 Invitation links are valid for **14 days**. After that the recipient sees that
-the invite has expired and needs a new one.
+the invite has expired and needs a new one. Password links last 7 days for an
+account invitation and 24 hours for a reset, and an expired or used one says
+*This link is not valid any more. It may have been used already or expired.*
 
 ## Turning it off
 

@@ -108,6 +108,17 @@ export interface User {
   orgRole?: 'owner' | 'admin' | 'member';
   /** Deactivated: no sign-in, but everything stays attributable. */
   disabled?: boolean;
+  /** No password yet: waits for the invitation link. Admin user list only. */
+  invitePending?: boolean;
+}
+
+/** How a password link went out. `link` is set only when no email was sent. */
+export interface PasswordLinkResult {
+  purpose: 'invite' | 'reset';
+  emailed: boolean;
+  expiresAt: string;
+  link?: string;
+  mailError?: string;
 }
 
 export interface Me {

@@ -50,13 +50,20 @@ which workspace you were invited to, and:
 
 ### An admin creating one outright
 
-In **Manage users**, **+ User** opens *Create a new user* with the note *Creates
-the account straight away. No email is sent.* It takes **Name**, **Email**,
-**Initial password (min. 8 characters)**, an **Instance admin (may manage
-everything)** checkbox, and a role per workspace (**No access**, **Viewer**,
-**Member** or **Admin**), defaulting to no access, so every grant is deliberate.
-**Create user** finishes it. There is no email, so somebody has to pass the
-password on.
+In **Manage users**, **+ User** opens *Create a new user*. It takes **Name**,
+**Email**, a **Send invitation email (they choose their own password)**
+checkbox, an **Instance admin (may manage everything)** checkbox, and a role per
+workspace (**No access**, **Viewer**, **Member** or **Admin**), defaulting to no
+access, so every grant is deliberate. **Create user** finishes it.
+
+With the invitation ticked (the default) the note reads *Creates the account and
+emails a link to choose a password.* The account exists at once, marked
+**invited** in the list, and cannot sign in until its person opens the link,
+which is valid for 7 days and works once. Without mail delivery the link appears
+in the dialog to pass on instead. Untick it and the note becomes *Creates the
+account straight away. No email is sent.*, with an **Initial password (min. 8
+characters)** field; then somebody has to pass the password on. How the links
+behave is in [Password links](mail.md#password-links).
 
 ## The account menu
 
@@ -158,7 +165,19 @@ The instance owner can set another account's password; an instance admin cannot,
 and gets "Only the owner can change another account's password or email. As an
 admin you can send an invitation." Setting somebody's password means being able
 to read everything they see, so it sits with the one person who has the backup
-anyway.
+anyway. What any admin can do is press **Send password reset email** on the
+account in **Manage users**: the link goes to the account's own address, and
+the admin never sees it unless they are the owner and no mail could be sent.
+
+### Forgot your password?
+
+When an admin has switched it on and the instance can send mail, the sign-in
+screen offers **Forgot your password?**. Enter your address and press **Send
+link**; the screen answers *If an account uses this address, an email with a
+link to choose a new password is on its way.* whether or not it has one. The
+link is valid for 24 hours and works once; choosing a password through it signs
+you out everywhere and ends your API tokens, then the sign-in screen says
+*Password saved. Sign in with it.*
 
 ## Signing in and sessions
 
@@ -188,7 +207,7 @@ product. What ends one:
 | What happens | What ends |
 | --- | --- |
 | **Sign out** | that session only; other devices stay signed in |
-| you change your password | every session and every API token of the account |
+| you change your password, or choose one through a [password link](mail.md#password-links) | every session and every API token of the account |
 | the session reaches its age | that session |
 | an admin deactivates the account | every session, every API token, the calendar link, and any open editor at once |
 

@@ -125,6 +125,8 @@ func (s *Server) runCleanup() {
 	s.tokenRate.evict()
 	s.formRate.evict()
 	s.sharePwRate.evict()
+	s.resetRate.evict()
+	s.db.Exec(`DELETE FROM password_links WHERE expires_at < ?`, now())
 	s.sweepOAuth()
 	// Once a day at most, and it returns immediately on the other 47 ticks.
 	// Inline rather than in its own goroutine so it cannot outlive shutdown.

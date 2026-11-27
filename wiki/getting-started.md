@@ -232,14 +232,16 @@ either way, so the screen cannot be used to find out who has an account here.
 Repeated attempts from the same computer are throttled: 30 a minute per IP
 address, whichever accounts are tried from it.
 
-**There is no "forgot password" link, because there is no password reset by
-email.** The owner is the only account that can change somebody else's password,
-and the administration dialog has no button for it: it is a call to
-`PATCH /api/users/{id}` from a signed-in owner session, see [API](api.md). An
-invitation is not a way back in either: sent to an address that already has an
-account, it asks for that account's existing password before it joins anything.
-Nobody can reset the *owner's* password through the interface at all. Keep it
-somewhere you will still have it.
+**"Forgot your password?" is off until an admin switches it on.** Once mail is
+set up, any admin can press **Send password reset email** on an account in
+**Manage users**, and under *Instance settings → Email → Forgotten passwords*
+can offer the request on the sign-in page itself
+([Password links](mail.md#password-links)). Without mail, only the owner can
+change somebody else's password. An invitation to a workspace is not a way back
+in: sent to an address that already has an account, it asks for that account's
+existing password before it joins anything. Keep the *owner's* password
+somewhere you will still have it; with no mail configured nobody can reset it
+through the interface.
 
 Signing in leaves a cookie the browser cannot read from JavaScript; how long it
 lasts is an instance setting, 90 days unless an admin changes it. Signing out is
@@ -362,10 +364,10 @@ workspace open to every new account.
 There are two ways in, and they are in different menus.
 
 **Create the account yourself.** **Manage users** in the user menu, then
-**Create a new user**: name, email, an initial password, an optional *Instance
-admin* tick, and a role per workspace you are allowed to grant. The account
-exists straight away and no mail is sent: you pass the password on however you
-like.
+**Create a new user**: name, email, an optional *Instance admin* tick, and a
+role per workspace you are allowed to grant. With *Send invitation email* ticked
+they get a link to choose their own password; without mail the link is shown for
+you to pass on. Untick it to set an initial password yourself instead.
 
 **Or invite them.** Open **Workspace settings** in the workspace menu and go to
 **Members** (both are the workspace admin's, not the instance admin's). Type an

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../api';
 import type { FontPref } from '../App';
-import type { ApiToken, AuditEntry, OAuthGrant, User, Workspace } from '../types';
+import type { ApiToken, AuditEntry, OAuthGrant, PasswordLinkResult, User, Workspace } from '../types';
 import Portal from './Portal';
 import { confirm, promptText } from '../dialog';
 import { toast } from '../toast';
@@ -403,6 +403,11 @@ export function ActivityModal({ onClose, pageId, pageTitle }: { onClose: () => v
     disable_user: t('deactivated the account:'),
     enable_user: t('reactivated the account:'),
     delete_user: t('deleted the account:'),
+    send_password_link_invite: t('sent an invitation email to:'),
+    send_password_link_reset: t('sent a password reset email to:'),
+    request_password_reset: t('asked for a password reset:'),
+    use_password_link_invite: t('chose a password through an invitation:'),
+    use_password_link_reset: t('reset the password through an emailed link:'),
     delete_workspace: t('deleted the workspace:'),
     workspace_handover: t('took over the workspace:'),
     workspace_adopted: t('adopted the ownerless workspace:'),
@@ -518,6 +523,7 @@ function UsersModal({ me, onClose }: { me: User; onClose: () => void }) {
   const [query, setQuery] = useState('');
   const [inviting, setInviting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [linkResult, setLinkResult] = useState<{ userId: string; result: PasswordLinkResult } | null>(null);
 
   const load = () => {
     void api.listUsers().then((u) => {
@@ -594,6 +600,28 @@ function UsersModal({ me, onClose }: { me: User; onClose: () => void }) {
       load();
     } catch (err) {
       setError((err as Error).message);
+    }
+  };
+
+  // Invitation or reset by email; without delivery the link is shown to copy.
+  const sendPasswordLink = async (u: User) => {
+    setError(null);
+    try {
+      const result = await api.sendPasswordLink(u.id);
+      showLinkResult(u, result);
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  };
+
+  const showLinkResult = (u: User, result: PasswordLinkResult) => {
+    setLinkResult({ userId: u.id, result });
+    if (result.emailed) {
+      toast(
+        result.purpose === 'invite'
+          ? t('Invitation sent to {email}.', { email: u.email })
+          : t('Password reset email sent to {email}.', { email: u.email }),
+      );
     }
   };
 
@@ -734,6 +762,7 @@ function UsersModal({ me, onClose }: { me: User; onClose: () => void }) {
                       <span className="users-li-name">
                         {u.name}
                         {u.disabled && <span className="badge">{t('deactivated')}</span>}
+                        {u.invitePending && <span className="badge">{t('invited')}</span>}
                         {u.orgRole === 'owner'
                           ? <span className="badge">{t('owner')}</span>
                           : u.isAdmin && <span className="badge">{t('admin')}</span>}
@@ -751,7 +780,12 @@ function UsersModal({ me, onClose }: { me: User; onClose: () => void }) {
                 <InvitePanel
                   workspaces={access.workspaces}
                   onCancel={() => setInviting(false)}
-                  onCreated={() => { setInviting(false); load(); }}
+                  onCreated={(u) => {
+                    setInviting(false);
+                    setSelId(u.id);
+                    if (u.invite) showLinkResult(u, u.invite);
+                    load();
+                  }}
                 />
               ) : sel ? (
                 <>
@@ -775,6 +809,11 @@ function UsersModal({ me, onClose }: { me: User; onClose: () => void }) {
                     {sel.id !== me.id && sel.orgRole !== 'owner' && (
                       <button className="btn-sm" onClick={() => void toggleAdmin(sel)}>
                         {sel.isAdmin ? t('Revoke admin rights') : t('Make instance admin')}
+                      </button>
+                    )}
+                    {sel.id !== me.id && !sel.disabled && (
+                      <button className="btn-sm" onClick={() => void sendPasswordLink(sel)}>
+                        {sel.invitePending ? t('Send invitation email again') : t('Send password reset email')}
                       </button>
                     )}
                     {sel.id !== me.id && sel.orgRole !== 'owner' && (
@@ -812,6 +851,10 @@ function UsersModal({ me, onClose }: { me: User; onClose: () => void }) {
                       </span>
                     )}
                   </div>
+
+                  {linkResult?.userId === sel.id && linkResult.result.link && (
+                    <PasswordLinkCopy result={linkResult.result} />
+                  )}
 
                   <h3 className="users-section-title">{t('Workspace access')}</h3>
                   <div className="ws-access-list">
@@ -882,8 +925,36 @@ function UsersModal({ me, onClose }: { me: User; onClose: () => void }) {
   );
 }
 
-// Inviting with a workspace assignment: name, email, password, instance admin,
-// and a role per workspace (default: no access, so assigning is deliberate).
+// A password link that went out by no email: shown once, to pass on by hand.
+function PasswordLinkCopy({ result }: { result: PasswordLinkResult }) {
+  const link = result.link ?? '';
+  return (
+    <div className="ws-access-list">
+      <p className="dialog-hint">
+        {t('No email was sent ({reason}). Pass this link on yourself; it works once until {time}.', {
+          reason: result.mailError ?? '',
+          time: formatMoment(result.expiresAt, 'datetime'),
+        })}
+      </p>
+      <input className="prop-input invite-input" readOnly value={link} onFocus={(e) => e.currentTarget.select()} />
+      <div className="dialog-buttons" style={{ justifyContent: 'flex-start', gap: 8 }}>
+        <button
+          className="btn"
+          onClick={() => {
+            void navigator.clipboard?.writeText(link);
+            toast(t('Link copied'));
+          }}
+        >
+          {t('Copy link')}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Inviting with a workspace assignment: name, email, password or an invitation
+// email, instance admin, and a role per workspace (default: no access, so
+// assigning is deliberate).
 function InvitePanel({
   workspaces,
   onCancel,
@@ -891,11 +962,12 @@ function InvitePanel({
 }: {
   workspaces: WsRef[];
   onCancel: () => void;
-  onCreated: () => void;
+  onCreated: (u: User & { invite?: PasswordLinkResult }) => void;
 }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [sendInvite, setSendInvite] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [roles, setRoles] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
@@ -909,8 +981,7 @@ function InvitePanel({
       const ws = workspaces
         .map((w) => ({ id: w.id, role: roles[w.id] ?? 'none' }))
         .filter((w) => w.role !== 'none');
-      await api.createUser({ name, email, password, isAdmin, workspaces: ws });
-      onCreated();
+      onCreated(await api.createUser({ name, email, password, isAdmin, sendInvite, workspaces: ws }));
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -924,15 +995,27 @@ function InvitePanel({
         <div className="invite-avatar-placeholder">+</div>
         <div className="users-detail-id">
           <div className="users-detail-name">{t('Create a new user')}</div>
-          <div className="users-detail-email">{t('Creates the account straight away. No email is sent.')}</div>
+          <div className="users-detail-email">
+            {sendInvite
+              ? t('Creates the account and emails a link to choose a password.')
+              : t('Creates the account straight away. No email is sent.')}
+          </div>
         </div>
       </div>
       <label className="profile-label">{t('Name')}</label>
       <input className="prop-input profile-input" value={name} onChange={(e) => setName(e.target.value)} />
       <label className="profile-label">{t('Email')}</label>
       <input className="prop-input profile-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-      <label className="profile-label">{t('Initial password (min. 8 characters)')}</label>
-      <input className="prop-input profile-input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+      <label className="check-label" style={{ marginTop: 10 }}>
+        <input type="checkbox" checked={sendInvite} onChange={(e) => setSendInvite(e.target.checked)} />
+        {t('Send invitation email (they choose their own password)')}
+      </label>
+      {!sendInvite && (
+        <>
+          <label className="profile-label">{t('Initial password (min. 8 characters)')}</label>
+          <input className="prop-input profile-input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+        </>
+      )}
       <label className="check-label" style={{ marginTop: 10 }}>
         <input type="checkbox" checked={isAdmin} onChange={(e) => setIsAdmin(e.target.checked)} />
         {t('Instance admin (may manage everything)')}

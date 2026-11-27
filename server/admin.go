@@ -154,6 +154,8 @@ type appSettings struct {
 	AgentAddressesOn   bool   `json:"agentAddressesOn"`
 	AgentAddresses     string `json:"agentAddresses"`
 	AnthropicAddresses string `json:"anthropicAddresses"`
+	// "Forgot your password?" on the sign-in page; off unless an admin opts in.
+	PasswordResetSelf bool `json:"passwordResetSelf"`
 }
 
 func (s *Server) loadSettings() appSettings {
@@ -170,6 +172,7 @@ func (s *Server) loadSettings() appSettings {
 		SMTPPassSet:              s.setting("smtp_pass", "") != "",
 		PublicBaseURL:            s.setting("public_base_url", ""),
 		TrustProxy:               s.boolSetting("trust_proxy"),
+		PasswordResetSelf:        s.boolSetting(settingPasswordResetSelf),
 		MaxUploadMB:              s.intSetting("max_upload_mb", 50, 1, 2048),
 		TrashDays:                s.trashRetentionDays(),
 		AuditDays:                s.auditRetentionDays(),
@@ -222,6 +225,7 @@ func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 		SMTPPass                 *string `json:"smtpPass"` // "" leaves unchanged; sentinel clears
 		PublicBaseURL            *string `json:"publicBaseUrl"`
 		TrustProxy               *bool   `json:"trustProxy"`
+		PasswordResetSelf        *bool   `json:"passwordResetSelf"`
 		MaxUploadMB              *int    `json:"maxUploadMb"`
 		TrashDays                *int    `json:"trashDays"`
 		AuditDays                *int    `json:"auditDays"`
@@ -375,6 +379,7 @@ func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 			s.setSetting(key, "")
 		}
 	}
+	setFlag(settingPasswordResetSelf, body.PasswordResetSelf)
 	setFlag("pdf_cover", body.PdfCover)
 	setFlag("pdf_icon", body.PdfIcon)
 	setFlag("pdf_footer", body.PdfFooter)
@@ -516,6 +521,12 @@ func (s *Server) sendMail(to, subject, body string) error {
 		return c.Quit()
 	}
 	return smtp.SendMail(addr, auth, from, []string{to}, []byte(msg))
+}
+
+// mailConfigured reports whether sendMail has a way out.
+func (s *Server) mailConfigured() bool {
+	provider, _ := s.mailProviderConfigured()
+	return provider != "" || s.setting("smtp_host", "") != ""
 }
 
 // ---- invites ----
@@ -799,6 +810,7 @@ func (s *Server) handleSignupPolicy(w http.ResponseWriter, r *http.Request) {
 		"instanceName":   s.setting("instance_name", ""),
 		"oauthGoogle":    g,
 		"oauthMicrosoft": m,
+		"passwordReset":  s.selfServiceResetOn(),
 	})
 }
 
