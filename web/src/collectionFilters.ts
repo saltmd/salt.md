@@ -74,7 +74,7 @@ export function matchesFilter(
     Array.isArray(v)
       ? vals.some((x) => v.includes(x))
       : vals.some((x) =>
-          isNumber && v !== undefined && v !== null && v !== ''
+          (isNumber || typeof v === 'number') && v !== undefined && v !== null && v !== ''
             ? Number(v) === Number(x)
             : x === 'true' || x === 'false' ? String(v === true) === x : String(v ?? '') === x,
         );

@@ -207,52 +207,91 @@ of them are done.
 
 ### The functions
 
+**Calculate** lists **Count** and **Percent** first, then **Show original** and
+**Show unique values**, then the calculations a table footer offers. Count and
+Percent work on related *rows*; everything after them works on the *values* of
+**Of property** in the related rows that meet the condition.
+
 | Calculate | What it returns | With no related rows |
 | --- | --- | --- |
-| **Sum** | the total of the values it can read as numbers | `0` |
-| **Count** | how many related rows matched | `0` |
-| **Average** | the mean of the values it can read as numbers | `0` |
-| **Min** | the smallest of them | `0` |
-| **Max** | the largest of them | `0` |
+| **Count** | how many related rows meet the condition | `0` |
 | **Percent** | the share of related rows meeting the condition, to one decimal | `0` |
+| **Show original** | the values themselves, as a list: every filled value, a multi-select's options one by one | an empty list |
+| **Show unique values** | the same list with each value once, in order of first appearance | an empty list |
+| **Count values** | how many values there are; a multi-select with three options counts three | `0` |
+| **Count unique values** | how many different values | `0` |
+| **Count empty** / **Count not empty** | how many related rows have the property empty / filled | `0` |
+| **Percent empty** / **Percent not empty** | the same as a share of the rows meeting the condition, to one decimal | `0` |
+| **Sum** | the total of the values it can read as numbers | `0` |
+| **Average** | the mean of the values it can read as numbers | `0` |
+| **Median** | the middle value; with an even count, the mean of the middle two | `0` |
+| **Min** / **Max** | the smallest / largest of them | `0` |
+| **Range** | the largest minus the smallest | `0` |
+| **Earliest date** / **Latest date** | the earliest / latest of the values that are dates | empty |
+| **Date range** | the whole days between the earliest and the latest date | `0` |
+| **Checked** / **Unchecked** | how many related rows have the box ticked / not ticked | `0` |
+| **Percent checked** / **Percent unchecked** | the same as a share, to one decimal | `0` |
 
-Five details that decide what the number means:
+Six details that decide what the number means:
 
-- **A rollup is never blank.** With nothing to aggregate it is `0`, not an em
-  dash. A project with no tasks reads `0`, not "unknown".
+- **A figure is never blank.** Every function that gives a number gives `0`
+  when there is nothing to work on, not an em dash: a project with no tasks reads
+  `0`, not "unknown". That includes an **Average** of nothing. **Earliest date**
+  and **Latest date** are the exception: with no dates to choose from they are
+  empty, because no date is the right answer and `0` is not a date. **Show original** and **Show unique values** give an
+  empty list, which a cell shows as **—**.
 - **Count counts rows, not filled values.** A related row is counted whether or
   not the chosen property has a value in it. For a Count rollup the **Of
-  property** choice therefore does not change the answer.
-- **Sum, Average, Min and Max read every value they can turn into a number.**
-  Text that looks like a number counts (a text property holding `42` is added
-  like a number field), and a ticked checkbox counts as 1, an unticked one as 0.
-  Text that is not a number is skipped, and Average divides by the number of
-  values it could read, not by the number of related rows.
-- **A rollup reads stored values only.** It cannot aggregate another
-  collection's computed column, because those are worked out on read and are not
-  there to be read from a distance.
-- **A rollup that is not finished reads `0`.** Leave **Via relation** unset and
-  the column shows zero on every row rather than an error. Unlike a
-  half-configured backrelation over MCP, nothing refuses this; check the
-  configuration before believing a column of zeroes.
+  property** choice therefore does not change the answer. **Count not empty** is
+  the one that looks at the values.
+- **Empty means** missing, empty or whitespace-only text, an empty list, or an
+  unticked box. **Unchecked** counts every row whose box is not ticked, including
+  boxes nobody ever touched.
+- **Sum, Average, Median, Min, Max and Range read every value they can turn into
+  a number.** Text that looks like a number counts (a text property holding `42`
+  is added like a number field), and a ticked checkbox counts as 1, an unticked
+  one as 0. Text that is not a number is skipped, and so is a formula's `⚠`
+  error message; Average divides by the number of values it could read, not by
+  the number of related rows.
+- **Stored values are read as stored.** **Show original** on a select lists the
+  option **ids** (`done, in-progress`), not the names, and on a backrelation the
+  row ids. To collect names, aggregate a formula on the other side that reads
+  `prop("Status")`, which gives the option's name.
+- **A rollup that is not finished counts.** Leave **Via relation** unset and the
+  column shows `0` on every row rather than an error. A rollup with no
+  **Calculate** at all, which only an agent can create, counts the matching rows.
+  Check the configuration before believing a column of zeroes.
 
-### One gap in the property pickers
+### Rolling up computed values
 
-**Of property** leaves the other collection's rollups and formulas out for the
-reason above, and its relations with them. It does still list its
-**backrelations**, and so does **Only rows where**. And those are computed
-exactly like a rollup is. Aggregating one gives you a Count of the matched rows
-and `0` from Sum, Average, Min and Max, for ever, with nothing on screen
-suggesting anything is wrong. A condition on one behaves as though the value were
-missing on every row. Do not pick a backrelation in either place.
+**Of property** offers every property of the related rows except their
+relations, and that includes their **formulas**, **rollups** and
+**backrelations**. **Only rows where** offers all of them. A computed property
+over there is worked out for the related rows first, in their own collection,
+exactly as it would show in that collection's table, and then aggregated here.
+
+So a project can sum a formula *Hours × rate* of its tasks, or take the
+**Earliest date** of a task formula that adds a lead time to the due date, and a
+condition can test a task formula that reads *"Late"*.
+
+This is followed **two collections deep**. A rollup on Projects over a rollup on
+Tasks that in turn aggregates a formula on Subtasks works: the Tasks rollup and
+the Subtasks formula are both worked out. One collection further, a computed
+value is no longer computed; what is read there is whatever is stored under that
+id, which is usually nothing, so a Sum comes out `0` and a Count still counts.
+
+Permission still applies at every step: related rows you may not read are left
+out before anything is computed for them.
 
 ### Where a rollup shows up
 
 In a table cell, on a board card (labelled with its field name, alongside
 numbers, dates and checklists), and in the properties panel at the top of a
-row's own page: the same number in all three places. In a table, the footer
-under a rollup column shows a **Σ** total of that column across the rows the view
-is showing.
+row's own page: the same value in all three places. A list result is shown as its
+values separated by commas, a date result as a date. In a table, the footer
+under a rollup column shows a calculation over the column (by default **Σ**, the
+sum) across every row the view's filters let through; click it to choose
+another. See [Views](views.md#the-calculation-row).
 
 ## Conditions: "Only rows where"
 
@@ -285,7 +324,7 @@ cannot say that: **is not** *Done* alone counts every dropped task as open,
 quietly, and by exactly the amount nobody notices. Ticking *Done* and *Dropped*
 together with **is not** gives the right number.
 
-### Five things that decide the answer
+### Six things that decide the answer
 
 - **No condition means every related row counts.** A rollup written before
   conditions existed keeps its meaning exactly.
@@ -297,9 +336,16 @@ together with **is not** gives the right number.
   by offering the options themselves; over MCP you must write the id, or the
   condition matches nothing and reports a confident `0`.
 - **There is no greater-than or less-than.** The five operators above are all of
-  them. A numeric threshold is not expressible as a rollup condition.
+  them. A numeric threshold goes through a formula on the related rows:
+  `prop("Hours") > 8` on Tasks, and the condition *that formula* **is** `true`.
 - **A missing value is empty and is "not" anything.** A task with no status at
   all counts as *is not Done*, and as *is empty*.
+- **A computed value is compared as text.** A formula, rollup or backrelation
+  of the related row is worked out first (see
+  [above](#rolling-up-computed-values)) and then compared the way it would be
+  written out: a number as `3` or `2.5`, a true/false result as `true` or
+  `false`, text as it is. *Only rows where* a task formula **is** `Late` works;
+  a formula giving a select's name compares by that name, not by an id.
 
 Two traps follow from that last one:
 
@@ -316,8 +362,8 @@ Two traps follow from that last one:
 **Percent** is the share of the related rows that meet the condition, rounded to
 one decimal. It exists so that a progress bar needs no arithmetic: a formula
 would have to divide, and zero of zero related rows is a division by zero, which
-would render as an error in the column of every newly created row, forever. Here
-it is simply `0`.
+renders as an error in the column of every newly created row unless the formula
+guards against it. Here it is simply `0`.
 
 For *Apollo*, a rollup **Via relation** *Tasks*, **Calculate** *Percent*, **Only
 rows where** *Status* **is** *Done*, gives `62.5`: five done out of eight
@@ -361,21 +407,19 @@ collection's row titles: *Project is Apollo*, not a 32-character page id. The
 one caveat is the same 500 everywhere else: the drop-down offers the first 500
 rows of the target collection.
 
-**Filtering by a rollup or a formula mostly does not work.** Those values do not
-exist in the database (they are worked out after it has already filtered), so
-**is**, **contains**, **>**, **<** and **is not empty** match nothing at all and
-leave you with an empty view. **is not** survives, because everything passes the
-database and the browser then compares the finished value: *Progress is not 0*
-does keep exactly the rows whose progress is not zero. **is empty** never matches
-a rollup, since a rollup is always a number and a number is never empty. Prefer
-putting the condition inside the rollup.
+**Filtering by a rollup, a formula or a backrelation works too**, on the
+computed values. The server works them out for every row the stored conditions
+let through, then applies the conditions on computed values, then pages, so the
+answer and its `total` are right in the browser, over the rows endpoint and over
+`query_rows` alike. *Progress greater than 50*, *Open is 0* and *Tasks is
+empty* (the projects nothing points at) all do what they say. A rollup is never
+empty, except a **Show original** or **Show unique values** rollup with nothing
+to show; a figure with nothing to work on is `0`, and 0 is not empty. The
+operators each type offers are listed in [Views](views.md#filters).
 
-**Sorting by any of them is done in the browser**, not in the database: there is
-no stored value for the database to order by. The view loads every row before it
-finishes, so the final order does cover the whole collection; it just settles
-once loading is done rather than instantly. Over MCP, where a `limit` cuts the
-result short, the sort is the database's alone and a computed column has nothing
-for it to sort on.
+**Sorting by any of them works the same way**: on the computed values, done by
+the server before paging. Numbers sort as numbers. A backrelation sorts by its
+row ids strung together, which orders nothing useful.
 
 **Hiding is per view.** The **Columns** button lists every property under
 **Shown** and **Hidden**; click one to move it. That is the answer to "this
@@ -435,8 +479,8 @@ Field by field:
 | `backrelationCollection` | the database whose rows point here |
 | `backrelationProp` | which relation property over there does the pointing |
 | `rollupRelation` | the id of a relation **or backrelation** on this database |
-| `rollupTarget` | the property of the related row to aggregate |
-| `rollupAgg` | `sum`, `count`, `avg`, `min`, `max` or `percent` |
+| `rollupTarget` | the property of the related row to aggregate; may be a formula, rollup or backrelation over there |
+| `rollupAgg` | `count`, `percent`, `count_all`, `count_values`, `count_unique`, `count_empty`, `count_not_empty`, `percent_empty`, `percent_not_empty`, `sum`, `avg`, `median`, `min`, `max`, `range`, `earliest`, `latest`, `date_range`, `checked`, `unchecked`, `percent_checked`, `percent_unchecked`, `show_original` or `show_unique`. Left out, the rollup counts the matching rows |
 | `rollupWhereProp` / `rollupWhereOp` / `rollupWhereValue` | the condition; ops are `is`, `is_not`, `is_empty`, `is_not_empty`, `contains` |
 | `rollupWhereValues` | a list, instead of the single value, for `is` and `is_not`. If both are set the list wins; `contains` uses the single value only |
 | `numberDisplay` / `numberMax` | `plain`, `bar` or `ring`, and what counts as 100 % |
@@ -468,14 +512,17 @@ Six rules for agents:
   second one, it changes the one that is there. The reply distinguishes them
   (*added* versus *changed*); read it. Merging cannot delete a property, but it
   can overwrite one.
-- **An unknown `rollupAgg` counts.** Nothing validates the value: a typo falls
-  through to counting the matched rows and returns a plausible number instead of
-  an error.
+- **An unknown `rollupAgg` is refused**, with the list of valid ones:
+  `rollup "Open": unknown rollupAgg "cnt", use one of count, percent, …`.
+  Nothing is saved. `update_schema` checks only the properties in the call, and
+  `create_database` checks every one.
 - **`query_rows` returns computed values.** Rollups, formulas and backrelations
   come back in every row's properties, correctly: there is nothing to compute on
   your side. It pages: `limit` defaults to 50 and accepts up to 500, `offset`
   walks the rest, and the reply carries `total` so you know when to stop. A
-  `limit` above 500 is not clamped: it falls back to 50.
+  `limit` above 500 is not clamped: it falls back to 50. Filters and `sort` work
+  on computed values as well, and `calculations` adds a total over every
+  matching row (see [MCP tools](mcp-tools.md#query_rows)).
 
 **`get_page` does not compute anything.** On a database it renders a Markdown
 table straight from the stored values, so every rollup, formula and backrelation
@@ -489,22 +536,21 @@ connecting one.
 
 | Thing | What actually happens |
 | --- | --- |
-| Filtering a view by a rollup or formula | **is**, **contains**, **>**, **<** and **is not empty** return no rows. **is not** works; **is empty** never matches. See above. |
-| Filtering a view by a backrelation | **is** and **is not empty** return no rows; **is not** and **is empty** are narrowed in the browser and are right. |
+| Filtering a view by a rollup, formula or backrelation | Works, on the computed values, in the browser and over the API and MCP alike. The server computes every row the stored conditions let through before it filters, so a large collection answers more slowly. |
 | Filtering a view by a relation | Works: it is a stored value like any other, and the value box offers row titles. |
-| Sorting by a computed column | Done in the browser over every loaded row, so it is complete once loading finishes. Over MCP it does not work at all. |
+| Sorting by a computed column | Works, on the computed values, over MCP too. |
 | The relation picker | Loads at most 500 rows of the target collection, which also caps a board grouped by that relation, and the chip titles. |
 | Deleting a relation or rollup property | The values stay in the rows. Re-creating the property with the same id brings them back. |
 | Changing a property's type | Non-destructive; existing values stay and are simply read differently. |
 | Re-pointing **Links to** | Also non-destructive, and worse for it: the ids stay, aimed at a collection that does not hold them. |
 | Trashing a linked row | It drops out of backrelations and rollups immediately, and its chip reads **Untitled**. Restoring it undoes both. |
 | Public forms | Cannot fill a relation, backrelation, rollup or formula: a form only accepts text, number, select, multi-select, date, checkbox and person. See [Forms](forms.md). |
-| Two hops | A rollup reaches the related row and stops. It cannot aggregate a value that is itself computed one collection further away. |
+| Computed values on the other side | A rollup over a formula, rollup or backrelation of the related rows computes it first. This is followed two collections deep; a computed value three collections away is not computed and reads as whatever is stored, usually nothing. |
 
 ## See also
 
 - [Properties](properties.md): all 13 property types, including these three
 - [Collections](collections.md): schema, rows, sub-items, the properties dialog
 - [Views](views.md): grouping a board by a relation, filters and sorting
-- [Formulas](formulas.md): arithmetic within a single row
+- [Formulas](formulas.md): expressions over a single row's properties
 - [Permissions](permissions.md): what "checked per row" means in practice

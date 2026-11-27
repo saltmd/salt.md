@@ -665,7 +665,8 @@ the other.
 Returns `Created database "T" with id <id>`. Errors: `title is required`;
 `schema is not valid JSON`; `schema must be an array of property definitions…`;
 `unknown property type "x" on "Name" — use one of: …`; `each property needs a
-name`; `options on "Name" must be a list`.
+name`; `options on "Name" must be a list`; and the formula and rollup checks
+described under `update_schema`, applied to every property of the new schema.
 
 ### get_collection
 
@@ -696,24 +697,43 @@ Beyond `name` and `type`, a property entry may carry `options`, `formula`,
 `numberDisplay`, `numberMax`, `relationCollection`, `backrelationCollection`,
 `backrelationProp`, `rollupRelation`, `rollupTarget`, `rollupAgg`,
 `rollupWhereProp`, `rollupWhereOp`, `rollupWhereValue` and `rollupWhereValues`.
-[Relations and rollups](relations-and-rollups.md) explains what these do; three
+[Relations and rollups](relations-and-rollups.md) explains what these do; four
 points matter here:
 
 - A **backrelation** stores nothing. It asks which rows point here, so it needs
   both `backrelationCollection` (the database over there) and `backrelationProp`
   (its relation property). Without both it is refused: an empty backrelation
   reads exactly like "nothing points here", which is worse than an error.
-- A **rollup** may carry a condition. `rollupAgg` is `sum`, `count`, `avg`,
-  `min`, `max` or `percent`. For several values use `rollupWhereValues` rather
-  than `rollupWhereValue`: "open" usually means *is not* done and *is not*
-  discarded, and one comparison cannot say that.
+- A **rollup** may carry a condition. `rollupAgg` is `count` (the matching
+  rows), `percent` (their share of all related rows), `show_original` or
+  `show_unique` (the values themselves, as a list), or one of the calculations
+  `count_all`, `count_values`, `count_unique`, `count_empty`,
+  `count_not_empty`, `percent_empty`, `percent_not_empty`, `sum`, `avg`,
+  `median`, `min`, `max`, `range`, `earliest`, `latest`, `date_range`,
+  `checked`, `unchecked`, `percent_checked`, `percent_unchecked`. Anything else
+  is refused; left out, the rollup counts. `rollupTarget` and `rollupWhereProp`
+  may name a formula, rollup or backrelation of the related database: it is
+  computed for the related rows first. For several values use
+  `rollupWhereValues` rather than `rollupWhereValue`: "open" usually means *is
+  not* done and *is not* discarded, and one comparison cannot say that.
+- A **formula** is checked before anything is saved. An expression that does
+  not parse, calls an unknown function or with the wrong number of arguments, or
+  names a property in `prop("…")` that the schema does not have, is refused. A
+  formula property without a `formula` is refused too, as `unexpected end`. The
+  language is in [Formulas](formulas.md).
 - A **checklist** value is a list of sub-tasks, `[{"text":"…","done":false}]`,
   and shows its own progress. Do not add a second percentage column beside it.
+
+Only the properties in the call are checked against the formula and rollup
+rules, so an older broken formula elsewhere does not block an unrelated change.
 
 Returns `Schema updated: added …; changed …; removed … (row values kept,
 re-adding the property brings them back)`. Errors: `nothing to do: pass
 properties to add/change or remove_properties`; `unknown property type "x"`;
-`each property needs at least a name`.
+`each property needs at least a name`; `formula "Total": unknown property
+"Qty"` (or whatever the formula's first problem is, in the words a cell would
+show it); `rollup "Open": unknown rollupAgg "cnt", use one of count, percent,
+…`.
 
 ### query_rows
 
@@ -724,6 +744,7 @@ properties to add/change or remove_properties`; `unknown property type "x"`;
 | `sort` | string | no |
 | `limit` | integer | no |
 | `offset` | integer | no |
+| `calculations` | object | no |
 
 Each filter is `{property, op, value}`, all ANDed together. `property` is a
 property id from `get_collection`; **the row title is not a property**, so
@@ -763,6 +784,33 @@ word you wrote with.
 uses. `limit` defaults to 50; anything above 500 or below 1 falls back to 50
 rather than being clamped to the maximum.
 
+**Filters and `sort` work on computed properties** (rollups, formulas,
+backrelations, last activity) as on stored ones, on the computed values. The
+server computes every row the stored conditions let through, then applies the
+rest, sorts and pages, so `total` and the order are right. On a large database
+such a call is slower; a stored condition beside it narrows what has to be
+computed.
+
+`calculations` asks for column figures over **every row that passes the
+filters**, not only the page: `{propertyId: calculation}`, with `"__title"` for
+the title column.
+
+```
+query_rows(page_id: "<database>", filter: [{property: "status", op: "is_not", value: "done"}],
+           calculations: {"__title": "count_all", "hours": "sum", "due": "earliest"}, limit: 20)
+```
+
+The reply then carries `"calculations": {"__title": 42, "hours": 318.5, "due":
+"2026-03-02"}`. A calculation with nothing to work on is `null`. The names are
+the same as a table footer's: `count_all`, `count_values`, `count_unique`,
+`count_empty`, `count_not_empty`, `percent_empty`, `percent_not_empty`, `sum`,
+`avg`, `median`, `min`, `max`, `range`, `earliest`, `latest`, `date_range`,
+`checked`, `unchecked`, `percent_checked` and `percent_unchecked`; see
+[Views](views.md#the-calculation-row) for what each counts. Asking for a sum
+this way is the right answer to "how many hours are left": paging through the
+rows and adding them up yourself costs a call per page and gets it wrong the
+moment a row changes in between.
+
 **Two mistakes fail soft here**, which is worth knowing because neither produces
 an error. A filter whose property id contains anything unusual is dropped and
 the rest of the query runs, so the answer is wider than you asked for, not
@@ -770,14 +818,15 @@ empty. And a `sort` naming a property that is not in the schema falls back to
 the rows' own order. If a result looks unfiltered or unsorted, suspect the
 spelling before the data, and check the ids with `get_collection`.
 
-Returns `{rows, total, offset, limit}`. Each row carries `id`, `title`, `icon`,
-`cover`, `position`, `props` and `tags`, with rollups, formulas and
-backrelations already computed. `total` is the count **after** filtering, so
+Returns `{rows, total, offset, limit}`, plus `calculations` when asked for.
+Each row carries `id`, `title`, `icon`, `cover`, `position`, `props` and `tags`,
+with rollups, formulas and backrelations already computed. `total` is the count **after** filtering, so
 paging is honest. Other people's private rows are excluded from both the rows
 and the total, unless you are an **admin of the workspace**, who sees them all,
 the same rule the rest of the product applies.
 
-Errors: `page "…" is not a database`.
+Errors: `page "…" is not a database`; `calculations: "total" on "hours" is
+not a calculation, use one of count_all, …`.
 
 ### create_rows
 
@@ -855,6 +904,7 @@ Create a view, or change one.
 | `filters` | array | no |
 | `sort` | string | no |
 | `hidden` | array of string | no |
+| `calculations` | object | no |
 
 Types: `table`, `board`, `gallery`, `calendar`, `timeline`, `list`, `form`.
 
@@ -872,6 +922,14 @@ offers, and a row with several tags appears under each of them. Anything else is
 refused, because a board grouped by a date or a text column would otherwise show
 one catch-all column with every row in it. A board whose grouping property has
 been deleted since is refused on every change until `group_by` names a real one.
+
+`calculations` sets what a table's calculation row shows under each column:
+`{propertyId: calculation}`, with `"__title"` for the Name column, using the
+names `query_rows` takes. It **merges per column**: columns you leave out keep
+what they have, `""` puts a column back to its default (a sum for number,
+rollup and formula columns, a count of the filled cells for the rest, the row
+count under Name), and `"none"` shows nothing under it. The figures cover every
+row that passes the view's filters. See [Views](views.md#the-calculation-row).
 
 Clearing works through empty values: `""` for `sort`, `[]` for `filters` and
 `hidden`. **`group_by` and `date_prop` cannot be cleared on the view types that
@@ -895,8 +953,9 @@ text property. A board groups by a select, a multiselect or a relation`;
 `board group_by: "x" is no longer a property of this database. Pass group_by with
 a select, a multiselect or a relation property`; `"x" is not a property of this
 database`; `filter N: unknown op "x". Use is, is_not, contains, gt, lt, between,
-is_empty or is_not_empty`; `view "…" not found — call get_collection for the
-ids`.
+is_empty or is_not_empty`; `calculations: "x" is not a property of this
+database`; `calculations: "total" is not a calculation, use one of count_all, …
+or none`; `view "…" not found — call get_collection for the ids`.
 
 ### delete_view
 

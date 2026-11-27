@@ -2,6 +2,8 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { api } from '../api';
 import { collectionDefaults } from '../collectionDefaults';
 import { filterIsArmed, filterValues, matchesFilter } from '../collectionFilters';
+import { TITLE_COL, columnCalculation } from '../calculations';
+import CalcCell from './CalcFooter';
 import { onRefresh } from '../pwa';
 import Portal from './Portal';
 import { useBoardDrag } from '../boardDrag';
@@ -11,6 +13,7 @@ import { plural, t } from '../i18n';
 import { imeComposing } from '../keys';
 import { confirm, promptText } from '../dialog';
 import type {
+  Calculation,
   CollectionConfig,
   Filter,
   FilterOp,
@@ -284,7 +287,22 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
   // against it and not the server's. Part of the key so a tab left open
   // overnight reloads with the new day.
   const todayStr = today();
-  const fsKey = JSON.stringify([serverFilters, serverSort, todayStr]);
+  // A table's footer: the calculation under each visible column, worked out
+  // by the server over every row the filters let through.
+  const tableCalcs: Record<string, Calculation> = {};
+  if (view0?.type === 'table' && config) {
+    const hiddenIds = new Set(view0.hidden ?? []);
+    const columns: [string, PropDef | null][] = [
+      [TITLE_COL, null],
+      ...config.schema.filter((p) => !hiddenIds.has(p.id)).map((p): [string, PropDef] => [p.id, p]),
+    ];
+    for (const [key, p] of columns) {
+      const c = columnCalculation(view0.calculations, key, p);
+      if (c) tableCalcs[key] = c;
+    }
+  }
+  const [calcValues, setCalcValues] = useState<Record<string, unknown>>({});
+  const fsKey = JSON.stringify([serverFilters, serverSort, todayStr, tableCalcs]);
 
   // Loads ALL rows, in steps of 200 one after another. It used to stop at the
   // first page plus a "Load more" button — with the result that a board of 656
@@ -303,8 +321,10 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
         filters: serverFilters,
         sort: serverSort,
         today: todayStr,
+        calcs: acc.length === 0 ? tableCalcs : undefined,
       });
       if (epoch !== epochRef.current) return; // reloaded in the meantime
+      if (res.calculations) setCalcValues(res.calculations);
       const mapped: Row[] = res.rows.map((r) => ({
         id: r.id,
         title: r.title,
@@ -962,6 +982,9 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
           }
           colWidths={view.colWidths}
           onSetColWidths={(colWidths) => updateView({ colWidths })}
+          calcs={view.calculations}
+          calcValues={calcValues}
+          onSetCalcs={(calculations) => updateView({ calculations })}
           onNavigate={onNavigate}
           onOpenInNewTab={onOpenInNewTab}
           onSetProp={setRowProp}
@@ -970,6 +993,7 @@ export default function CollectionView({ collectionId, pages, tagColors, onNavig
       )}
       {schemaOpen && (
         <SchemaEditor
+          collectionId={collectionId}
           config={config}
           collections={[...pages.values()]
             // A template is a snapshot, not a database rows can point at.
@@ -1591,7 +1615,9 @@ function FilterSortControls({
         { value: 'lt', label: t('before') },
         { value: 'between', label: t('between') },
       );
-    } else if (ty === 'text' || ty === 'person' || ty === undefined) {
+    }
+    // A formula's result may be text as well as a number.
+    if (ty === 'text' || ty === 'person' || ty === 'formula' || ty === undefined) {
       base.push({ value: 'contains', label: t('contains') });
     }
     base.push({ value: 'is_empty', label: t('is empty') }, { value: 'is_not_empty', label: t('is not empty') });
@@ -2332,13 +2358,6 @@ function ColHead({
   );
 }
 
-/** The name column's key in colWidths — the title is not a property, so it has
- *  no id of its own. Nothing the interface generates can collide with it: prop
- *  ids are slugged to [a-z0-9-] (see SchemaEditor). An agent writing a schema
- *  over MCP could pick this exact string, since safePropID does allow '_', and
- *  then the two columns would share one width. Cosmetic, and not worth a
- *  guard that would have to be kept in step on both sides. */
-const TITLE_COL = '__title';
 
 function TableView({
   rows,
@@ -2348,6 +2367,9 @@ function TableView({
   subItemProp,
   colWidths,
   onSetColWidths,
+  calcs,
+  calcValues,
+  onSetCalcs,
   onNavigate,
   onOpenInNewTab,
   onSetProp,
@@ -2360,6 +2382,9 @@ function TableView({
   subItemProp?: string;
   colWidths?: Record<string, number>;
   onSetColWidths: (next: Record<string, number>) => void;
+  calcs?: Record<string, string>;
+  calcValues: Record<string, unknown>;
+  onSetCalcs: (next: Record<string, string>) => void;
   onNavigate: (id: string) => void;
   onOpenInNewTab?: (id: string) => void;
   onSetProp: (rowId: string, propId: string, value: unknown) => void;
@@ -2462,32 +2487,6 @@ function TableView({
     for (const r of rows) ordered.push({ row: r, depth: 0, hasKids: false });
   }
 
-  // Per-column footer aggregate: numeric columns (number/rollup/formula) show a
-  // sum, everything else a count of filled cells — a lightweight Notion-style
-  // calc row so a table gives totals at a glance.
-  const footer = (p: PropDef): string => {
-    const isNumeric = p.type === 'number' || p.type === 'rollup' || p.type === 'formula';
-    if (isNumeric) {
-      let sum = 0;
-      let any = false;
-      for (const r of rows) {
-        const n = Number(r.props[p.id]);
-        if (r.props[p.id] != null && r.props[p.id] !== '' && !Number.isNaN(n)) {
-          sum += n;
-          any = true;
-        }
-      }
-      if (!any) return '';
-      return 'Σ ' + String(Math.round(sum * 1e6) / 1e6);
-    }
-    const filled = rows.filter((r) => {
-      const v = r.props[p.id];
-      if (Array.isArray(v)) return v.length > 0;
-      return v !== undefined && v !== '' && v !== null && v !== false;
-    }).length;
-    return filled ? t('{n} filled', { n: filled }) : '';
-  };
-
   return (
     <div className="table-wrap">
       <table className="db-table">
@@ -2567,18 +2566,24 @@ function TableView({
         {rows.length > 0 && (
           <tfoot>
             <tr className="db-calc-row">
-              {/* German, hard-coded, in an English-first product — and every
-                  check read clean. The JSX rule structurally cannot see a
-                  string with an expression inside it, and one word without an
-                  umlaut is below the line rule's threshold. It was found by
-                  reading the code for the wiki. */}
-              <td className="db-title-col db-calc-cell">
-                {plural(rows.length, '{n} row', '{n} rows')}
-              </td>
+              <CalcCell
+                calcKey={TITLE_COL}
+                prop={null}
+                calcs={calcs}
+                values={calcValues}
+                onChange={onSetCalcs}
+                className="db-title-col db-calc-cell"
+              />
               {schema.map((p) => (
-                <td key={p.id} className="db-calc-cell">
-                  {footer(p)}
-                </td>
+                <CalcCell
+                  key={p.id}
+                  calcKey={p.id}
+                  prop={p}
+                  calcs={calcs}
+                  values={calcValues}
+                  onChange={onSetCalcs}
+                  className="db-calc-cell"
+                />
               ))}
             </tr>
           </tfoot>

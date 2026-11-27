@@ -124,7 +124,8 @@ which is the only place the configured Max can be seen while reading.
 
 **Filters** with is, is not, >, <, is empty, is not empty. "Is" compares as a
 number, so 5 and 5.0 are the same value. **Sorts** numerically. In a table
-the column footer shows the sum of the column, marked with a Σ.
+the column footer shows the sum of the column, marked with a Σ, unless the view
+has chosen another [calculation](#the-tables-footer-row).
 
 **On a board card** it is a labelled fact: the property name, then the value. A
 bare "55" on a card means nothing, so the name comes along.
@@ -355,27 +356,14 @@ These three hold no data. They are worked out by the server every time rows are
 read, in this order: **backrelation, then rollup, then formula.** The order is
 load-bearing: each one can build on the one before.
 
-Because the rows are chosen in the database *before* the values exist, computed
-properties behave differently from stored ones in two places.
-
-**Filtering by one is half-broken, and which half depends on the operator.** A
-condition the database cannot answer keeps every row, and a view then applies
-the same condition a second time in the browser, with the values in hand. So:
-
-| Operator | In a view | Over `query_rows` |
-| --- | --- | --- |
-| is, >, < | nothing at all | nothing at all |
-| is not empty | nothing at all | nothing at all |
-| is not | works | every row |
-| is empty | works | every row |
-
-The two that work are worth knowing: "Backrelation is empty" finds the rows
-nothing points at, and "Rollup is not 0" finds the rows whose number is not
-zero. Everything else has to be aimed at the stored properties the computation
-reads.
-
-**Sorting by one works in a view but not over `query_rows`**, for the same
-reason: the interface re-sorts once the values are there, the tool does not.
+**Filtering and sorting by one works**, in a view, over the rows endpoint and
+over `query_rows` alike. A computed value has nothing stored for the database
+to compare, so a query that filters or sorts on one is finished by the server:
+the stored conditions narrow the rows first, the server computes what is left,
+then applies the conditions on computed values, sorts, and pages. "Backrelation
+is empty" finds the rows nothing points at, "Rollup greater than 50" the rows
+past the halfway mark. On a very large collection such a query is slower,
+because every row the stored conditions let through is computed.
 
 ### backrelation
 
@@ -398,10 +386,11 @@ It reads exactly like a relation (the same chips, the same titles), but it is
 never editable: you change it by changing the relation that produces it.
 Permission is checked per row, so a row you may not read is left out.
 
-**Filtering** by it obeys the table above: "is empty" and "is not" work in a
-view, "is" and "is not empty" match nothing. A filter on a backrelation offers a
-dropdown of row titles, exactly as a relation does. **Sorting** by it compares
-the linked ids strung together, which says nothing useful.
+**Filtering** by it works on the computed list: "is" a row matches the rows
+that row points at, "is empty" the rows nothing points at. A filter on a
+backrelation offers a dropdown of row titles, exactly as a relation does.
+**Sorting** by it compares the linked ids strung together, which says nothing
+useful.
 
 **On a board card it never appears.** On a customer row that would be every
 order ever placed. Fine in a table, far too much for a card.
@@ -429,21 +418,27 @@ at. Four answers configure it:
 | --- | --- |
 | **Via relation** | which relation (or backrelation) to follow |
 | **Of property** | which property of the related rows to take |
-| **Calculate** | Sum, Count, Average, Min, Max or Percent |
+| **Calculate** | Count, Percent, Show original, Show unique values, or one of the footer calculations (Count values to Percent unchecked) |
 | **Only rows where** | an optional condition; the default is **All rows** |
 
-What each calculation does:
+What the main calculations do:
 
 | Calculate | Result |
 | --- | --- |
-| Sum | the total of the values that are numbers |
-| Count | how many related rows, whether or not the property is filled |
-| Average | the mean of the values that are numbers |
-| Min / Max | the smallest / largest number |
+| Count | how many related rows meet the condition, whether or not the property is filled |
 | Percent | the share of the related rows that meet the condition |
+| Show original / Show unique values | the values themselves, as a list; the second lists each once |
+| Sum, Average, Median, Min, Max, Range | over the values that read as numbers |
+| Earliest date, Latest date, Date range | over the values that are dates |
+| Count values, Count empty, Checked and the rest | as in a table footer, over the related rows that meet the condition |
 
-Sum, Average, Min and Max ignore anything that is not a number. With no related
-rows at all they are 0 rather than blank.
+The figures ignore anything they cannot read: a Sum skips text that is not a
+number. With no related rows at all a figure is 0, Earliest and Latest date are
+empty, and Show original is an empty list. The full table is in
+[Relations and rollups](relations-and-rollups.md#the-functions).
+
+**Of property** may be a formula, a rollup or a backrelation of the related
+rows: it is computed for them first, up to two collections deep.
 
 **The condition is what turns a count into progress.** Pick a property of the
 related rows, then is, is not, contains, is empty or is not empty, then a value.
@@ -455,7 +450,8 @@ the discarded rows overstates the work left by exactly the amount nobody
 notices.
 
 Point the condition at a property that holds one value: a select, a checkbox, a
-date, a number, a text field. On a **multi-select** the whole list is compared
+date, a number, a text field, or a formula of the related rows (its result is
+compared as text, so a true/false formula matches `true` or `false`). On a **multi-select** the whole list is compared
 as one piece of text, so "is" and "is not" never match an entry, and "is empty"
 never matches even a multi-select that has been emptied, because an emptied list
 is still something rather than nothing. Only **contains** is usable there: it
@@ -464,8 +460,8 @@ finds an option inside the list.
 **Percent** exists so that a progress bar needs no arithmetic: set Calculate to
 Percent, set a condition, set **Display** to Progress bar. The alternative, two
 rollups and a formula that divides, puts a division-by-zero message in the
-column of every newly created row, because zero of zero related rows is a
-perfectly ordinary state.
+column of every newly created row unless the formula guards against it, because
+zero of zero related rows is a perfectly ordinary state.
 
 A rollup can be shown as a plain number, a progress bar or a ring, the same
 three options a number property has.
@@ -476,20 +472,24 @@ Worked examples in [Relations and rollups](relations-and-rollups.md).
 
 ### formula
 
-Arithmetic over the row's own properties, written in the **Expression** field.
-The dialog lists the available references under it, ready to copy.
+An expression over the row's own properties, written in the **Expression**
+field. Under it the dialog shows the result for the first five rows as you type,
+and a button per property that inserts a reference to it.
 
-What it can do: `+`, `-`, `*`, `/`, parentheses, plain numbers, a leading minus,
-and a reference to another property written `{propertyId}`.
+It has numbers, text, checkboxes, dates and lists, arithmetic, comparisons,
+`and`/`or`/`not`, conditions, and functions for maths, text, dates and lists. A
+property is read with `prop("Name")`; the older `{propertyId}` form still works
+and reads the value as a number.
 
 ```
-{done} / {total} * 100
-({hours} - {billed}) * {rate}
+prop("Done") / prop("Total") * 100
+if(prop("Qty") > 10, "Bulk", "Single")
+dateBetween(prop("Due"), today(), "days")
 ```
 
-What it cannot do: no functions, no text handling, no dates, no conditions, no
-reaching into other rows. When you need any of those, the answer is a rollup or
-a number that a person or an agent writes.
+What it cannot do is reach into other rows: a relation reads as a list of row
+ids. For values from related rows, the answer is a rollup, which a formula can
+then use.
 
 Three behaviours worth knowing:
 
@@ -497,13 +497,15 @@ Three behaviours worth knowing:
   is how "percentage done" is expressed without a second data source.
 - **A formula may reference another formula.** A circle between them is detected
   and reported rather than hanging.
-- **A reference to a property that does not exist counts as zero.** A typo in an
-  id does not produce an error; it produces a wrong number quietly. Copy the
-  references out of the dialog instead of typing them.
+- **`prop("Name")` follows the name.** Renaming a property breaks the formulas
+  that name it, with *unknown property*; `prop("id")` with the property's id
+  survives a rename. In the older `{id}` form, an id that does not exist counts
+  as zero without any error.
 
-A bad expression (a division by zero, an unbalanced bracket, a circle) shows
-in the cell as a short warning beginning with a warning sign, in place of the
-number. Like a number, a formula can be displayed as a bar or a ring.
+A bad expression (a division by zero, an unbalanced bracket, text where a number
+belongs, a circle) shows in the cell as a short warning beginning with ⚠, in
+place of the value. A result that is a number can be displayed as a bar or a
+ring, like a number; true and false show as ✓ and ✗, a date as a date.
 
 **On a board card** it is a labelled fact.
 
@@ -543,10 +545,14 @@ bars run between; leaving the end unset draws one-day bars.
 
 ## The table's footer row
 
-A table with rows in it ends in a calculation row. The first cell counts the
-rows. Under a number, a rollup or a formula column stands **Σ** and the sum of
-that column. Under every other column stands how many cells are filled: an
-empty list, an empty string and an unticked box all count as unfilled.
+A table with rows in it ends in a calculation row. By default the first cell
+counts the rows, a number, rollup or formula column shows **Σ** and its sum, and
+every other column shows how many cells are filled: an empty list, an empty
+string and an unticked box all count as unfilled. Click a cell to pick another
+calculation for that column, from the ones its type allows, or **None**. The
+choice is stored on the view, and every figure covers all the rows that pass the
+view's filters, not only those loaded. The full list is in
+[Views](views.md#the-calculation-row).
 
 ## What a board card shows
 
@@ -600,7 +606,7 @@ Agents read and write the same properties, by id.
 | `set_properties` | set values on one row; merges per property, `null` clears one |
 | `create_rows` | up to 200 rows in one call, each with its properties |
 | `query_rows` | filter, sort and page through rows, computed values included |
-| `set_view` | a view's filters, sort, grouping, date properties and hidden columns |
+| `set_view` | a view's filters, sort, grouping, date properties, hidden columns and table calculations |
 
 Two conveniences on the write path, both of them there because the obvious
 spelling used to fail quietly:

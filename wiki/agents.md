@@ -230,7 +230,7 @@ because renaming a tool breaks every agent configuration in existence.
 | `list` | What is there of a kind: pages, templates, tags, workspaces, files, users, cover presets. `workspace_id` narrows pages, templates, tags and files to one workspace; for files, `under: <page id>` narrows it to one page and its sub-pages. |
 | `get_page` | One page as Markdown; `include_children` returns the whole sub-tree in one answer, `include_notes` adds the page's note trail. |
 | `get_collection` | A database's property schema and its views, with ids. |
-| `query_rows` | Rows with server-side filter, sort and paging, including computed rollups and formulas. `filter_groups` adds OR: every condition in `filter` holds, plus one of the groups. |
+| `query_rows` | Rows with server-side filter, sort and paging, including computed rollups and formulas, which can be filtered and sorted on too. `filter_groups` adds OR: every condition in `filter` holds, plus one of the groups. `calculations` adds column totals over every matching row. |
 | `get_links` | What points at one page, or the whole graph. |
 | `get_workspace` | Name, role, members and their ids, page and database counts, and the workspace rules. |
 | `get_permissions` | Whether a page can be read, written or deleted, and why it is read-only if it is. |
@@ -281,8 +281,8 @@ Three things about those belong here rather than in a parameter list:
 | `create_database` | A new collection with its property schema. |
 | `create_rows` | Up to 200 rows in one call. |
 | `set_properties` | Typed values on a row, merged field by field. |
-| `update_schema` | Add or change properties, including relations, backrelations and rollups. |
-| `set_view` | Create a view or change one: grouping, filters, sort, hidden columns. |
+| `update_schema` | Add or change properties, including relations, backrelations, rollups and formulas; a formula that does not compile is refused. |
+| `set_view` | Create a view or change one: grouping, filters, sort, hidden columns, table calculations. |
 | `delete_view` | Remove a view. The last one cannot be deleted. |
 | `embed_database` | Put an existing collection inside a document. |
 

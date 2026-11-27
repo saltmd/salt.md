@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -419,6 +420,9 @@ func (s *Server) mcpUpdateSchema(pageID string, props json.RawMessage, remove []
 	if len(added)+len(changed)+len(removed) == 0 {
 		return "", fmt.Errorf("nothing to do: pass properties to add/change or remove_properties")
 	}
+	if err := checkComputedProps(schema, append(added, changed...)); err != nil {
+		return "", err
+	}
 	if err := s.saveCollection(pageID, schema, views); err != nil {
 		return "", err
 	}
@@ -435,6 +439,34 @@ func (s *Server) mcpUpdateSchema(pageID string, props json.RawMessage, remove []
 		parts = append(parts, "removed "+strings.Join(removed, ", ")+" (row values kept, re-adding the property brings them back)")
 	}
 	return "Schema updated: " + strings.Join(parts, "; "), nil
+}
+
+// checkComputedProps refuses a formula that does not compile or names
+// something that does not exist, and a rollup function that does not exist.
+// Only the properties in ids are checked, all of them when ids is nil, so an
+// old broken formula does not block an unrelated change.
+func checkComputedProps(schema []map[string]any, ids []string) error {
+	b, err := json.Marshal(schema)
+	if err != nil {
+		return err
+	}
+	defs := parseSchema(string(b))
+	for _, d := range defs {
+		if ids != nil && !slices.Contains(ids, d.ID) {
+			continue
+		}
+		switch d.Type {
+		case "formula":
+			if err := checkFormula(d.Formula, defs); err != nil {
+				return fmt.Errorf("formula %q: %v", d.Name, err)
+			}
+		case "rollup":
+			if d.RollupAgg != "" && !isRollupAgg(d.RollupAgg) {
+				return fmt.Errorf("rollup %q: unknown rollupAgg %q, use one of %s", d.Name, d.RollupAgg, rollupAggList())
+			}
+		}
+	}
+	return nil
 }
 
 // mcpAddSelectOption adds a select option. Without this tool an agent could
@@ -496,7 +528,13 @@ type viewSpec struct {
 	// agent learns one form and not two. "" clears the sort.
 	Sort   *string   `json:"sort"`
 	Hidden *[]string `json:"hidden"`
+	// Merged per column: "" removes a column's entry, "none" hides its
+	// calculation.
+	Calculations *map[string]string `json:"calculations"`
 }
+
+// calcNone is a column whose footer shows no calculation at all.
+const calcNone = "none"
 
 var validFilterOps = map[string]bool{
 	"is": true, "is_not": true, "contains": true,
@@ -675,6 +713,28 @@ func applyViewSpec(view map[string]any, spec viewSpec, schema []map[string]any) 
 			out = append(out, id)
 		}
 		view["hidden"] = out
+	}
+	if spec.Calculations != nil {
+		calcs := map[string]any{}
+		if old, ok := view["calculations"].(map[string]any); ok {
+			for k, v := range old {
+				calcs[k] = v
+			}
+		}
+		for id, name := range *spec.Calculations {
+			if id != titleCalcKey && !has(id) {
+				return fmt.Errorf("calculations: %q is not a property of this database", id)
+			}
+			switch {
+			case name == "":
+				delete(calcs, id)
+			case name == calcNone || isCalculation(name):
+				calcs[id] = name
+			default:
+				return fmt.Errorf("calculations: %q is not a calculation, use one of %s or %s", name, strings.Join(calculationNames, ", "), calcNone)
+			}
+		}
+		view["calculations"] = calcs
 	}
 	return nil
 }

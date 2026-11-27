@@ -379,7 +379,7 @@
         }
       ],
       "takenAt": {
-        "web/src/components/CollectionView.tsx": "8e445c60c284",
+        "web/src/components/CollectionView.tsx": "8c39b5fca612",
         "web/src/theme.css": "6a5de72d7e2c"
       }
     },
@@ -413,7 +413,7 @@
         }
       ],
       "takenAt": {
-        "web/src/components/CollectionView.tsx": "8e445c60c284",
+        "web/src/components/CollectionView.tsx": "8c39b5fca612",
         "web/src/cardLayout.ts": "eb7f92584275",
         "web/src/theme.css": "6a5de72d7e2c"
       }
@@ -447,7 +447,7 @@
         }
       ],
       "takenAt": {
-        "web/src/components/CollectionView.tsx": "8e445c60c284",
+        "web/src/components/CollectionView.tsx": "8c39b5fca612",
         "web/src/theme.css": "6a5de72d7e2c"
       }
     },
@@ -668,7 +668,7 @@
       ],
       "takenAt": {
         "web/src/components/AgentConnect.tsx": "dd2865c640de",
-        "server/mcp.go": "6205e90d7f47",
+        "server/mcp.go": "e46cfdebddb0",
         "web/src/theme.css": "6a5de72d7e2c"
       },
       "element": ".dialog"

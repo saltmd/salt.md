@@ -166,8 +166,9 @@ offered depends on the type:
 
 | Property type | Operators |
 | --- | --- |
-| number, rollup, formula | is · is not · > · < · is empty · is not empty |
-| date | is · is not · after · before · is empty · is not empty |
+| number, rollup | is · is not · greater than · less than · between · is empty · is not empty |
+| formula | is · is not · greater than · less than · between · contains · is empty · is not empty |
+| date | is · is not · after · before · between · is empty · is not empty |
 | text, person | is · is not · contains · is empty · is not empty |
 | everything else | is · is not · is empty · is not empty |
 
@@ -186,11 +187,14 @@ next month, where a picked date would already lie. The filter offers presets
 for the common cases and a field for a hand-typed word, with a hint showing
 the day it currently names.
 
-Filtering and sorting happen in the database first: a collection with fifty
-thousand rows is narrowed before it is sent, and the browser then applies the
-same conditions again to what arrives. The view loads what is left in batches of
-200 until it has all of it, so column counts on a board are true counts and not
-"the first page of results".
+Filtering and sorting happen on the server: a collection with fifty thousand
+rows is narrowed before it is sent, and the browser then applies the same
+conditions again to what arrives. The view loads what is left in batches of 200
+until it has all of it, so column counts on a board are true counts and not "the
+first page of results". Conditions and sorts on computed properties (rollups,
+formulas, backrelations) work on the computed values: the server works those
+out for the rows the stored conditions let through, then finishes filtering and
+sorting. See [Views](views.md#filters).
 
 The row title is **not** a property and cannot be filtered on. To find rows by
 title, use [Search](search.md).
@@ -203,8 +207,12 @@ and **backrelation** columns. Those are computed on the server and always read
 as text; a backrelation is edited from the side that owns the relation.
 
 The foot of the table is a calculation row: it counts the rows on the left, and
-under each column shows either a sum (`Σ`, for number, rollup and formula
-columns) or how many cells are filled.
+under each column shows a calculation, by default a sum (`Σ`) for number,
+rollup and formula columns and how many cells are filled for the rest. Click a
+cell to choose another calculation (average, median, earliest date, percent
+checked and more) or **None**. The choice is stored on the view, and the figure
+covers every row that passes the view's filters. See
+[Views](views.md#the-calculation-row).
 
 With a sub-item relation chosen, rows nest: a row that points at other rows in
 the same collection gets a `▾` to fold them away. A relation cycle cannot loop
@@ -291,8 +299,8 @@ Some types ask for more, right under the property:
 | Number, Rollup, Formula | **Display**: Number, Progress bar or Ring, plus **Max (= 100%)** for the last two |
 | Relation | **Links to**: which collection |
 | Backrelation | **Rows from** (the collection that points here) and **That point here via** (which of its relation properties) |
-| Rollup | **Via relation**, **Of property**, **Calculate** (Sum, Count, Average, Min, Max, Percent) and **Only rows where** (an optional condition with is / is not / contains / is empty / is not empty) |
-| Formula | **Expression**, with the available `{id}` tokens listed underneath |
+| Rollup | **Via relation**, **Of property**, **Calculate** (Count, Percent, Show original, Show unique values, and the footer calculations from Count values to Percent unchecked) and **Only rows where** (an optional condition with is / is not / contains / is empty / is not empty) |
+| Formula | **Expression**, with a live result for the first five rows, a button per property that inserts `prop("Name")`, and a collapsible **Operators and functions** reference |
 
 A rollup's condition can name **several** options at once. With *is* or *is not*
 on a select or multi-select, the value box turns into a row of option chips and
@@ -456,7 +464,7 @@ Collections section.
 - [Views](views.md): table, board, gallery, calendar, timeline, list, form
 - [Relations and rollups](relations-and-rollups.md): pointing at other
   collections, and counting what points back
-- [Formulas](formulas.md): arithmetic across a row's own properties
+- [Formulas](formulas.md): expressions over a row's own properties
 - [Forms](forms.md): a collection view anybody can fill in without an account
 - [Templates](templates.md) and [Library](library.md): starting from something
   instead of from nothing

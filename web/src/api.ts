@@ -1,5 +1,6 @@
 import type { AgentWork } from './agentPresence';
 import type {
+  Calculation,
   ApiToken,
   Backlink,
   BlueprintEntry,
@@ -8,6 +9,7 @@ import type {
   OAuthGrant,
   Page,
   PageMeta,
+  PropDef,
   PublicFormConfig,
   SaltFile,
   SearchResult,
@@ -418,9 +420,12 @@ export const api = {
       // The viewer's day as YYYY-MM-DD: relative date words ("today",
       // "today-1M") resolve against it, not the server's day.
       today?: string;
+      // Column calculations over every row the filters let through.
+      calcs?: Record<string, Calculation>;
     } = {},
   ) => {
     const p = new URLSearchParams();
+    for (const [key, calc] of Object.entries(opts.calcs ?? {})) p.append('calc', `${key}:${calc}`);
     if (opts.limit) p.set('limit', String(opts.limit));
     if (opts.offset) p.set('offset', String(opts.offset));
     if (opts.today) p.set('today', opts.today);
@@ -446,8 +451,16 @@ export const api = {
       total: number;
       offset: number;
       limit: number;
+      calculations?: Record<string, unknown>;
     }>(`/api/collections/${pageId}/rows?${p.toString()}`);
   },
+  /** Checks a formula and evaluates it on the first rows. `schema` is the
+   *  editor's draft, so a property that is not saved yet can be named. */
+  formulaPreview: (pageId: string, body: { formula: string; id: string; schema: PropDef[] }) =>
+    req<{ error?: string; rows: { id: string; title: string; value?: unknown; error?: string }[] }>(
+      `/api/collections/${pageId}/formula-preview`,
+      { method: 'POST', body: JSON.stringify(body) },
+    ),
   // Either half alone is fine; the server keeps the other as stored.
   putCollection: (pageId: string, config: Partial<CollectionConfig>) =>
     req<CollectionConfig>(`/api/collections/${pageId}`, {

@@ -54,12 +54,66 @@ so it changes that option in every view and on every row.
 Under the title sit the row's tags, and a coloured dot appears beside a row an
 agent is working on right now.
 
-When the table has rows, its foot is a calculation row. Under each column it
-shows either a sum (`Σ`, for number, rollup and formula columns) or how many
-cells are filled. It is not configurable: there is one aggregate per column and
-it follows the type. The left-hand cell counts the rows: **42 rows**, in your
-own language. On a table with no rows there is no foot at all, only the
-empty-state line.
+#### The calculation row
+
+When the table has rows, its foot is a calculation row that stays at the bottom
+of the window while you scroll. Each cell is a button. Click it and a menu opens
+with **None** and the calculations that suit the column, with a tick beside the
+current one; pick one and the cell shows it. A cell with nothing to show reads
+**Calculate** while the pointer is over it.
+
+Until somebody picks something, a column shows its default:
+
+| Column | Default | Offered |
+| --- | --- | --- |
+| **Name** (the title) | Count all, shown as **42 rows** | the counts |
+| number, rollup | Sum, shown as **Σ 1,234** | the counts, the number calculations, the date calculations |
+| formula | Sum | every calculation, because a formula's result can be any type |
+| date | Count not empty, shown as **5 filled** | the counts, the date calculations |
+| checkbox | Checked, shown as **Checked 3** | **Count all** and the checkbox calculations |
+| everything else | Count not empty | the counts |
+
+The groups:
+
+| Group | Calculations | Shown as |
+| --- | --- | --- |
+| counts | **Count all**, **Count values**, **Count unique values**, **Count empty**, **Count not empty**, **Percent empty**, **Percent not empty** | `Count 12`, `Values 15`, `Unique 4`, `Empty 2`, `10 filled`, `Empty 16.7%`, `Filled 83.3%` |
+| numbers | **Sum**, **Average**, **Median**, **Min**, **Max**, **Range** | `Σ 1,234`, `Average 12.5`, `Median 10`, `Min 1`, `Max 40`, `Range 39` |
+| dates | **Earliest date**, **Latest date**, **Date range** | `Earliest 3 Mar 2026`, `Latest 18 Jul 2026`, `137 days` |
+| checkboxes | **Checked**, **Unchecked**, **Percent checked**, **Percent unchecked** | `Checked 7`, `Unchecked 5`, `Checked 58.3%`, `Unchecked 41.7%` |
+
+What they count:
+
+- **Count all** counts rows. **Count values** counts values, so a multi-select
+  holding three options adds three. **Count unique values** counts different
+  values.
+- **Empty** means no value, text that is blank, an empty list or an unticked
+  box. Percentages are of all the rows, to one decimal.
+- **Sum** to **Range** use the values that read as numbers: text holding a
+  number counts, a formula's `⚠` error does not. With no such value the cell is
+  blank. **Median** of an even count is the mean of the middle two.
+- **Earliest date** and **Latest date** use the values that are dates (a
+  formula's date results included); **Date range** is the whole days between
+  them.
+- **Unchecked** counts every row whose box is not ticked, including boxes nobody
+  ever touched.
+
+Three things that decide what the figure means:
+
+- **It covers every row that passes the view's filters**, not only the rows
+  loaded so far. The server works it out over the whole filtered set, with
+  computed values (rollups, formulas) included, and the same figure comes back
+  however far you have scrolled.
+- **The choice is stored on the view**, under its columns, so it is the same
+  for everyone who opens the view, and it is changed for everyone too. An
+  embedded table writes its choice to the same view. A hidden column has no
+  calculation.
+- **A default hides a zero.** A column showing its default shows nothing rather
+  than `0 filled` or `Σ 0`. Pick the calculation explicitly and a zero is shown.
+
+Numbers are formatted for your region and dates in your format. On a table with
+no rows there is no foot at all, only the empty-state line. Agents set the same
+calculations with `set_view` and its `calculations` argument.
 
 **Sub-items.** When the collection has a relation property pointing back at
 itself, the settings bar offers a picker: **No sub-items**, or that property.
@@ -337,7 +391,8 @@ and the labels change to suit it:
 
 | Property type | Operators offered |
 | --- | --- |
-| number, rollup, formula | is · is not · **greater than** · **less than** · **between** · is empty · is not empty |
+| number, rollup | is · is not · **greater than** · **less than** · **between** · is empty · is not empty |
+| formula | is · is not · **greater than** · **less than** · **between** · **contains** · is empty · is not empty |
 | date | is · is not · **after** · **before** · **between** · is empty · is not empty |
 | person | **is any of** · **is none of** · **contains** · is empty · is not empty |
 | text | is · is not · **contains** · is empty · is not empty |
@@ -389,34 +444,28 @@ Three behaviours that surprise people:
 The row **title** is not a property and cannot be filtered. To find rows by
 title use [Search](search.md).
 
-**Filtering happens twice.** The conditions go to the database first, so a
-collection with fifty thousand rows is narrowed before anything is sent; what is
-left arrives in batches of 200 until all of it is here, which is why a board
-column's count is a true count and not "the first page of results". Then the
-browser applies the same conditions again to what arrived, this time with the
-calculated values filled in, which the database did not have.
+**Filtering happens in the database first.** The conditions go to the server,
+so a collection with fifty thousand rows is narrowed before anything is sent;
+what is left arrives in batches of 200 until all of it is here, which is why a
+board column's count is a true count and not "the first page of results". The
+browser then applies the same conditions again to what arrived, so a row you
+have just edited out of the filter leaves the view at once.
 
-That second pass is the whole reason the next paragraph reads the way it does.
+**Filters on calculated values work.** A rollup, a formula, a backrelation and a
+last-activity column are not stored on the row; they are worked out when the
+rows are read. A condition on one is therefore finished by the server after it
+has worked the values out: conditions on stored properties narrow the rows in
+the database, the server computes what is left, applies the conditions on
+computed values, and then sends the result in batches as usual. Every operator
+behaves on the computed value as it would on a stored one: *Progress greater
+than 50*, *Tasks is empty*, a text formula *contains late*. The cost is time:
+such a view computes every row the stored conditions let through before it can
+send the first batch.
 
-**Filters on calculated values are unreliable.** A rollup, a formula and a
-backrelation are not stored on the row. They are worked out when the rows are
-read, which happens *after* the database has filtered, so to the database they
-look like nothing at all:
-
-| Operator on a rollup, formula or backrelation | What you get |
-| --- | --- |
-| `is`, `contains`, `>`, `<`, `is not empty` | an empty view: the database matched nothing |
-| `is not`, `is empty` | every row passes the database, and the browser then narrows it correctly |
-
-So two of the seven happen to give the right answer and five give a blank screen.
-Build a view on neither: put the condition inside the rollup instead (see
-[Properties](properties.md#rollup)), or keep a stored property alongside it. The
-operators are offered in the popover all the same.
-
-**Sorting is not affected.** A sort on a rollup or a formula works in the
-interface, because every row is loaded and the browser sorts the finished
-values. Over the API and over MCP, where a `limit` cuts the result short, it does
-not: there the sort is the database's alone.
+A formula result of `false` counts as empty, like an unticked box, and a result
+of 0 does not. A rollup is never empty unless it is a **Show original** or
+**Show unique values** rollup with nothing to show. More in
+[Formulas](formulas.md#filtering-and-sorting-by-a-formula).
 
 ## Sorting
 
@@ -431,6 +480,10 @@ inside a board column and across a gallery.
 
 Like a filter, a sort belongs to the view and applies for everybody looking at
 it.
+
+A sort on a rollup, a formula or another computed property is done by the
+server on the computed values, before the rows are paged, so it is right in the
+browser and for an agent reading the view's rows through `query_rows` alike.
 
 ## Which properties a view shows
 
@@ -517,7 +570,7 @@ An agent reads and writes views with three tools.
 
 `set_view(page_id:)` creates a view when no `view_id` is given and changes one
 when it is. It takes `name`, `type` (creating only), `group_by`, `date_prop`,
-`end_date_prop`, `filters`, `sort` and `hidden`.
+`end_date_prop`, `filters`, `sort`, `hidden` and `calculations`.
 
 ```
 set_view(page_id: "<collection>", name: "Open", type: "board", group_by: "status",
@@ -544,6 +597,16 @@ Four rules govern it:
 `sort` is spelled `"propertyId:asc"` or `"propertyId:desc"`, the same spelling
 `query_rows` uses, so there is one form to learn rather than two.
 
+`calculations` sets a table's [calculation row](#the-calculation-row), as an
+object from property id to calculation name, with `__title` for the Name column:
+`{"__title": "count_all", "hours": "avg", "due": "latest"}`. It merges per
+column: a column you leave out keeps what it has, `""` puts a column back to its
+default, and `"none"` shows nothing under it. An unknown property or calculation
+name is refused. The names are `count_all`, `count_values`, `count_unique`,
+`count_empty`, `count_not_empty`, `percent_empty`, `percent_not_empty`, `sum`,
+`avg`, `median`, `min`, `max`, `range`, `earliest`, `latest`, `date_range`,
+`checked`, `unchecked`, `percent_checked` and `percent_unchecked`.
+
 `delete_view(page_id:, view_id:)` removes a view; the last one cannot be deleted.
 A read-only token is refused by both writing tools.
 
@@ -566,8 +629,10 @@ The same is available over HTTP: `GET /api/collections/{id}/rows` takes
 `filter=<property>:<operator>:<value>` (repeatable, ANDed),
 `sort=<property>:asc|desc`, `limit` (default 100, maximum 500) and `offset`, and
 answers with the rows, the total, and the offset and limit it used. Both routes
-run the same permission checks and the same database filter as a view does,
-including the blindness to calculated values described above.
+run the same permission checks and the same filtering as a view does, computed
+values included, and both can return the calculation row's figures over every
+matching row: `calculations` for `query_rows`, a repeatable `calc` for the HTTP
+route. See [API](api.md).
 
 ## Where to go next
 

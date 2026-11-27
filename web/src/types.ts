@@ -229,7 +229,9 @@ export interface PropDef {
   // rollup: aggregate a target property over a relation
   rollupRelation?: string;
   rollupTarget?: string;
-  rollupAgg?: 'sum' | 'count' | 'avg' | 'min' | 'max' | 'percent';
+  // count: the matched related rows; percent: their share of all related
+  // rows; show_original / show_unique: the values themselves.
+  rollupAgg?: 'count' | 'percent' | 'show_original' | 'show_unique' | Calculation;
   // rollup: count/sum only the related rows meeting this condition — the
   // difference between "how many tasks" and "how many are done".
   rollupWhereProp?: string;
@@ -243,7 +245,7 @@ export interface PropDef {
   // at read time, never stored — see backrelationIDs in derived.go.
   backrelationCollection?: string;
   backrelationProp?: string;
-  // formula: expression over other props, {propId} references
+  // formula: an expression over the row's other props (see formula.go)
   formula?: string;
   // number/rollup/formula: render a numeric value as a plain number (default),
   // a progress bar, or a ring. numberMax is the value that = 100% (default 100).
@@ -255,6 +257,30 @@ export interface PropDef {
   personMultiple?: boolean;
   personPool?: string[];
 }
+
+/** A calculation over a column, in a table's footer or as a rollup function.
+ *  The server works them out (calculations.go). */
+export type Calculation =
+  | 'count_all'
+  | 'count_values'
+  | 'count_unique'
+  | 'count_empty'
+  | 'count_not_empty'
+  | 'percent_empty'
+  | 'percent_not_empty'
+  | 'sum'
+  | 'avg'
+  | 'median'
+  | 'min'
+  | 'max'
+  | 'range'
+  | 'earliest'
+  | 'latest'
+  | 'date_range'
+  | 'checked'
+  | 'unchecked'
+  | 'percent_checked'
+  | 'percent_unchecked';
 
 export type FilterOp =
   | 'is'
@@ -316,6 +342,10 @@ export interface ViewDef {
   // only the ones somebody deliberately set are pinned. Stored on the VIEW, so
   // two views of the same database can be laid out for different jobs.
   colWidths?: Record<string, number>;
+  // table view: the calculation under each column, by property id ('__title'
+  // for the name column), or 'none'. A column without an entry shows its
+  // default (see calculations.ts).
+  calculations?: Record<string, string>;
 }
 
 export interface CollectionConfig {

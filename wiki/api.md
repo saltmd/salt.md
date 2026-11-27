@@ -356,7 +356,8 @@ thing under two names.
 | --- | --- |
 | `GET /api/collections/{id}` | the schema (its properties) and its saved views |
 | `PUT /api/collections/{id}` | replace `schema`, `views` or both; a half left out stays as stored |
-| `GET /api/collections/{id}/rows` | rows, filtered, sorted and paginated |
+| `GET /api/collections/{id}/rows` | rows, filtered, sorted and paginated, with optional column calculations |
+| `POST /api/collections/{id}/formula-preview` | check a formula and work it out on the first five rows |
 
 `PUT` takes `schema`, `views` or both. The half you leave out stays as it is
 stored, so changing a view never puts back an older copy of the schema, and the
@@ -405,6 +406,53 @@ A saved view keeps flat filters only, because that is all the interface shows.
 whole filtered set, not the page. Rollups, formulas and backrelations are filled
 in per row. Other people's private rows are excluded before the count, so paging
 stays honest.
+
+Filters and `sort` may name a computed property (a rollup, a formula, a
+backrelation, a last-activity column) like any other, and then work on the
+computed value. Conditions on stored properties are still answered by the
+database; the server computes the rows that pass them, applies the conditions on
+computed values (OR groups that mix both kinds are combined after computing),
+sorts, and only then cuts out the page. Such a request costs a computation of
+every row the stored conditions let through, so on a large collection put a
+stored condition beside it where you can.
+
+`calc` asks for the figures of a table's calculation row. It is repeatable and
+reads `prop:calculation`, with `__title` for the title column:
+
+```
+GET /api/collections/{id}/rows?filter=status:is_not:done&calc=__title:count_all&calc=hours:sum&calc=due:latest&limit=50
+```
+
+The answer then carries `"calculations": {"__title": 42, "hours": 318.5, "due":
+"2026-09-30"}`, worked out over **every row that passes the filters**, not only
+the page. A calculation with nothing to work on is `null` (a sum over no
+numbers, the earliest of no dates). The names are `count_all`, `count_values`,
+`count_unique`, `count_empty`, `count_not_empty`, `percent_empty`,
+`percent_not_empty`, `sum`, `avg`, `median`, `min`, `max`, `range`, `earliest`,
+`latest`, `date_range`, `checked`, `unchecked`, `percent_checked` and
+`percent_unchecked`; [Views](views.md#the-calculation-row) says what each
+counts. An unknown name is a `400` naming the valid ones. The property id is
+not checked: an id that does not exist reads as an empty column.
+
+The formula editor's live result comes from
+`POST /api/collections/{id}/formula-preview`. The body is `{"formula": "…",
+"id": "<property id>", "schema": […]}`; `id` and `schema` are optional. With a
+`schema` (the editor sends its unsaved draft) the expression is checked against
+that instead of the stored one, and `id` says which property the formula is, so
+the result replaces that property's value and a reference to itself is a cycle.
+The answer is either `{"error": "unknown property \"Qty\"", "rows": []}` when
+the expression does not parse or names a property or function that does not
+exist, or the first five rows in collection order:
+
+```json
+{"rows": [
+  {"id": "…", "title": "Widget", "value": 50},
+  {"id": "…", "title": "Gadget", "error": "division by zero"}
+]}
+```
+
+Nothing is saved. It needs read access to the collection. See
+[Formulas](formulas.md).
 
 Rows are pages, so you create one with `POST /api/pages` naming the database as
 `parentId`, and set its values with `PATCH`. See

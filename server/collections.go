@@ -118,6 +118,8 @@ func (s *Server) handlePutCollection(w http.ResponseWriter, r *http.Request) {
 //	                           between groups; a repeatable `filter` beside
 //	                           them holds for every group
 //	sort=<propId>:<asc|desc>
+//	calc=<propId>:<calculation> — a footer calculation over every matching row
+//	                           (repeatable; __title is the title column)
 type collectionRow struct {
 	ID       string          `json:"id"`
 	Title    string          `json:"title"`
@@ -473,7 +475,30 @@ func (f rowFilter) typedIs(ex, op string, vals []string) (string, []any, bool) {
 // the viewer's day, sent by the interface with every query. Zero means the
 // caller does not know it (agents, old clients) and the server's day applies.
 func (s *Server) collectionRowsQuery(u *user, colID string, flat []rowFilter, groups [][]rowFilter, sortParam string, limit, offset int, today time.Time) (list []map[string]any, total int, err error) {
-	now := today
+	res, err := s.queryRows(u, colID, rowsRequest{flat: flat, groups: groups, sort: sortParam, limit: limit, offset: offset, today: today})
+	return res.rows, res.total, err
+}
+
+// rowsRequest is one query over a collection's rows. calcs names a
+// calculation per column, worked out over every row that passes the filters,
+// not only the page.
+type rowsRequest struct {
+	flat          []rowFilter
+	groups        [][]rowFilter
+	sort          string
+	limit, offset int
+	today         time.Time
+	calcs         map[string]string
+}
+
+type rowsResult struct {
+	rows  []map[string]any
+	total int
+	calcs map[string]any
+}
+
+func (s *Server) queryRows(u *user, colID string, q rowsRequest) (rowsResult, error) {
+	now := q.today
 	if now.IsZero() {
 		now = time.Now()
 	}
@@ -481,12 +506,16 @@ func (s *Server) collectionRowsQuery(u *user, colID string, flat []rowFilter, gr
 	// query, so a saved view stays live, and only on date properties (see
 	// resolveSmartDates), so a status option named "Today" keeps working.
 	// Similarly, "@me" in person properties resolves to the viewing user.
-	flat = s.typeFilters(colID, s.resolvePersonFilters(colID, s.resolveSmartDates(colID, flat, now), u))
-	resolved := make([][]rowFilter, len(groups))
-	for i, g := range groups {
-		resolved[i] = s.typeFilters(colID, s.resolvePersonFilters(colID, s.resolveSmartDates(colID, g, now), u))
+	flat := s.typeFilters(colID, s.resolvePersonFilters(colID, s.resolveSmartDates(colID, q.flat, now), u))
+	groups := make([][]rowFilter, len(q.groups))
+	for i, g := range q.groups {
+		groups[i] = s.typeFilters(colID, s.resolvePersonFilters(colID, s.resolveSmartDates(colID, g, now), u))
 	}
-	groups = resolved
+	var schemaJSON string
+	s.db.QueryRow(`SELECT schema FROM collections WHERE page_id = ?`, colID).Scan(&schemaJSON)
+	schema := parseSchema(schemaJSON)
+	computed := computedPropIDs(schema)
+
 	where := []string{"parent_id = ?", "trashed_at IS NULL"}
 	args := []any{colID}
 	// Other people's private rows stay out. The condition belongs in the SQL,
@@ -502,59 +531,118 @@ func (s *Server) collectionRowsQuery(u *user, colID string, flat []rowFilter, gr
 	// The flat list is a term of its own beside the OR of the groups. Copied
 	// into every group instead, it made an unfinished group match whatever the
 	// flat list matched, so adding a condition could widen the answer.
+	var flatComputed []rowFilter
 	for _, f := range flat {
+		if computed[f.Prop] {
+			flatComputed = append(flatComputed, f)
+			continue
+		}
 		if cond, cargs := f.where(); cond != "" {
 			where = append(where, cond)
 			args = append(args, cargs...)
 		}
 	}
-	ors := make([]string, 0, len(groups))
+	// Groups that mention a computed value cannot be ORed in SQL: each stored
+	// condition is then selected as a column and the groups are combined here.
+	groupsComputed := false
 	for _, g := range groups {
-		ands := make([]string, 0, len(g))
 		for _, f := range g {
-			cond, cargs := f.where()
-			if cond == "" {
+			groupsComputed = groupsComputed || computed[f.Prop]
+		}
+	}
+	var condCols []string
+	var condArgs []any
+	var condGroups [][]rowCond
+	if groupsComputed {
+		for _, g := range groups {
+			var conds []rowCond
+			for _, f := range g {
+				if computed[f.Prop] {
+					conds = append(conds, rowCond{filter: f, computed: true})
+					continue
+				}
+				cond, cargs := f.where()
+				if cond == "" {
+					continue
+				}
+				conds = append(conds, rowCond{filter: f, column: len(condCols)})
+				condCols = append(condCols, "COALESCE(("+cond+"), 0)")
+				condArgs = append(condArgs, cargs...)
+			}
+			// An empty group constrains nothing.
+			if len(conds) > 0 {
+				condGroups = append(condGroups, conds)
+			}
+		}
+	} else {
+		ors := make([]string, 0, len(groups))
+		for _, g := range groups {
+			ands := make([]string, 0, len(g))
+			for _, f := range g {
+				cond, cargs := f.where()
+				if cond == "" {
+					continue
+				}
+				ands = append(ands, cond)
+				args = append(args, cargs...)
+			}
+			// An empty group constrains nothing — it must not narrow the answer,
+			// or one unfinished group would blank the whole view.
+			if len(ands) == 0 {
 				continue
 			}
-			ands = append(ands, cond)
-			args = append(args, cargs...)
+			ors = append(ors, "("+strings.Join(ands, " AND ")+")")
 		}
-		// An empty group constrains nothing — it must not narrow the answer,
-		// or one unfinished group would blank the whole view.
-		if len(ands) == 0 {
-			continue
+		if len(ors) > 0 {
+			where = append(where, "("+strings.Join(ors, " OR ")+")")
 		}
-		ors = append(ors, "("+strings.Join(ands, " AND ")+")")
-	}
-	if len(ors) > 0 {
-		where = append(where, "("+strings.Join(ors, " OR ")+")")
 	}
 	whereSQL := strings.Join(where, " AND ")
 
 	orderSQL := "position, created_at"
-	if sortParam != "" {
-		propID, dir, _ := strings.Cut(sortParam, ":")
-		if safePropID(propID) {
-			d := "ASC"
-			if strings.EqualFold(dir, "desc") {
-				d = "DESC"
-			}
-			orderSQL = "json_extract(props, '$." + propID + "') " + d + ", position"
+	sortProp, _, _ := strings.Cut(q.sort, ":")
+	sortComputed := computed[sortProp]
+	if q.sort != "" && !sortComputed && safePropID(sortProp) {
+		d := "ASC"
+		if _, dir, _ := strings.Cut(q.sort, ":"); strings.EqualFold(dir, "desc") {
+			d = "DESC"
 		}
+		orderSQL = "json_extract(props, '$." + sortProp + "') " + d + ", position"
 	}
 
-	s.db.QueryRow(`SELECT COUNT(*) FROM pages WHERE `+whereSQL, args...).Scan(&total)
-
-	rows, err := s.db.Query(`SELECT id, title, icon, cover, position, props, tags FROM pages WHERE `+whereSQL+` ORDER BY `+orderSQL+` LIMIT ? OFFSET ?`, append(args, limit, offset)...)
+	// Everything is filtered and paged in SQL unless a computed value has a
+	// say, or the calculations need every matching row.
+	inGo := len(flatComputed) > 0 || groupsComputed || sortComputed || len(q.calcs) > 0
+	res := rowsResult{}
+	if !inGo {
+		s.db.QueryRow(`SELECT COUNT(*) FROM pages WHERE `+whereSQL, args...).Scan(&res.total)
+	}
+	cols := ""
+	if len(condCols) > 0 {
+		cols = ", " + strings.Join(condCols, ", ")
+	}
+	query := `SELECT id, title, icon, cover, position, props, tags` + cols + ` FROM pages WHERE ` + whereSQL + ` ORDER BY ` + orderSQL
+	queryArgs := append(append([]any{}, condArgs...), args...)
+	if !inGo {
+		query += ` LIMIT ? OFFSET ?`
+		queryArgs = append(queryArgs, q.limit, q.offset)
+	}
+	rows, err := s.db.Query(query, queryArgs...)
 	if err != nil {
-		return nil, 0, err
+		return res, err
 	}
 	defer rows.Close()
-	list = []map[string]any{}
+	list := []map[string]any{}
+	var condResults [][]bool
 	for rows.Next() {
 		var id, title, icon, cover, props, tags string
 		var position float64
-		if rows.Scan(&id, &title, &icon, &cover, &position, &props, &tags) != nil {
+		results := make([]bool, len(condCols))
+		dest := []any{&id, &title, &icon, &cover, &position, &props, &tags}
+		for i := range results {
+			dest = append(dest, &results[i])
+		}
+		if rows.Scan(dest...) != nil {
 			continue
 		}
 		var pm map[string]any
@@ -568,22 +656,76 @@ func (s *Server) collectionRowsQuery(u *user, colID string, flat []rowFilter, gr
 		list = append(list, map[string]any{
 			"id": id, "title": title, "icon": icon, "cover": cover, "position": position, "props": pm, "tags": tagList,
 		})
+		condResults = append(condResults, results)
 	}
 
 	// Compute rollups and formulas server-side (relations resolved against the
 	// target rows), so they're correct and consistent regardless of client.
 	//
-	// From here on we query again (the schema, and inside computeDerived a
-	// canRead per target page), even though `defer rows.Close()` only fires on
-	// leaving. That works solely because the loop above runs to the end:
-	// database/sql then closes the rows itself and frees the — single —
-	// connection. Anyone adding a `break` here keeps the cursor open and brings
-	// the whole server to a standstill.
-	var schemaJSON string
-	if s.db.QueryRow(`SELECT schema FROM collections WHERE page_id = ?`, colID).Scan(&schemaJSON) == nil {
-		s.computeDerived(u, parseSchema(schemaJSON), list)
+	// From here on we query again (inside computeDerived a canRead per target
+	// page), even though `defer rows.Close()` only fires on leaving. That works
+	// solely because the loop above runs to the end: database/sql then closes
+	// the rows itself and frees the — single — connection. Anyone adding a
+	// `break` here keeps the cursor open and brings the whole server to a
+	// standstill.
+	s.computeDerived(u, schema, list)
+	if !inGo {
+		res.rows = list
+		return res, nil
 	}
-	return list, total, nil
+
+	kept := list[:0]
+	for i, row := range list {
+		if rowPasses(row, flatComputed, condGroups, condResults[i]) {
+			kept = append(kept, row)
+		}
+	}
+	if sortComputed {
+		sortRowsBy(kept, q.sort)
+	}
+	res.total = len(kept)
+	if len(q.calcs) > 0 {
+		if res.calcs, err = calculateColumns(kept, q.calcs); err != nil {
+			return res, err
+		}
+	}
+	start := min(q.offset, len(kept))
+	end := min(start+q.limit, len(kept))
+	res.rows = kept[start:end]
+	return res, nil
+}
+
+// rowPasses combines the conditions decided here: every flat computed one,
+// and at least one OR group when there are groups.
+func rowPasses(row map[string]any, flat []rowFilter, groups [][]rowCond, sqlResults []bool) bool {
+	props, _ := row["props"].(map[string]any)
+	for _, f := range flat {
+		if !f.matchesCell(props[f.Prop]) {
+			return false
+		}
+	}
+	if len(groups) == 0 {
+		return true
+	}
+	for _, g := range groups {
+		all := true
+		for _, c := range g {
+			var ok bool
+			if c.computed {
+				ok = c.filter.matchesCell(props[c.filter.Prop])
+			} else {
+				ok = sqlResults[c.column]
+			}
+			if !ok {
+				all = false
+				break
+			}
+		}
+		if all {
+			return true
+		}
+	}
+	return false
 }
 
 // filterJSON is one condition as it travels: the flat `filter` object and one
@@ -672,12 +814,24 @@ func (s *Server) handleCollectionRows(w http.ResponseWriter, r *http.Request) {
 	if day, ok := parseTodayParam(q.Get("today")); ok {
 		today = day
 	}
-	list, total, err := s.collectionRowsQuery(requestUser(r), colID, filters, parseFilterGroups(q["filter_group"]), q.Get("sort"), limit, offset, today)
+	calcs, err := parseCalcParams(q["calc"])
+	if err != nil {
+		httpError(w, 400, err.Error())
+		return
+	}
+	res, err := s.queryRows(requestUser(r), colID, rowsRequest{
+		flat: filters, groups: parseFilterGroups(q["filter_group"]), sort: q.Get("sort"),
+		limit: limit, offset: offset, today: today, calcs: calcs,
+	})
 	if err != nil {
 		httpError(w, 500, err.Error())
 		return
 	}
-	writeJSON(w, map[string]any{"rows": list, "total": total, "offset": offset, "limit": limit})
+	out := map[string]any{"rows": res.rows, "total": res.total, "offset": offset, "limit": limit}
+	if res.calcs != nil {
+		out["calculations"] = res.calcs
+	}
+	writeJSON(w, out)
 }
 
 // createDefaultCollection initializes a fresh database page.

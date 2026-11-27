@@ -1,11 +1,12 @@
 package server
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
-	"math"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Computed database properties: relations, rollups and formulas. All are
@@ -46,6 +47,13 @@ type propDef struct {
 	BackrelationProp       string `json:"backrelationProp"`
 	// formula
 	Formula string `json:"formula"`
+	// select, multiselect: a formula reads an option by its name
+	Options []propOption `json:"options"`
+}
+
+type propOption struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 
 // matchesRollupWhere reports whether one related row satisfies a rollup's
@@ -125,12 +133,20 @@ func toNumber(v any) (float64, bool) {
 	return 0, false
 }
 
-// computeDerived injects rollup and formula values into each row's props map,
-// resolving relations against the target collection. Formulas support +-*/(),
-// numeric literals, and other-property references by id, with cycle detection.
+// computeDerived injects backrelation, rollup and formula values into each
+// row's props map, resolving relations against the target collection.
 func (s *Server) computeDerived(u *user, schema []propDef, rows []map[string]any) {
+	s.computeDerivedAt(u, schema, rows, 0)
+}
+
+// maxDerivedDepth is how many collections deep a rollup follows computed
+// values: a rollup over a formula on the related rows computes that formula,
+// and a rollup there computes one level further, then stops.
+const maxDerivedDepth = 2
+
+func (s *Server) computeDerivedAt(u *user, schema []propDef, rows []map[string]any, depth int) {
 	// Index derived props.
-	var rollups, formulas, relations, backrelations, activities []propDef
+	var rollups, formulas, backrelations, activities []propDef
 	for _, d := range schema {
 		switch d.Type {
 		case "lastActivity":
@@ -139,13 +155,11 @@ func (s *Server) computeDerived(u *user, schema []propDef, rows []map[string]any
 			rollups = append(rollups, d)
 		case "formula":
 			formulas = append(formulas, d)
-		case "relation":
-			relations = append(relations, d)
 		case "backrelation":
 			backrelations = append(backrelations, d)
 		}
 	}
-	if len(rollups) == 0 && len(formulas) == 0 && len(relations) == 0 && len(backrelations) == 0 && len(activities) == 0 {
+	if len(rollups) == 0 && len(formulas) == 0 && len(backrelations) == 0 && len(activities) == 0 {
 		return
 	}
 	if len(activities) > 0 {
@@ -174,7 +188,7 @@ func (s *Server) computeDerived(u *user, schema []propDef, rows []map[string]any
 	// Rollups: for each row, aggregate a target property over its related rows,
 	// optionally only those meeting a condition.
 	for _, ru := range rollups {
-		related := s.relatedRows(u, ru.RollupRelation, rows)
+		related := s.relatedRows(u, ru.RollupRelation, rows, []string{ru.RollupTarget, ru.RollupWhereProp}, depth)
 		for i, row := range rows {
 			props, _ := row["props"].(map[string]any)
 			if props == nil {
@@ -188,39 +202,39 @@ func (s *Server) computeDerived(u *user, schema []propDef, rows []map[string]any
 				vals = append(vals, target[ru.RollupTarget])
 			}
 			// "percent" is the share of the related rows that meet the condition,
-			// and it exists so a progress bar needs no formula. A formula would
-			// have to divide, and 0 of 0 related rows is a division by zero — which
-			// renders as an error message in the column of every newly created row.
-			// Here it is simply 0.
-			if ru.RollupAgg == "percent" {
-				if n := len(related[i]); n > 0 {
-					props[ru.ID] = math.Round(float64(len(vals))/float64(n)*1000) / 10
-				} else {
-					props[ru.ID] = 0
-				}
-				continue
-			}
-			props[ru.ID] = aggregate(ru.RollupAgg, vals)
+			// and it exists so a progress bar needs no division: 0 of 0 related
+			// rows is simply 0.
+			props[ru.ID] = rollupValue(ru.RollupAgg, vals, len(related[i]))
 		}
 	}
 
-	// Formulas: evaluate per row with cycle detection across formula refs.
-	formulaByID := map[string]propDef{}
-	for _, f := range formulas {
-		formulaByID[f.ID] = f
+	if len(formulas) == 0 {
+		return
 	}
+	idx := newPropIndex(schema)
+	compiled := compileFormulas(schema)
+	now := time.Now()
 	for _, row := range rows {
 		props, _ := row["props"].(map[string]any)
 		if props == nil {
 			continue
 		}
+		id, _ := row["id"].(string)
+		title, _ := row["title"].(string)
+		env := newFormulaEnv(formulaRow{id: id, title: title, props: props}, idx, compiled, now)
+		results := make(map[string]any, len(formulas))
 		for _, f := range formulas {
-			val, err := evalFormula(f.Formula, props, formulaByID, map[string]bool{})
+			val, err := env.formula(f.ID)
 			if err != nil {
-				props[f.ID] = "⚠ " + err.Error()
+				results[f.ID] = formulaErrorPrefix + err.Error()
 			} else {
-				props[f.ID] = val
+				results[f.ID] = formulaJSON(val)
 			}
+		}
+		// Written after all are evaluated: a formula reads the other formulas
+		// through the evaluator, never a half-filled props map.
+		for k, v := range results {
+			props[k] = v
 		}
 	}
 }
@@ -247,31 +261,18 @@ func (s *Server) fillDerivedForPage(u *user, p *page) {
 	if json.Unmarshal(p.Props, &props) != nil || props == nil {
 		props = map[string]any{}
 	}
-	rows := []map[string]any{{"id": p.ID, "props": props}}
+	rows := []map[string]any{{"id": p.ID, "title": p.Title, "props": props}}
 	s.computeDerived(u, parseSchema(schemaJSON), rows)
 	if b, err := json.Marshal(props); err == nil {
 		p.Props = b
 	}
 }
 
-// relatedRowProps returns, per input row, the target-property values of the
-// rows it relates to. Kept as the thin wrapper it always was; the fetching now
-// lives in relatedRows so a rollup can also look at properties OTHER than the
-// one it aggregates — which is what a condition needs.
-func (s *Server) relatedRowProps(u *user, relationProp, targetProp string, rows []map[string]any) [][]any {
-	related := s.relatedRows(u, relationProp, rows)
-	out := make([][]any, len(rows))
-	for i, props := range related {
-		for _, p := range props {
-			out[i] = append(out[i], p[targetProp])
-		}
-	}
-	return out
-}
-
 // relatedRows returns, per input row, the full property maps of the rows it
-// relates to (via relationProp holding an array of target ids).
-func (s *Server) relatedRows(u *user, relationProp string, rows []map[string]any) [][]map[string]any {
+// relates to (via relationProp holding an array of target ids). When one of
+// the props in need is computed in the related rows' collection, it is
+// computed for them first, up to maxDerivedDepth collections deep.
+func (s *Server) relatedRows(u *user, relationProp string, rows []map[string]any, need []string, depth int) [][]map[string]any {
 	// Collect all referenced target ids.
 	idSet := map[string]bool{}
 	for _, row := range rows {
@@ -282,6 +283,7 @@ func (s *Server) relatedRows(u *user, relationProp string, rows []map[string]any
 	}
 	// Fetch target props for referenced ids.
 	targetVal := map[string]map[string]any{}
+	byParent := map[string][]map[string]any{}
 	for id := range idSet {
 		// The target ids come from a row the user fills in themselves —
 		// unchecked that was a read primitive on EVERY page of the instance:
@@ -298,11 +300,27 @@ func (s *Server) relatedRows(u *user, relationProp string, rows []map[string]any
 		if !s.credentialMayEnter(u, s.pageWorkspace(id)) {
 			continue
 		}
-		var p string
-		if s.db.QueryRow(`SELECT props FROM pages WHERE id = ? AND trashed_at IS NULL`, id).Scan(&p) == nil {
+		var p, title string
+		var parent sql.NullString
+		if s.db.QueryRow(`SELECT props, title, parent_id FROM pages WHERE id = ? AND trashed_at IS NULL`, id).Scan(&p, &title, &parent) == nil {
 			var m map[string]any
-			json.Unmarshal([]byte(p), &m)
+			if json.Unmarshal([]byte(p), &m) != nil || m == nil {
+				m = map[string]any{}
+			}
 			targetVal[id] = m
+			byParent[parent.String] = append(byParent[parent.String], map[string]any{"id": id, "title": title, "props": m})
+		}
+	}
+	if depth < maxDerivedDepth {
+		for parent, targets := range byParent {
+			var schemaJSON string
+			if parent == "" || s.db.QueryRow(`SELECT schema FROM collections WHERE page_id = ?`, parent).Scan(&schemaJSON) != nil {
+				continue
+			}
+			schema := parseSchema(schemaJSON)
+			if needsDerived(schema, need) {
+				s.computeDerivedAt(u, schema, targets, depth+1)
+			}
 		}
 	}
 	out := make([][]map[string]any, len(rows))
@@ -315,6 +333,24 @@ func (s *Server) relatedRows(u *user, relationProp string, rows []map[string]any
 		}
 	}
 	return out
+}
+
+// computedTypes are the property types whose value is worked out on read.
+var computedTypes = map[string]bool{"formula": true, "rollup": true, "backrelation": true, "lastActivity": true}
+
+// needsDerived reports whether any of the props is computed in the schema.
+func needsDerived(schema []propDef, props []string) bool {
+	for _, d := range schema {
+		if !computedTypes[d.Type] {
+			continue
+		}
+		for _, p := range props {
+			if p == d.ID {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // backrelationIDs answers, per input row, "which rows in the other collection
@@ -417,203 +453,6 @@ func relationIDs(v any) []string {
 		return []string{t}
 	}
 	return nil
-}
-
-func aggregate(agg string, vals []any) any {
-	nums := make([]float64, 0, len(vals))
-	for _, v := range vals {
-		if n, ok := toNumber(v); ok {
-			nums = append(nums, n)
-		}
-	}
-	switch agg {
-	case "count":
-		return len(vals)
-	case "sum":
-		sum := 0.0
-		for _, n := range nums {
-			sum += n
-		}
-		return sum
-	case "avg":
-		if len(nums) == 0 {
-			return 0
-		}
-		sum := 0.0
-		for _, n := range nums {
-			sum += n
-		}
-		return sum / float64(len(nums))
-	case "min":
-		if len(nums) == 0 {
-			return 0
-		}
-		m := math.Inf(1)
-		for _, n := range nums {
-			if n < m {
-				m = n
-			}
-		}
-		return m
-	case "max":
-		if len(nums) == 0 {
-			return 0
-		}
-		m := math.Inf(-1)
-		for _, n := range nums {
-			if n > m {
-				m = n
-			}
-		}
-		return m
-	default:
-		return len(vals)
-	}
-}
-
-// ---- formula evaluator (recursive descent: + - * /, parens, numbers, {propId}) ----
-
-func evalFormula(expr string, props map[string]any, formulas map[string]propDef, visiting map[string]bool) (float64, error) {
-	p := &fparser{s: expr, formulas: formulas, props: props, visiting: visiting}
-	v, err := p.parseExpr()
-	if err != nil {
-		return 0, err
-	}
-	p.skipSpace()
-	if p.pos < len(p.s) {
-		return 0, fmt.Errorf("unexpected %q", p.s[p.pos:])
-	}
-	return v, nil
-}
-
-type fparser struct {
-	s        string
-	pos      int
-	formulas map[string]propDef
-	props    map[string]any
-	visiting map[string]bool
-}
-
-func (p *fparser) skipSpace() {
-	for p.pos < len(p.s) && (p.s[p.pos] == ' ' || p.s[p.pos] == '\t') {
-		p.pos++
-	}
-}
-
-func (p *fparser) parseExpr() (float64, error) { // + and -
-	v, err := p.parseTerm()
-	if err != nil {
-		return 0, err
-	}
-	for {
-		p.skipSpace()
-		if p.pos >= len(p.s) {
-			return v, nil
-		}
-		op := p.s[p.pos]
-		if op != '+' && op != '-' {
-			return v, nil
-		}
-		p.pos++
-		rhs, err := p.parseTerm()
-		if err != nil {
-			return 0, err
-		}
-		if op == '+' {
-			v += rhs
-		} else {
-			v -= rhs
-		}
-	}
-}
-
-func (p *fparser) parseTerm() (float64, error) { // * and /
-	v, err := p.parseFactor()
-	if err != nil {
-		return 0, err
-	}
-	for {
-		p.skipSpace()
-		if p.pos >= len(p.s) {
-			return v, nil
-		}
-		op := p.s[p.pos]
-		if op != '*' && op != '/' {
-			return v, nil
-		}
-		p.pos++
-		rhs, err := p.parseFactor()
-		if err != nil {
-			return 0, err
-		}
-		if op == '*' {
-			v *= rhs
-		} else {
-			if rhs == 0 {
-				return 0, fmt.Errorf("division by zero")
-			}
-			v /= rhs
-		}
-	}
-}
-
-func (p *fparser) parseFactor() (float64, error) {
-	p.skipSpace()
-	if p.pos >= len(p.s) {
-		return 0, fmt.Errorf("unexpected end")
-	}
-	c := p.s[p.pos]
-	if c == '(' {
-		p.pos++
-		v, err := p.parseExpr()
-		if err != nil {
-			return 0, err
-		}
-		p.skipSpace()
-		if p.pos >= len(p.s) || p.s[p.pos] != ')' {
-			return 0, fmt.Errorf("missing )")
-		}
-		p.pos++
-		return v, nil
-	}
-	if c == '-' {
-		p.pos++
-		v, err := p.parseFactor()
-		return -v, err
-	}
-	if c == '{' { // {propId} reference
-		end := strings.IndexByte(p.s[p.pos:], '}')
-		if end < 0 {
-			return 0, fmt.Errorf("missing }")
-		}
-		id := p.s[p.pos+1 : p.pos+end]
-		p.pos += end + 1
-		return p.resolveRef(id)
-	}
-	// number
-	start := p.pos
-	for p.pos < len(p.s) && (p.s[p.pos] >= '0' && p.s[p.pos] <= '9' || p.s[p.pos] == '.') {
-		p.pos++
-	}
-	if p.pos == start {
-		return 0, fmt.Errorf("unexpected %q", string(c))
-	}
-	return strconv.ParseFloat(p.s[start:p.pos], 64)
-}
-
-func (p *fparser) resolveRef(id string) (float64, error) {
-	// A referenced formula is evaluated recursively with cycle detection.
-	if f, ok := p.formulas[id]; ok {
-		if p.visiting[id] {
-			return 0, fmt.Errorf("circular reference in formula")
-		}
-		p.visiting[id] = true
-		v, err := evalFormula(f.Formula, p.props, p.formulas, p.visiting)
-		delete(p.visiting, id)
-		return v, err
-	}
-	n, _ := toNumber(p.props[id])
-	return n, nil
 }
 
 // fillLastActivity answers "when did anything last happen here, and who did

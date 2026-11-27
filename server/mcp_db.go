@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"time"
 )
 
 // Database-oriented MCP tools (W9): they let an agent actually operate a
@@ -30,32 +29,42 @@ func (s *Server) mcpGetSchema(pageID string) (string, error) {
 
 // mcpQueryRows filters/sorts/paginates a database's rows server-side and returns
 // compact JSON including computed rollup/formula values. flat and groups
-// combine as in collectionRowsQuery: "this AND (that OR those)". today is the
-// viewer's day for relative date words; zero falls back to the server's day.
-func (s *Server) mcpQueryRows(u *user, pageID string, flat []rowFilter, groups [][]rowFilter, sort string, limit, offset int, today time.Time) (string, error) {
+// combine as in queryRows: "this AND (that OR those)". today is the viewer's
+// day for relative date words; zero falls back to the server's day.
+func (s *Server) mcpQueryRows(u *user, pageID string, q rowsRequest) (string, error) {
 	var isCollection int
 	if s.db.QueryRow(`SELECT COUNT(*) FROM collections WHERE page_id = ?`, pageID).Scan(&isCollection); isCollection == 0 {
 		return "", fmt.Errorf("page %q is not a database", pageID)
 	}
-	if limit <= 0 || limit > 500 {
-		limit = 50
+	if q.limit <= 0 || q.limit > 500 {
+		q.limit = 50
 	}
-	if offset < 0 {
-		offset = 0
+	if q.offset < 0 {
+		q.offset = 0
 	}
-	if err := s.checkDayValues(pageID, append([][]rowFilter{flat}, groups...)...); err != nil {
+	if err := s.checkDayValues(pageID, append([][]rowFilter{q.flat}, q.groups...)...); err != nil {
 		return "", err
 	}
+	for key, name := range q.calcs {
+		if !isCalculation(name) {
+			return "", fmt.Errorf("calculations: %q on %q is not a calculation, use one of %s", name, key, strings.Join(calculationNames, ", "))
+		}
+	}
 	// Filter values may arrive as an option NAME as well (see set_properties).
-	resolved := make([][]rowFilter, len(groups))
-	for i, g := range groups {
+	resolved := make([][]rowFilter, len(q.groups))
+	for i, g := range q.groups {
 		resolved[i] = s.resolveFilterValues(pageID, g)
 	}
-	rows, total, err := s.collectionRowsQuery(u, pageID, s.resolveFilterValues(pageID, flat), resolved, sort, limit, offset, today)
+	q.flat, q.groups = s.resolveFilterValues(pageID, q.flat), resolved
+	res, err := s.queryRows(u, pageID, q)
 	if err != nil {
 		return "", err
 	}
-	out, err := json.Marshal(map[string]any{"rows": rows, "total": total, "offset": offset, "limit": limit})
+	reply := map[string]any{"rows": res.rows, "total": res.total, "offset": q.offset, "limit": q.limit}
+	if res.calcs != nil {
+		reply["calculations"] = res.calcs
+	}
+	out, err := json.Marshal(reply)
 	if err != nil {
 		return "", err
 	}
@@ -217,6 +226,9 @@ func (s *Server) mcpCreateDatabase(u *user, title, parentID, wsID string, schema
 		// database was opened.
 		defs, err := normalizeSchema(defs)
 		if err != nil {
+			return "", err
+		}
+		if err := checkComputedProps(defs, nil); err != nil {
 			return "", err
 		}
 		b, err := json.Marshal(defs)
