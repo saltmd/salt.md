@@ -307,7 +307,7 @@
   "Favorites",
   "Favourites",
   "Fetch the latest changes",
-  "File too large ({size}), 50 MB max.",
+  "File too large ({size}), {max} max.",
   "File upload",
   "Files",
   "Files below “{name}”",

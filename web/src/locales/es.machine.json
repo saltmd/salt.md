@@ -33,5 +33,6 @@
   "Teal",
   "Text",
   "The page changed. Select the text again.",
-  "Automatic · {value}"
+  "Automatic · {value}",
+  "File too large ({size}), {max} max."
 ]

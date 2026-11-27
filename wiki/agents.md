@@ -30,7 +30,7 @@ true of it and will save you a debugging session:
 | Method | POST only. Anything else answers `405` with `MCP endpoint accepts POST only`. |
 | Address | Must be the one an agent can reach. A cloud agent cannot open a private address, and the connect dialog warns when the instance is on plain `http://` outside localhost. See [Domain and proxy](domain.md). |
 | Batches | A JSON-RPC batch (a top-level array) is refused with `batch requests are not supported`. |
-| Size | The request body is capped at roughly the upload limit plus a third, since base64 inflates. The size is checked against what the request announces before any of the body is read; past that, the answer names the limit and points at `/api/upload`. |
+| Size | The request body is capped at roughly the upload limit plus a third, since base64 inflates. The size is checked against what the request announces before any of the body is read; past that, the answer names the limit and says to call `upload_file` without data and send the file to the address it returns. |
 | Pace | About 240 calls a minute per account, with a burst of 60. Over that, a call comes back with `rate limit exceeded: too many requests, slow down`. |
 | Deactivated accounts | Refused here in their own right, not only in the browser: `this account has been deactivated`. |
 
@@ -256,7 +256,7 @@ reversible.
 | `update_page` | Title, icon, cover, description, tags, visibility, where it sits, and whether it is a favourite. |
 | `duplicate_page` | A deep copy of a page and its sub-tree. |
 | `save_as_template` | Snapshot a page as a template. See [Templates](templates.md). |
-| `upload_file` | A file onto a page. PDF text becomes searchable. See [Files](files.md). |
+| `upload_file` | A file onto a page. Without `data_base64` it answers with a one-time address the agent sends the file to with `curl -T`. PDF text becomes searchable. See [Files](files.md). |
 | `set_trashed` | To the trash and back: both directions, because both are reversible. See [Trash and recovery](trash-and-recovery.md). |
 | `set_sharing` | Mint or revoke a public read-only link. See [Sharing](sharing.md). |
 

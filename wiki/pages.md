@@ -266,7 +266,7 @@ Files are uploaded **one at a time**, on purpose: uploads are size-capped and
 the server sizes PDF text extraction to the memory it has, and ten at once from
 a folder drag is the shape that has taken an instance down before. A failure
 does not stop the rest: dropping five and getting four plus a named failure
-beats getting nothing. The default cap is 50 MB per file and an administrator
+beats getting nothing. The default cap is 100 MB per file and an administrator
 can change it.
 
 A PDF dropped onto a page **becomes searchable**, because the upload carries the
@@ -538,7 +538,7 @@ The REST equivalents are `/api/pages`, `/api/pages/{id}`,
 | Tag length | 40 characters |
 | Tag colours | Default plus nine named colours |
 | Cover | an uploaded image or a gradient; external addresses refused |
-| File upload | 50 MB per file by default; an administrator can change it |
+| File upload | 100 MB per file by default; an administrator can change it |
 | Revisions kept | the newest 50 per page, at most one snapshot every two minutes |
 | Page links offered by `@` / `[[` | the first 12 pages whose title contains what you typed |
 | Database rows listed in the sidebar tree | the first 50, plus any row carrying sub-pages |

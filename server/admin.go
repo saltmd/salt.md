@@ -106,7 +106,7 @@ func (s *Server) sessionDays() int {
 
 // maxUploadBytes is the per-file upload cap.
 func (s *Server) maxUploadBytes() int64 {
-	return int64(s.intSetting("max_upload_mb", 50, 1, 2048)) << 20
+	return int64(s.intSetting("max_upload_mb", defaultMaxUploadMB, 1, maxMaxUploadMB)) << 20
 }
 
 // appSettings is the admin-facing view. The SMTP password is never sent back —
@@ -170,7 +170,7 @@ func (s *Server) loadSettings() appSettings {
 		SMTPPassSet:              s.setting("smtp_pass", "") != "",
 		PublicBaseURL:            s.setting("public_base_url", ""),
 		TrustProxy:               s.boolSetting("trust_proxy"),
-		MaxUploadMB:              s.intSetting("max_upload_mb", 50, 1, 2048),
+		MaxUploadMB:              s.intSetting("max_upload_mb", defaultMaxUploadMB, 1, maxMaxUploadMB),
 		TrashDays:                s.trashRetentionDays(),
 		AuditDays:                s.auditRetentionDays(),
 		PdfCover:                 s.boolSetting("pdf_cover"),
@@ -355,7 +355,7 @@ func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 		s.setSetting(key, strconv.Itoa(*v))
 		return nil
 	}
-	if err := setInt("max_upload_mb", body.MaxUploadMB, 1, 2048); err != nil {
+	if err := setInt("max_upload_mb", body.MaxUploadMB, 1, maxMaxUploadMB); err != nil {
 		httpError(w, 400, err.Error())
 		return
 	}

@@ -47,7 +47,9 @@ type Server struct {
 	// oauthRefresh.
 	renewMu     sync.Mutex
 	renewals    map[string]oauthRenewal
-	stopCleanup chan struct{}
+	// One-time upload addresses from upload_file (uploads.go).
+	uploadTickets *uploadTicketStore
+	stopCleanup   chan struct{}
 	// webhookTransport overrides how webhook deliveries reach the network. Nil
 	// in every real build; set only by tests, whose receiver lives on an address
 	// safeDial refuses by design (see webhooks.go).
@@ -77,6 +79,10 @@ const DBFile = "salt.db"
 
 func New(dataDir string, dist fs.FS) (*Server, error) {
 	if err := os.MkdirAll(filepath.Join(dataDir, "files"), 0o755); err != nil {
+		return nil, err
+	}
+	// Uploads interrupted by the last shutdown.
+	if err := os.RemoveAll(filepath.Join(dataDir, uploadTempDir)); err != nil {
 		return nil, err
 	}
 	db, err := openDB(filepath.Join(dataDir, DBFile))
@@ -127,8 +133,9 @@ func New(dataDir string, dist fs.FS) (*Server, error) {
 		// Passwords on shared pages, per link and address. A share password was
 		// checked as fast as anybody could send guesses.
 		sharePwRate: newRateLimiter(10, 5),
-		renewals:    map[string]oauthRenewal{},
-		stopCleanup: make(chan struct{}),
+		renewals:      map[string]oauthRenewal{},
+		uploadTickets: newUploadTicketStore(),
+		stopCleanup:   make(chan struct{}),
 	}
 	if err := s.seed(); err != nil {
 		return nil, err
@@ -270,6 +277,9 @@ func New(dataDir string, dist fs.FS) (*Server, error) {
 	m.HandleFunc("PUT /api/tag-colors", s.auth(s.handleSetTagColor))
 	m.HandleFunc("GET /api/search", s.auth(s.handleSearch))
 	m.HandleFunc("POST /api/upload", s.auth(s.handleUpload))
+	m.HandleFunc("GET /api/upload/limit", s.auth(s.handleUploadLimit))
+	m.HandleFunc("PUT /api/upload/{ticket}", s.handlePutTicketUpload)
+	m.HandleFunc("PUT /api/pages/{id}/files/{name}", s.auth(s.handlePutPageFile))
 	// "Every document for this customer" — the file index (W125).
 	m.HandleFunc("GET /api/files", s.auth(s.handleListFiles))
 	m.HandleFunc("GET /api/export/{id}", s.auth(s.handleExportPage))
